@@ -19,8 +19,8 @@ from .config import CameraEvidenceConfig
 from .fingertip_source import FingertipSource
 
 try:
-    from validation.compare import classify_interval
-except ImportError:  # validation module not on the path -- reimplement the check
+    from backend.validation.compare import classify_interval
+except ImportError:  # backend/ not on the path -- reimplement the check
     def classify_interval(ref_pitch: int, other_pitch: int) -> tuple:
         interval = other_pitch - ref_pitch
         if interval == 0:

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from audio_to_performance.constrained_verification import (
+from backend.audio_to_performance.constrained_verification import (
     CQTFrame,
     ConstrainedVerificationConfig,
     _flag_unexpected_onsets,

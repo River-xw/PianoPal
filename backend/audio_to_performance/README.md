@@ -14,7 +14,7 @@ basic-pitch 是不一樣量級的工具：它是專門訓練來做「polyphonic 
 
 ```bash
 brew install python@3.11   # 如果還沒裝
-cd PianoPal/
+cd <repo根目錄>
 python3.11 -m venv backend/audio_to_performance/.venv
 source backend/audio_to_performance/.venv/bin/activate
 pip install -r backend/audio_to_performance/requirements.txt
@@ -80,7 +80,7 @@ performance = transcribe(audio=my_audio_array, samplerate=44100)
 預設關閉，用 `--suppress-harmonics` 開啟：
 
 ```bash
-python -m audio_to_performance 錄音.wav -o performance.json --suppress-harmonics
+python -m backend.audio_to_performance 錄音.wav -o performance.json --suppress-harmonics
 ```
 
 ## 限制式驗證(`constrained_verification.py`)：用已知的參考譜縮小搜尋範圍
@@ -97,7 +97,7 @@ basic-pitch 是自由(不受限)的複音轉譜——在整個鋼琴音域裡自
 用法：
 
 ```bash
-python -m audio_to_performance.constrained_verification result.json 錄音.wav \
+python -m backend.audio_to_performance.constrained_verification result.json 錄音.wav \
   --reference reference.json --keyboard-range 21 108 \
   -o augmented_result.json
 ```
@@ -125,7 +125,7 @@ python3 -m pytest audio_to_performance/tests -v
 | `postprocess.py` | 泛音/延音踏板誤判成新音符的過濾器，預設關閉 |
 | `pipeline.py` | 串起來：載入音訊 → 前處理 → 轉譜 → 存成MIDI → 呼叫 `scoring.midi_io.midi_to_performance()` → (可選)後處理過濾 |
 | `constrained_verification.py` | 疊加層：用參考譜縮小候選音高範圍，重新檢視 `wrong_pitch`/`missed`，外加獨立的未預期起音掃描 |
-| `cli.py` / `__main__.py` | `python -m audio_to_performance ...` |
+| `cli.py` / `__main__.py` | `python -m backend.audio_to_performance ...` |
 | `tests/` | 見上 |
 
 ## 重要限制

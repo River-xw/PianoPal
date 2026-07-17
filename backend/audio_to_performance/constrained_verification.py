@@ -322,7 +322,7 @@ def main(argv=None) -> int:
     import soundfile as sf
 
     parser = argparse.ArgumentParser(
-        prog="python -m audio_to_performance.constrained_verification",
+        prog="python -m backend.audio_to_performance.constrained_verification",
         description=(
             "Re-verify basic-pitch's wrong_pitch/missed notes against constrained, "
             "harmonic-aware audio evidence, and scan for unscored extra onsets."

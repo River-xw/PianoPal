@@ -31,7 +31,7 @@ pip install -r requirements.txt
 **重要**：`backend.scoring` 依賴 `backend.score_to_reference`（用來呼叫 `to_seconds`）。執行時的**工作目錄**請放在倉庫根目錄，這樣 `import backend.score_to_reference` 才找得到路徑：
 
 ```bash
-cd PianoPal/          # 倉庫根目錄，不是 cd backend/scoring/
+cd <repo根目錄>          # 不是 cd backend/scoring/
 python -m backend.scoring ...
 ```
 
