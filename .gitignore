@@ -1,20 +1,12 @@
 # This workspace mixes many unrelated projects (coursework, notes, tools).
-# Whitelist approach: everything is ignored by default, only the PianoPal
-# paths below are tracked. New unrelated folders added later are excluded
-# automatically without needing to remember to blacklist them.
+# Whitelist approach: everything is ignored by default, only the PianoPal/
+# project folder below is tracked. New unrelated folders added later are
+# excluded automatically without needing to remember to blacklist them.
 /*
 !/.gitignore
-!/README.md
-!/grade.py
-!/score_to_reference/
-!/scoring/
-!/viewer/
-!/audio_to_performance/
-!/validation/
-!/latency_test/
-!/demo_screenshots/
+!/PianoPal/
 
-# Build/dependency artifacts to exclude even within tracked project dirs
+# Build/dependency artifacts to exclude even within the tracked project dir
 **/.venv/
 **/venv/
 **/node_modules/
