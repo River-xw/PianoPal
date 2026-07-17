@@ -55,9 +55,11 @@ class ScoringSummary:
 class ScoringResult:
     summary: ScoringSummary
     notes: list
+    song_name: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {
+            "song_name": self.song_name,
             "summary": {
                 "score": self.summary.score,
                 "sub_scores": self.summary.sub_scores,

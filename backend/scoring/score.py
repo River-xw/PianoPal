@@ -34,6 +34,7 @@ def score_performance(
     performance: list,
     config: Optional[ScoringConfig] = None,
     target_bpm: Optional[int] = None,
+    song_name: Optional[str] = None,
 ) -> ScoringResult:
     """Score a symbolic performance against a score_to_reference JSON reference.
 
@@ -48,8 +49,12 @@ def score_performance(
     the summary reports the single overall robust-fit slope, for reference --
     the actual per-note residuals used for classification come from the
     curve, not that single number.
+
+    `song_name` is stored on the result for display (e.g. in the viewer)
+    and defaults to the reference's own `title` field if not given.
     """
     config = config or ScoringConfig()
+    song_name = song_name if song_name is not None else reference.get("title")
 
     if target_bpm is not None:
         reference = to_seconds(reference, target_bpm)
@@ -132,7 +137,7 @@ def score_performance(
             ))
 
     summary = _summarize(note_results, config, global_tempo_ratio)
-    return ScoringResult(summary=summary, notes=note_results)
+    return ScoringResult(summary=summary, notes=note_results, song_name=song_name)
 
 
 def _summarize(note_results: list, config: ScoringConfig, global_tempo_ratio) -> ScoringSummary:

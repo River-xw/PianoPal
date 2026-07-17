@@ -43,9 +43,16 @@ export default function App() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
       <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
-          Performance Viewer
-        </h1>
+        <div>
+          <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
+            Performance Viewer
+          </h1>
+          {result?.song_name && (
+            <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+              {result.song_name}
+            </div>
+          )}
+        </div>
         <label
           className="cursor-pointer rounded-lg border px-3 py-1.5 text-sm"
           style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
