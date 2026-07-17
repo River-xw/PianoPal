@@ -1,0 +1,23 @@
+# See README.md for why a plain `pip install -r requirements.txt` does NOT
+# work here -- basic-pitch's own Linux install_requires demands
+# `tensorflow<2.15.1`, which has no wheel for recent Python on aarch64, and
+# `tflite-runtime` currently has no PyPI distribution at all for this
+# platform/Python combo. The actual working install is:
+#
+#   pip install --no-deps basic-pitch==0.4.0
+#   pip install numpy librosa resampy pretty_midi scipy mir_eval
+#   pip install onnxruntime   # tflite-runtime unavailable -- see README.md
+#   pip install soundfile psutil
+#
+# Listed below for reference / `pip-compile`-style tooling, not for a direct
+# `pip install -r`:
+basic-pitch==0.4.0
+numpy
+librosa
+resampy
+pretty_midi
+scipy
+mir_eval
+onnxruntime      # tflite-runtime preferred if it ever gets a wheel for your platform
+soundfile
+psutil           # optional; falls back to /proc/meminfo if unavailable
