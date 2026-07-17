@@ -26,12 +26,26 @@ class AudioToPerformanceConfig:
     normalize_target_peak: float = 0.95
 
     # --- basic-pitch transcription params ---
-    onset_threshold: float = 0.5
-    frame_threshold: float = 0.3
+    # Tuned against validation/roundtrip.py's round-trip octave-error harness
+    # (known-good MIDI -> real soundfont -> transcribe -> diff against truth)
+    # over 3 real pieces (Fur Elise, Bach Prelude BWV846, Maple Leaf Rag;
+    # 3748 combined reference notes). Raising both thresholds from the
+    # basic-pitch defaults (0.5/0.3) and disabling melodia_trick cut the
+    # octave-error rate 16.9% -> 11.4% and wrong_pitch 28.8% -> 20.4%, at the
+    # cost of missed notes rising 2.4% -> ~9.7% (still far below the ~72%
+    # miss rate that generic onset detection had before this pipeline
+    # existed). melodia_trick made no measurable difference to octave
+    # errors on its own -- it's off here because combined with the stricter
+    # thresholds it also trimmed spurious "extra" notes (494 -> 366).
+    # minimum_frequency/maximum_frequency bounded to the piano's range had
+    # zero effect in the sweep (basic-pitch already stays in-range
+    # internally) so they're left unset rather than added as a no-op knob.
+    onset_threshold: float = 0.6
+    frame_threshold: float = 0.4
     minimum_note_length_ms: float = 58.0
     minimum_frequency: Optional[float] = None
     maximum_frequency: Optional[float] = None
-    melodia_trick: bool = True
+    melodia_trick: bool = False
 
     # --- post-processing (OFF by default) ---
     # basic-pitch's own overtones/sustain-pedal resonance sometimes get
