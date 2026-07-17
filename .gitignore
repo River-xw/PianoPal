@@ -1,3 +1,22 @@
+# This workspace mixes many unrelated projects (coursework, notes, tools).
+# Whitelist approach: everything is ignored by default, only the PianoPal
+# project directories below (River-xw's backend/frontend/edge/experiments/
+# scripts/camera_evidence/data/docs/models layout) are tracked. New unrelated
+# folders added later to this shared workspace are excluded automatically
+# without needing to remember to blacklist each one.
+/*
+!/.gitignore
+!/README.md
+!/backend/
+!/frontend/
+!/edge/
+!/experiments/
+!/scripts/
+!/camera_evidence/
+!/data/
+!/docs/
+!/models/
+
 # Python environments and caches
 **/.venv/
 **/venv/
