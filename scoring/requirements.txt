@@ -1,0 +1,9 @@
+pretty_midi
+mido
+numpy
+
+# scoring.score imports score_to_reference.to_seconds (a sibling local
+# package, not on PyPI) -- that package's __init__ unconditionally imports
+# music21, so music21 must also be installed even though scoring itself
+# never calls it directly.
+music21

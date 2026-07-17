@@ -1,0 +1,20 @@
+# Requires Python 3.11 (as of writing, basic-pitch's dependency chain --
+# notably resampy/numpy sdists -- does not build on Python 3.14; use a
+# dedicated venv: `python3.11 -m venv audio_to_performance/.venv`).
+#
+# setuptools must be pinned below 81: newer setuptools removed the legacy
+# pkg_resources module that resampy (a basic-pitch dependency) still imports.
+setuptools<81
+
+basic-pitch[onnx]
+noisereduce
+librosa
+scipy
+soundfile
+numpy
+pretty_midi
+mido
+
+# audio_to_performance/pipeline.py imports scoring.midi_io -- install
+# scoring's own requirements too (music21 transitively, via score_to_reference)
+# if running this venv standalone rather than sharing score_to_reference/.venv.

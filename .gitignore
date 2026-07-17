@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Node (viewer has its own too, this covers the root scope)
+node_modules/
+dist/
+dist-ssr/
+
+# OS
+.DS_Store
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Scratch / generated audio artifacts from local testing
+*.wav
+*.mp3
+*.sf2

@@ -1,0 +1,15 @@
+# Same Python 3.11 venv as audio_to_performance -- this module imports it
+# directly (audio_to_performance/README.md explains why 3.11, not 3.14).
+pretty_midi
+soundfile
+numpy
+
+# for audio -> MIDI synthesis with a real piano soundfont (see synth.py for
+# why this is NOT optional / why there's no sine-wave fallback)
+pyfluidsynth
+
+# also requires the `fluidsynth` CLI binary as a fallback path, and a real
+# soundfont file you provide yourself, e.g.:
+#   brew install fluid-synth
+#   pip install pyfluidsynth
+# Soundfont (not bundled, download separately): FluidR3_GM.sf2 or similar.
