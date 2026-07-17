@@ -31,6 +31,22 @@ class ScoringConfig:
     tol_ms: float = 50.0
     tol_beat: Optional[float] = None  # e.g. 1/16; overrides tol_ms (via effective bpm) when set
 
+    # --- reference-aware harmonic-extra suppression ---
+    # basic-pitch (or any audio transcription) emits spurious overtone notes:
+    # an octave (or octave+fifth / two octaves) ABOVE a genuinely-played note,
+    # sounding at the same instant. Those land as "extra" here. Unlike the
+    # reference-FREE velocity filter in audio_to_performance/postprocess.py --
+    # which can't tell a real arrangement octave from an artifact and so
+    # deletes genuine notes (measured: -66 correct across 11 real pieces) --
+    # this runs AFTER alignment, so it only ever touches notes already
+    # classified `extra` (i.e. the reference confirms nothing was expected at
+    # that pitch/time). A real octave in the arrangement would be a reference
+    # note and match as `correct`, so this can't reach it. On by default.
+    suppress_harmonic_extras: bool = True
+    harmonic_extra_window_sec: float = 0.05  # both notes are in performance time; artifacts coincide near-exactly
+    # only the overtone direction (extra ABOVE a matched note); strong overtones only
+    harmonic_extra_intervals: frozenset = frozenset({12, 19, 24})  # octave, octave+fifth, two octaves
+
     # --- scoring weights (intended to sum to 1.0) ---
     score_weight_pitch: float = 0.4
     score_weight_rhythm: float = 0.4

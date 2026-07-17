@@ -49,6 +49,7 @@ class ScoringSummary:
     global_tempo_ratio: Optional[float]
     tempo_trend: TempoTrend
     counts: dict
+    harmonic_extras_removed: int = 0
 
 
 @dataclass
@@ -66,6 +67,7 @@ class ScoringResult:
                 "global_tempo_ratio": self.summary.global_tempo_ratio,
                 "tempo_trend": self.summary.tempo_trend,
                 "counts": self.summary.counts,
+                "harmonic_extras_removed": self.summary.harmonic_extras_removed,
             },
             "notes": [
                 {

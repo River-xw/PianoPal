@@ -136,8 +136,50 @@ def score_performance(
                 measure=None, hand=None,
             ))
 
+    harmonic_extras_removed = 0
+    if config.suppress_harmonic_extras:
+        note_results, harmonic_extras_removed = _suppress_harmonic_extras(note_results, config)
+
     summary = _summarize(note_results, config, global_tempo_ratio)
+    summary.harmonic_extras_removed = harmonic_extras_removed
     return ScoringResult(summary=summary, notes=note_results, song_name=song_name)
+
+
+def _suppress_harmonic_extras(note_results: list, config: ScoringConfig) -> tuple:
+    """Reference-aware overtone-artifact filter. Removes a note classified
+    `extra` when it coincides in performance time with a matched
+    (correct/timing_off) note a strong harmonic interval BELOW it -- i.e. it
+    looks like an overtone of a genuinely-played note, and having reached the
+    `extra` bucket means the reference confirms nothing was expected there.
+
+    Structurally can only touch `extra` notes -- a real octave in the
+    arrangement would be a reference note and align as `correct`, out of
+    reach here. That's the whole point: the reference-FREE velocity filter
+    (audio_to_performance/postprocess.py) deletes real notes because it can't
+    make that distinction; this can't, because alignment already did.
+
+    Returns (kept_note_results, removed_count). Does not mutate the input.
+    """
+    matched = [
+        r for r in note_results
+        if r.status in ("correct", "timing_off") and r.onset_perf_sec is not None
+    ]
+    window = config.harmonic_extra_window_sec
+    intervals = config.harmonic_extra_intervals
+
+    kept, removed = [], 0
+    for r in note_results:
+        if r.status == "extra" and r.pitch_perf is not None and r.onset_perf_sec is not None:
+            is_artifact = any(
+                abs(m.onset_perf_sec - r.onset_perf_sec) <= window
+                and (r.pitch_perf - m.pitch_perf) in intervals  # extra strictly ABOVE = overtone
+                for m in matched
+            )
+            if is_artifact:
+                removed += 1
+                continue
+        kept.append(r)
+    return kept, removed
 
 
 def _summarize(note_results: list, config: ScoringConfig, global_tempo_ratio) -> ScoringSummary:

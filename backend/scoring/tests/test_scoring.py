@@ -204,3 +204,67 @@ class TestTargetBpm:
         result = score_performance(reference, performance, target_bpm=120)
         assert result.summary.global_tempo_ratio is None
         assert result.summary.counts["correct"] == 12
+
+
+class TestHarmonicExtraSuppression:
+    """The reference-aware overtone filter: an octave-up 'extra' coinciding
+    with a genuinely-matched note is a transcription harmonic artifact, and
+    is removed -- but a real note is never touched (it aligns as `correct`,
+    out of the filter's reach).
+    """
+
+    def test_octave_up_extra_over_a_correct_note_is_removed(self):
+        reference = _build_reference()
+        performance = _perfect_performance(reference)
+        # inject a spurious octave-up overtone coinciding with the first note
+        first = reference["notes"][0]
+        performance.append({
+            "pitch": first["pitch"] + 12, "onset_sec": first["onset_sec"],
+            "dur_sec": first["dur_sec"], "velocity": 40,
+        })
+        result = score_performance(reference, performance)
+        assert result.summary.counts["extra"] == 0
+        assert result.summary.harmonic_extras_removed == 1
+        assert result.summary.counts["correct"] == len(reference["notes"])
+
+    def test_a_genuine_non_harmonic_extra_is_kept(self):
+        reference = _build_reference()
+        performance = _perfect_performance(reference)
+        first = reference["notes"][0]
+        # a minor-third above (interval 3) is NOT a strong overtone -> kept as extra
+        performance.append({
+            "pitch": first["pitch"] + 3, "onset_sec": first["onset_sec"],
+            "dur_sec": first["dur_sec"], "velocity": 40,
+        })
+        result = score_performance(reference, performance)
+        assert result.summary.counts["extra"] == 1
+        assert result.summary.harmonic_extras_removed == 0
+
+    def test_disabling_the_filter_keeps_the_octave_extra(self):
+        from backend.scoring.config import ScoringConfig
+        reference = _build_reference()
+        performance = _perfect_performance(reference)
+        first = reference["notes"][0]
+        performance.append({
+            "pitch": first["pitch"] + 12, "onset_sec": first["onset_sec"],
+            "dur_sec": first["dur_sec"], "velocity": 40,
+        })
+        result = score_performance(reference, performance, ScoringConfig(suppress_harmonic_extras=False))
+        assert result.summary.counts["extra"] == 1
+        assert result.summary.harmonic_extras_removed == 0
+
+    def test_a_real_octave_in_the_arrangement_is_never_touched(self):
+        # reference genuinely CONTAINS an octave chord -> the played octave
+        # aligns as `correct`, the filter can't reach it (only touches extras)
+        reference = _build_reference()
+        first = reference["notes"][0]
+        reference["notes"].append({
+            "pitch": first["pitch"] + 12, "name": "C5",
+            "onset_beats": first["onset_beats"], "onset_sec": first["onset_sec"],
+            "dur_beats": first["dur_beats"], "dur_sec": first["dur_sec"],
+            "velocity": 80, "hand": "R", "measure": first["measure"],
+        })
+        performance = _perfect_performance(reference)
+        result = score_performance(reference, performance)
+        assert result.summary.counts["correct"] == len(reference["notes"])
+        assert result.summary.harmonic_extras_removed == 0

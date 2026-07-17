@@ -39,6 +39,7 @@ function TempoTrendChip({ trend }) {
 
 export default function SummaryPanel({ summary }) {
   const { score, sub_scores, global_tempo_ratio, tempo_trend, counts } = summary;
+  const harmonicExtrasRemoved = summary.harmonic_extras_removed ?? 0;
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border p-6" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
@@ -69,16 +70,25 @@ export default function SummaryPanel({ summary }) {
       </div>
 
       <div className="flex flex-wrap gap-3">
-        {Object.entries(counts).map(([status, count]) => (
-          <span key={status} className="inline-flex items-center gap-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
-            <span
-              className="inline-block h-2.5 w-2.5 rounded-full"
-              style={{ background: `var(${STATUS_VARS[status]})` }}
-            />
-            {STATUS_LABELS[status]}: {count}
-          </span>
-        ))}
+        {Object.entries(counts)
+          .filter(([status]) => STATUS_LABELS[status])
+          .map(([status, count]) => (
+            <span key={status} className="inline-flex items-center gap-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ background: `var(${STATUS_VARS[status]})` }}
+              />
+              {STATUS_LABELS[status]}: {count}
+            </span>
+          ))}
       </div>
+
+      {harmonicExtrasRemoved > 0 && (
+        <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+          {harmonicExtrasRemoved} harmonic-overtone artifact{harmonicExtrasRemoved === 1 ? "" : "s"} filtered
+          out before scoring (spurious octave-up notes coinciding with a real note).
+        </div>
+      )}
     </div>
   );
 }

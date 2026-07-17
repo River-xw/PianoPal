@@ -2,6 +2,16 @@
 scoring.midi_io.midi_to_performance -- this operates on performance.json-
 shaped dicts, not audio).
 
+NOTE (harmonic extras): the PREFERRED fix for overtone "extra" notes now
+lives in backend.scoring (config.suppress_harmonic_extras, on by default) --
+it runs AFTER alignment, so it only touches notes already classified `extra`
+and can't delete a real note. The velocity-based `suppress_harmonic_artifacts`
+below is reference-FREE (it can't tell a genuine arrangement octave from an
+artifact), and on an 11-piece real-music A/B it removed 94 extras but also
+turned 66 correctly-played notes into `missed` -- a bad trade. It's kept
+here for the no-reference case and stays OFF by default. See the scoring
+filter first.
+
 Two distinct artifact patterns, found by cross-referencing a real
 transcription's "extra" notes (no reference counterpart) against a real
 scored performance:
