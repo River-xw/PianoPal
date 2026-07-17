@@ -3,6 +3,20 @@ onset time, then classifies each matched pair -- isolating OCTAVE_ERROR
 (pitch differs by an exact multiple of 12 semitones) as its own category,
 distinct from generic wrong_pitch, since that's the specific bug this module
 exists to hunt.
+
+NOT the same matcher as backend.scoring, and the two give different numbers
+for the same piece ON PURPOSE -- don't try to reconcile them:
+
+  * backend.scoring (the real grader the viewer shows): robust piecewise
+    tempo fit + DTW alignment + chord grouping + a timing tolerance, so it
+    absorbs tempo differences/rubato and reports correct/timing_off/
+    wrong_pitch/missed/extra. It has no OCTAVE_ERROR bucket -- an octave slip
+    lands in wrong_pitch.
+  * this matcher (a transcription-quality DIAGNOSTIC): greedy nearest-onset,
+    no tempo model, no chord grouping. Deliberately simple so the octave-
+    error rate it reports reflects the transcription model, not the
+    alignment. Only valid when reference and audio share a tempo (e.g. the
+    round-trip harness, which synthesizes audio straight from the reference).
 """
 from __future__ import annotations
 

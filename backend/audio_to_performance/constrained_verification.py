@@ -243,7 +243,14 @@ def reverify_result(
             note.setdefault("verification", None)
             continue
 
-        onset = note.get("onset_ref_sec")
+        # The audio is in RECORDING time, so window on onset_perf_sec (the
+        # note's actual recording-time onset) whenever it exists -- that's
+        # every wrong_pitch note. Only `missed` notes have no perf onset; for
+        # those fall back to onset_ref_sec, which is only exact when the
+        # recording's tempo matches the reference (best available proxy).
+        onset = note.get("onset_perf_sec")
+        if onset is None:
+            onset = note.get("onset_ref_sec")
         if onset is None:
             note["verification"] = {
                 "original_status": note["status"], "original_pitch_guess": note.get("pitch_perf"),

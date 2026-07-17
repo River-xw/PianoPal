@@ -1,21 +1,22 @@
 {
   "song_name": "Coming Round the Mountain",
   "summary": {
-    "score": 78.43,
+    "score": 82.6,
     "sub_scores": {
-      "pitch": 72.18,
-      "rhythm": 100.0,
+      "pitch": 83.62,
+      "rhythm": 98.97,
       "timing_stability": 47.8
     },
     "global_tempo_ratio": 1.0,
     "tempo_trend": "steady",
     "counts": {
       "correct": 96,
-      "timing_off": 0,
-      "wrong_pitch": 2,
+      "timing_off": 1,
+      "wrong_pitch": 1,
       "missed": 8,
-      "extra": 27
-    }
+      "extra": 10
+    },
+    "harmonic_extras_removed": 17
   },
   "notes": [
     {
@@ -31,7 +32,8 @@
       "timing": "accurate",
       "measure": 1,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 1,
@@ -46,7 +48,8 @@
       "timing": "accurate",
       "measure": 1,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 2,
@@ -61,22 +64,8 @@
       "timing": "accurate",
       "measure": 2,
       "hand": "R",
-      "dur_beats": 1.0
-    },
-    {
-      "ref_index": null,
-      "perf_index": 2,
-      "pitch_ref": null,
-      "pitch_perf": 60,
-      "name": "C4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 1.7636363636363634,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 3,
@@ -91,7 +80,8 @@
       "timing": "accurate",
       "measure": 2,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 4,
@@ -106,7 +96,8 @@
       "timing": "accurate",
       "measure": 2,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 5,
@@ -121,7 +112,8 @@
       "timing": "accurate",
       "measure": 2,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 6,
@@ -136,7 +128,8 @@
       "timing": "accurate",
       "measure": 2,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 7,
@@ -151,7 +144,8 @@
       "timing": "accurate",
       "measure": 2,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 8,
@@ -166,7 +160,8 @@
       "timing": "accurate",
       "measure": 2,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 9,
@@ -181,7 +176,8 @@
       "timing": "accurate",
       "measure": 2,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 10,
@@ -196,22 +192,8 @@
       "timing": "accurate",
       "measure": 3,
       "hand": "R",
-      "dur_beats": 1.0
-    },
-    {
-      "ref_index": null,
-      "perf_index": 12,
-      "pitch_ref": null,
-      "pitch_perf": 60,
-      "name": "C4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 3.252272727272727,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 11,
@@ -226,7 +208,8 @@
       "timing": "accurate",
       "measure": 3,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 12,
@@ -241,22 +224,8 @@
       "timing": "accurate",
       "measure": 3,
       "hand": "R",
-      "dur_beats": 1.0
-    },
-    {
-      "ref_index": null,
-      "perf_index": 15,
-      "pitch_ref": null,
-      "pitch_perf": 64,
-      "name": "E4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 3.634090909090909,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 13,
@@ -271,7 +240,8 @@
       "timing": "accurate",
       "measure": 3,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 14,
@@ -286,7 +256,8 @@
       "timing": "accurate",
       "measure": 3,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 15,
@@ -301,7 +272,8 @@
       "timing": "accurate",
       "measure": 3,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 16,
@@ -316,7 +288,8 @@
       "timing": "accurate",
       "measure": 3,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": null,
@@ -331,22 +304,8 @@
       "timing": null,
       "measure": null,
       "hand": null,
-      "dur_beats": null
-    },
-    {
-      "ref_index": null,
-      "perf_index": 21,
-      "pitch_ref": null,
-      "pitch_perf": 64,
-      "name": "E4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 4.379545454545454,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": null,
+      "verification": null
     },
     {
       "ref_index": 17,
@@ -361,7 +320,8 @@
       "timing": "accurate",
       "measure": 3,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 18,
@@ -376,22 +336,8 @@
       "timing": "accurate",
       "measure": 4,
       "hand": "R",
-      "dur_beats": 1.0
-    },
-    {
-      "ref_index": null,
-      "perf_index": 24,
-      "pitch_ref": null,
-      "pitch_perf": 60,
-      "name": "C4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 4.75,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 19,
@@ -406,7 +352,8 @@
       "timing": "accurate",
       "measure": 4,
       "hand": "R",
-      "dur_beats": 6.0
+      "dur_beats": 6.0,
+      "verification": null
     },
     {
       "ref_index": 20,
@@ -421,7 +368,8 @@
       "timing": "accurate",
       "measure": 4,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 21,
@@ -436,7 +384,8 @@
       "timing": "accurate",
       "measure": 4,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 22,
@@ -451,7 +400,8 @@
       "timing": "accurate",
       "measure": 4,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 23,
@@ -466,22 +416,8 @@
       "timing": "accurate",
       "measure": 5,
       "hand": "R",
-      "dur_beats": 1.0
-    },
-    {
-      "ref_index": null,
-      "perf_index": 30,
-      "pitch_ref": null,
-      "pitch_perf": 60,
-      "name": "C4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 6.25,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 24,
@@ -496,7 +432,8 @@
       "timing": "accurate",
       "measure": 5,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 25,
@@ -511,7 +448,8 @@
       "timing": "accurate",
       "measure": 5,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 26,
@@ -526,7 +464,8 @@
       "timing": "accurate",
       "measure": 5,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 27,
@@ -541,7 +480,8 @@
       "timing": "accurate",
       "measure": 5,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": null,
@@ -556,22 +496,8 @@
       "timing": null,
       "measure": null,
       "hand": null,
-      "dur_beats": null
-    },
-    {
-      "ref_index": null,
-      "perf_index": 36,
-      "pitch_ref": null,
-      "pitch_perf": 64,
-      "name": "E4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 7.388636363636364,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": null,
+      "verification": null
     },
     {
       "ref_index": 28,
@@ -586,7 +512,8 @@
       "timing": "accurate",
       "measure": 5,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 29,
@@ -601,22 +528,8 @@
       "timing": "accurate",
       "measure": 6,
       "hand": "R",
-      "dur_beats": 1.0
-    },
-    {
-      "ref_index": null,
-      "perf_index": 39,
-      "pitch_ref": null,
-      "pitch_perf": 60,
-      "name": "C4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 7.759090909090909,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 30,
@@ -631,7 +544,8 @@
       "timing": "accurate",
       "measure": 6,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 31,
@@ -646,7 +560,8 @@
       "timing": "accurate",
       "measure": 6,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 32,
@@ -661,7 +576,26 @@
       "timing": null,
       "measure": 6,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": {
+        "original_status": "missed",
+        "original_pitch_guess": null,
+        "candidates_scored": {
+          "52": 3.83219,
+          "64": 4.579228,
+          "74": 0.105457,
+          "75": 0.090612,
+          "76": 0.106149,
+          "77": 0.155137,
+          "78": 0.036514,
+          "88": 0.713836,
+          "100": 0.039508
+        },
+        "winner": 64,
+        "confidence": 0.4741,
+        "new_status": "reverified_different_pitch",
+        "flag": "reverified_different_pitch"
+      }
     },
     {
       "ref_index": 33,
@@ -676,7 +610,8 @@
       "timing": "accurate",
       "measure": 6,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 34,
@@ -691,7 +626,26 @@
       "timing": null,
       "measure": 6,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": {
+        "original_status": "missed",
+        "original_pitch_guess": null,
+        "candidates_scored": {
+          "52": 5.519631,
+          "64": 4.892074,
+          "74": 0.648158,
+          "75": 0.119179,
+          "76": 0.12213,
+          "77": 0.156141,
+          "78": 0.048294,
+          "88": 0.932188,
+          "100": 0.049359
+        },
+        "winner": 52,
+        "confidence": 0.442,
+        "new_status": "reverified_different_pitch",
+        "flag": "reverified_different_pitch"
+      }
     },
     {
       "ref_index": 35,
@@ -706,7 +660,8 @@
       "timing": "accurate",
       "measure": 6,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 36,
@@ -721,7 +676,26 @@
       "timing": null,
       "measure": 6,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": {
+        "original_status": "missed",
+        "original_pitch_guess": null,
+        "candidates_scored": {
+          "52": 3.554712,
+          "64": 4.627985,
+          "74": 0.579932,
+          "75": 0.097068,
+          "76": 0.103528,
+          "77": 0.161432,
+          "78": 0.041698,
+          "88": 0.482993,
+          "100": 0.34711
+        },
+        "winner": 64,
+        "confidence": 0.463,
+        "new_status": "reverified_different_pitch",
+        "flag": "reverified_different_pitch"
+      }
     },
     {
       "ref_index": 37,
@@ -736,22 +710,8 @@
       "timing": "accurate",
       "measure": 7,
       "hand": "R",
-      "dur_beats": 1.0
-    },
-    {
-      "ref_index": null,
-      "perf_index": 46,
-      "pitch_ref": null,
-      "pitch_perf": 60,
-      "name": "C4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 9.259090909090908,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 38,
@@ -766,7 +726,8 @@
       "timing": "accurate",
       "measure": 7,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 39,
@@ -781,7 +742,8 @@
       "timing": "accurate",
       "measure": 7,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": null,
@@ -796,7 +758,8 @@
       "timing": null,
       "measure": null,
       "hand": null,
-      "dur_beats": null
+      "dur_beats": null,
+      "verification": null
     },
     {
       "ref_index": 40,
@@ -811,7 +774,8 @@
       "timing": "accurate",
       "measure": 7,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 41,
@@ -826,7 +790,8 @@
       "timing": "accurate",
       "measure": 7,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 42,
@@ -841,7 +806,8 @@
       "timing": "accurate",
       "measure": 7,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 43,
@@ -856,7 +822,8 @@
       "timing": "accurate",
       "measure": 7,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 44,
@@ -871,7 +838,26 @@
       "timing": null,
       "measure": 7,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": {
+        "original_status": "missed",
+        "original_pitch_guess": null,
+        "candidates_scored": {
+          "52": 3.426234,
+          "64": 3.678191,
+          "74": 0.589913,
+          "75": 0.081069,
+          "76": 0.056146,
+          "77": 0.13065,
+          "78": 0.058587,
+          "88": 0.181388,
+          "100": 0.27049
+        },
+        "winner": 64,
+        "confidence": 0.4341,
+        "new_status": "reverified_different_pitch",
+        "flag": "reverified_different_pitch"
+      }
     },
     {
       "ref_index": 45,
@@ -886,22 +872,8 @@
       "timing": "accurate",
       "measure": 8,
       "hand": "R",
-      "dur_beats": 1.0
-    },
-    {
-      "ref_index": null,
-      "perf_index": 54,
-      "pitch_ref": null,
-      "pitch_perf": 59,
-      "name": "B3",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 10.756818181818181,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 46,
@@ -916,7 +888,8 @@
       "timing": "accurate",
       "measure": 8,
       "hand": "R",
-      "dur_beats": 6.0
+      "dur_beats": 6.0,
+      "verification": null
     },
     {
       "ref_index": 47,
@@ -931,22 +904,8 @@
       "timing": "accurate",
       "measure": 8,
       "hand": "R",
-      "dur_beats": 1.0
-    },
-    {
-      "ref_index": null,
-      "perf_index": 57,
-      "pitch_ref": null,
-      "pitch_perf": 62,
-      "name": "D4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 11.129545454545454,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 48,
@@ -961,7 +920,8 @@
       "timing": "accurate",
       "measure": 8,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 49,
@@ -976,7 +936,8 @@
       "timing": "accurate",
       "measure": 8,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": null,
@@ -991,22 +952,8 @@
       "timing": null,
       "measure": null,
       "hand": null,
-      "dur_beats": null
-    },
-    {
-      "ref_index": null,
-      "perf_index": 60,
-      "pitch_ref": null,
-      "pitch_perf": 62,
-      "name": "D4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 11.884090909090908,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": null,
+      "verification": null
     },
     {
       "ref_index": 50,
@@ -1021,22 +968,8 @@
       "timing": "accurate",
       "measure": 9,
       "hand": "R",
-      "dur_beats": 1.0
-    },
-    {
-      "ref_index": null,
-      "perf_index": 63,
-      "pitch_ref": null,
-      "pitch_perf": 59,
-      "name": "B3",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 12.245454545454544,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 51,
@@ -1051,22 +984,8 @@
       "timing": "accurate",
       "measure": 9,
       "hand": "R",
-      "dur_beats": 1.0
-    },
-    {
-      "ref_index": null,
-      "perf_index": 65,
-      "pitch_ref": null,
-      "pitch_perf": 62,
-      "name": "D4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 12.627272727272727,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 52,
@@ -1081,7 +1000,8 @@
       "timing": "accurate",
       "measure": 9,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 53,
@@ -1096,7 +1016,8 @@
       "timing": "accurate",
       "measure": 9,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 54,
@@ -1111,7 +1032,8 @@
       "timing": "accurate",
       "measure": 9,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 55,
@@ -1126,7 +1048,8 @@
       "timing": "accurate",
       "measure": 9,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 56,
@@ -1141,7 +1064,8 @@
       "timing": "accurate",
       "measure": 10,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 57,
@@ -1156,7 +1080,8 @@
       "timing": "accurate",
       "measure": 10,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 58,
@@ -1171,7 +1096,8 @@
       "timing": "accurate",
       "measure": 10,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 59,
@@ -1186,7 +1112,26 @@
       "timing": "drag",
       "measure": 10,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": {
+        "original_status": "wrong_pitch",
+        "original_pitch_guess": 52,
+        "candidates_scored": {
+          "52": 6.464544,
+          "64": 5.184965,
+          "74": 0.630359,
+          "75": 0.120963,
+          "76": 0.13648,
+          "77": 0.156979,
+          "78": 0.043882,
+          "88": 1.074803,
+          "100": 0.055025
+        },
+        "winner": 52,
+        "confidence": 0.4661,
+        "new_status": "wrong_pitch",
+        "flag": "confirmed_genuine"
+      }
     },
     {
       "ref_index": 60,
@@ -1201,7 +1146,8 @@
       "timing": "accurate",
       "measure": 10,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 61,
@@ -1216,7 +1162,26 @@
       "timing": null,
       "measure": 10,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": {
+        "original_status": "missed",
+        "original_pitch_guess": null,
+        "candidates_scored": {
+          "52": 6.755607,
+          "64": 5.462166,
+          "74": 0.60237,
+          "75": 0.114985,
+          "76": 0.134073,
+          "77": 0.157776,
+          "78": 0.042759,
+          "88": 1.071188,
+          "100": 0.053615
+        },
+        "winner": 52,
+        "confidence": 0.4693,
+        "new_status": "reverified_different_pitch",
+        "flag": "reverified_different_pitch"
+      }
     },
     {
       "ref_index": 62,
@@ -1231,7 +1196,8 @@
       "timing": "accurate",
       "measure": 10,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 63,
@@ -1246,7 +1212,26 @@
       "timing": null,
       "measure": 10,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": {
+        "original_status": "missed",
+        "original_pitch_guess": null,
+        "candidates_scored": {
+          "52": 3.161698,
+          "64": 4.199874,
+          "74": 0.549921,
+          "75": 0.081811,
+          "76": 0.103887,
+          "77": 0.155553,
+          "78": 0.039981,
+          "88": 0.486627,
+          "100": 0.297757
+        },
+        "winner": 64,
+        "confidence": 0.4627,
+        "new_status": "reverified_different_pitch",
+        "flag": "reverified_different_pitch"
+      }
     },
     {
       "ref_index": 64,
@@ -1261,22 +1246,8 @@
       "timing": "accurate",
       "measure": 11,
       "hand": "R",
-      "dur_beats": 1.0
-    },
-    {
-      "ref_index": null,
-      "perf_index": 77,
-      "pitch_ref": null,
-      "pitch_perf": 60,
-      "name": "C4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 15.263636363636364,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 65,
@@ -1291,7 +1262,8 @@
       "timing": "accurate",
       "measure": 11,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 66,
@@ -1306,7 +1278,8 @@
       "timing": "accurate",
       "measure": 11,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 67,
@@ -1321,7 +1294,8 @@
       "timing": "accurate",
       "measure": 11,
       "hand": "R",
-      "dur_beats": 3.0
+      "dur_beats": 3.0,
+      "verification": null
     },
     {
       "ref_index": 68,
@@ -1336,7 +1310,8 @@
       "timing": "accurate",
       "measure": 11,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 69,
@@ -1351,7 +1326,8 @@
       "timing": "accurate",
       "measure": 11,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 70,
@@ -1366,7 +1342,8 @@
       "timing": "accurate",
       "measure": 12,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 71,
@@ -1381,7 +1358,8 @@
       "timing": "accurate",
       "measure": 12,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 72,
@@ -1396,7 +1374,8 @@
       "timing": "accurate",
       "measure": 12,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 73,
@@ -1411,7 +1390,8 @@
       "timing": "accurate",
       "measure": 12,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": null,
@@ -1426,7 +1406,8 @@
       "timing": null,
       "measure": null,
       "hand": null,
-      "dur_beats": null
+      "dur_beats": null,
+      "verification": null
     },
     {
       "ref_index": 74,
@@ -1441,7 +1422,8 @@
       "timing": "accurate",
       "measure": 12,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 75,
@@ -1456,7 +1438,8 @@
       "timing": "accurate",
       "measure": 12,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 76,
@@ -1471,7 +1454,8 @@
       "timing": "accurate",
       "measure": 12,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": null,
@@ -1486,7 +1470,8 @@
       "timing": null,
       "measure": null,
       "hand": null,
-      "dur_beats": null
+      "dur_beats": null,
+      "verification": null
     },
     {
       "ref_index": 77,
@@ -1501,7 +1486,8 @@
       "timing": "accurate",
       "measure": 12,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 78,
@@ -1516,7 +1502,8 @@
       "timing": "accurate",
       "measure": 13,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 79,
@@ -1531,7 +1518,8 @@
       "timing": "accurate",
       "measure": 13,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": null,
@@ -1546,7 +1534,8 @@
       "timing": null,
       "measure": null,
       "hand": null,
-      "dur_beats": null
+      "dur_beats": null,
+      "verification": null
     },
     {
       "ref_index": 80,
@@ -1561,7 +1550,8 @@
       "timing": "accurate",
       "measure": 13,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 81,
@@ -1576,7 +1566,26 @@
       "timing": null,
       "measure": 13,
       "hand": "R",
-      "dur_beats": 3.0
+      "dur_beats": 3.0,
+      "verification": {
+        "original_status": "missed",
+        "original_pitch_guess": null,
+        "candidates_scored": {
+          "53": 4.965636,
+          "65": 3.434634,
+          "75": 0.602745,
+          "76": 0.120592,
+          "77": 0.179872,
+          "78": 0.157226,
+          "79": 0.045819,
+          "89": 0.853215,
+          "101": 0.348617
+        },
+        "winner": 53,
+        "confidence": 0.4637,
+        "new_status": "reverified_different_pitch",
+        "flag": "reverified_different_pitch"
+      }
     },
     {
       "ref_index": 82,
@@ -1591,7 +1600,8 @@
       "timing": "accurate",
       "measure": 13,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 83,
@@ -1606,7 +1616,8 @@
       "timing": "accurate",
       "measure": 13,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 84,
@@ -1621,7 +1632,8 @@
       "timing": "accurate",
       "measure": 14,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 85,
@@ -1636,7 +1648,26 @@
       "timing": null,
       "measure": 14,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": {
+        "original_status": "missed",
+        "original_pitch_guess": null,
+        "candidates_scored": {
+          "52": 0.541626,
+          "64": 0.013043,
+          "74": 0.502184,
+          "75": 0.576999,
+          "76": 0.635207,
+          "77": 0.29002,
+          "78": 0.03749,
+          "88": 0.492901,
+          "100": 0.23542
+        },
+        "winner": 76,
+        "confidence": 0.191,
+        "new_status": "missed",
+        "flag": "reverification_inconclusive"
+      }
     },
     {
       "ref_index": 86,
@@ -1651,7 +1682,8 @@
       "timing": "accurate",
       "measure": 14,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 87,
@@ -1666,7 +1698,8 @@
       "timing": "accurate",
       "measure": 14,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 88,
@@ -1681,7 +1714,8 @@
       "timing": "accurate",
       "measure": 14,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 89,
@@ -1696,7 +1730,8 @@
       "timing": "accurate",
       "measure": 14,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 90,
@@ -1711,7 +1746,8 @@
       "timing": "accurate",
       "measure": 14,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": null,
@@ -1726,7 +1762,8 @@
       "timing": null,
       "measure": null,
       "hand": null,
-      "dur_beats": null
+      "dur_beats": null,
+      "verification": null
     },
     {
       "ref_index": 91,
@@ -1741,7 +1778,8 @@
       "timing": "accurate",
       "measure": 14,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 92,
@@ -1756,22 +1794,42 @@
       "timing": "accurate",
       "measure": 15,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 93,
       "perf_index": 108,
       "pitch_ref": 74,
-      "pitch_perf": 55,
+      "pitch_perf": 74,
       "name": "D5",
       "onset_ref_sec": 21.25,
       "onset_perf_sec": 21.643181818181816,
       "offset_ms": 388.94581980519047,
-      "status": "wrong_pitch",
+      "status": "timing_off",
       "timing": "drag",
       "measure": 15,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": {
+        "original_status": "wrong_pitch",
+        "original_pitch_guess": 55,
+        "candidates_scored": {
+          "50": 0.12229,
+          "62": 0.133282,
+          "72": 0.275439,
+          "73": 0.257539,
+          "74": 3.797785,
+          "75": 0.211857,
+          "76": 0.101895,
+          "86": 0.074791,
+          "98": 0.293188
+        },
+        "winner": 74,
+        "confidence": 0.7209,
+        "new_status": "corrected_octave_or_harmonic_error",
+        "flag": "corrected_octave_or_harmonic_error"
+      }
     },
     {
       "ref_index": 94,
@@ -1786,7 +1844,8 @@
       "timing": "accurate",
       "measure": 15,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 95,
@@ -1801,7 +1860,8 @@
       "timing": "accurate",
       "measure": 15,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 96,
@@ -1816,7 +1876,8 @@
       "timing": "accurate",
       "measure": 15,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 97,
@@ -1831,7 +1892,8 @@
       "timing": "accurate",
       "measure": 15,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 98,
@@ -1846,7 +1908,8 @@
       "timing": "accurate",
       "measure": 15,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 99,
@@ -1861,7 +1924,8 @@
       "timing": "accurate",
       "measure": 15,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 100,
@@ -1876,7 +1940,8 @@
       "timing": "accurate",
       "measure": 16,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 101,
@@ -1891,7 +1956,8 @@
       "timing": "accurate",
       "measure": 16,
       "hand": "R",
-      "dur_beats": 8.0
+      "dur_beats": 8.0,
+      "verification": null
     },
     {
       "ref_index": 102,
@@ -1906,7 +1972,8 @@
       "timing": "accurate",
       "measure": 16,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 103,
@@ -1921,7 +1988,8 @@
       "timing": "accurate",
       "measure": 16,
       "hand": "R",
-      "dur_beats": 1.0
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 104,
@@ -1936,22 +2004,8 @@
       "timing": "accurate",
       "measure": 16,
       "hand": "R",
-      "dur_beats": 1.0
-    },
-    {
-      "ref_index": null,
-      "perf_index": 120,
-      "pitch_ref": null,
-      "pitch_perf": 64,
-      "name": "E4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 23.875,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": 1.0,
+      "verification": null
     },
     {
       "ref_index": 105,
@@ -1966,22 +2020,8 @@
       "timing": "accurate",
       "measure": 17,
       "hand": "R",
-      "dur_beats": 4.0
-    },
-    {
-      "ref_index": null,
-      "perf_index": 122,
-      "pitch_ref": null,
-      "pitch_perf": 60,
-      "name": "C4",
-      "onset_ref_sec": null,
-      "onset_perf_sec": 24.245454545454546,
-      "offset_ms": null,
-      "status": "extra",
-      "timing": null,
-      "measure": null,
-      "hand": null,
-      "dur_beats": null
+      "dur_beats": 4.0,
+      "verification": null
     },
     {
       "ref_index": null,
@@ -1996,7 +2036,8 @@
       "timing": null,
       "measure": null,
       "hand": null,
-      "dur_beats": null
+      "dur_beats": null,
+      "verification": null
     },
     {
       "ref_index": null,
@@ -2011,7 +2052,9 @@
       "timing": null,
       "measure": null,
       "hand": null,
-      "dur_beats": null
+      "dur_beats": null,
+      "verification": null
     }
-  ]
+  ],
+  "unscored_extra_onsets": []
 }
