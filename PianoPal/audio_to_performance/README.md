@@ -83,6 +83,25 @@ performance = transcribe(audio=my_audio_array, samplerate=44100)
 python -m audio_to_performance 錄音.wav -o performance.json --suppress-harmonics
 ```
 
+## 限制式驗證(`constrained_verification.py`)：用已知的參考譜縮小搜尋範圍
+
+basic-pitch 是自由(不受限)的複音轉譜——在整個鋼琴音域裡自己猜每個音是什麼。這正是八度誤判的根源：2*f0 在物理上就跟高八度的音重疊，鋼琴的非諧性(inharmonicity)在低音區還可能讓泛音比基音更強，模型有時候會挑到泛音而不是基音。但既然我們透過 `reference.json` 已經知道「這個時間點應該是哪個音」，就不需要每次都做開放式轉譜——可以只在一個很小的候選音高集合裡（預期音高本身 + 最可能搞混的幾個音）比對原始音訊證據，而不是照單全收 basic-pitch 給的猜測。
+
+這是疊加在既有 pipeline **之上**的一層，不是取代它：只重新檢視 `result.json` 裡已經被標記 `wrong_pitch`/`missed` 的音符。
+
+- **候選集合**(`get_candidates`)：參考音高本身 + `±1、±2、±12、±24` 半音——涵蓋近似音跟一/二個八度的誤判。等實體鍵盤到了，把 `keyboard_range=(最低音, 最高音)` 設進 `ConstrainedVerificationConfig`，可以濾掉物理上鍵盤根本彈不出來的候選音(見程式碼裡的 TODO)。
+- **泛音感知評分**(`score_candidate`)：從 CQT 讀每個候選音基頻位置的能量，如果某候選音剛好是集合裡另一個候選音的高八度、而且自己的能量明顯比那個低音候選音弱(預設門檻：不到 0.4 倍)，就大幅打折——代表這很可能只是泛音，不是真的獨立按下的音。
+- **逐音重新驗證**(`reverify_note`)：贏家 = 參考音高 → 改判 `corrected_octave_or_harmonic_error`；贏家 = 原本 basic-pitch 猜的音 → 維持原狀(證實真的彈錯/沒偵測到)；贏家是集合裡其他候選音 → 改判 `reverified_different_pitch`；沒有候選音的信心度(佔全部候選音能量的比例)超過門檻 → 維持原狀，標 `reverification_inconclusive`，絕不亂猜。
+- **獨立的「未預期起音」掃描**(`scan_unexpected_onsets`)：上面的方法結構上只會去參考譜「預期有音符」的地方找證據，看不到完全不在預期範圍內的音符。這裡改用最單純的 onset-strength 包絡線(不管音高)掃過整段錄音，找出離所有已知起音(參考譜 + `result.json` 裡已經配對過的起音)都太遠(預設 >0.2秒)的起音，標成 `possible_unscored_extra_onset`——純資訊性質，不會自己生一個配了分的音符，因為我們還不夠確定它的音高。
+
+用法：
+
+```bash
+python -m audio_to_performance.constrained_verification result.json 錄音.wav \
+  --reference reference.json --keyboard-range 21 108 \
+  -o augmented_result.json
+```
+
 ## 執行測試
 
 ```bash
@@ -94,6 +113,7 @@ python3 -m pytest audio_to_performance/tests -v
 - `test_preprocess.py`：純數學，合成 sine wave 測 bandpass/normalize/denoise，不需要真的錄音檔
 - `test_postprocess.py`：純數學，驗證泛音過濾規則(八度/五度/四度+音量差)的各種邊界情況
 - `test_pipeline.py`：**會真的呼叫 basic-pitch 做推論**——用加法合成器(sine+泛音+包絡線)生一段C大調分解和弦的假鋼琴音訊，跑完整 pipeline，檢查轉譜出來的音符數量、音高是否大致吻合(容忍度故意放寬，因為轉譜本來就不會100%精確，這裡測的是「整條路接得起來」，不是幫 basic-pitch 打分數)
+- `test_constrained_verification.py`：全部用手造的假 CQT 能量陣列測，不需要真的音訊——候選音生成、泛音折扣邏輯(含「真的彈錯不會被誤壓下去」的反例)、三種 reverify 結果、還有一個回歸測試專門確認「不確定的時候絕對不會偷偷改狀態」
 
 ## 檔案結構
 
@@ -104,6 +124,7 @@ python3 -m pytest audio_to_performance/tests -v
 | `transcribe.py` | 包裝 basic-pitch `predict()`，輸出 `pretty_midi.PrettyMIDI` |
 | `postprocess.py` | 泛音/延音踏板誤判成新音符的過濾器，預設關閉 |
 | `pipeline.py` | 串起來：載入音訊 → 前處理 → 轉譜 → 存成MIDI → 呼叫 `scoring.midi_io.midi_to_performance()` → (可選)後處理過濾 |
+| `constrained_verification.py` | 疊加層：用參考譜縮小候選音高範圍，重新檢視 `wrong_pitch`/`missed`，外加獨立的未預期起音掃描 |
 | `cli.py` / `__main__.py` | `python -m audio_to_performance ...` |
 | `tests/` | 見上 |
 
