@@ -1,0 +1,6 @@
+numpy
+
+# Optionally reuses validation.compare.classify_interval for the
+# octave-interval check if the validation package happens to be on the
+# path -- not a hard dependency, cross_validate.py reimplements the same
+# check inline if that import fails.
