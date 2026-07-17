@@ -1,90 +1,30 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[codz]
-*$py.class
+# This workspace mixes many unrelated projects (coursework, notes, tools).
+# Whitelist approach: everything is ignored by default, only the PianoPal
+# paths below are tracked. New unrelated folders added later are excluded
+# automatically without needing to remember to blacklist them.
+/*
+!/.gitignore
+!/README.md
+!/grade.py
+!/score_to_reference/
+!/scoring/
+!/viewer/
+!/audio_to_performance/
+!/validation/
+!/latency_test/
+!/demo_screenshots/
 
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py.cover
-.hypothesis/
-.pytest_cache/
-cover/
-
-# Translations
-*.mo
-*.pot
-
-# Logs
-*.log
-
-# Environments
-.env
-.envrc
-.venv/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# mypy / ruff / type checkers
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-.pytype/
-.ruff_cache/
-cython_debug/
-
-# Editors
-.vscode/*
-!.vscode/extensions.json
-.idea/
-
-# Node (viewer/ has its own too; this covers the root scope)
-node_modules/
-dist-ssr/
-
-# OS
-.DS_Store
+# Build/dependency artifacts to exclude even within tracked project dirs
+**/.venv/
+**/venv/
+**/node_modules/
+**/__pycache__/
+**/.pytest_cache/
+**/*.egg-info/
+**/dist/
+**/dist-ssr/
+**/*.pyc
+**/.DS_Store
 
 # Scratch / generated audio artifacts from local testing
 *.wav
