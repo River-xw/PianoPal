@@ -1,0 +1,14 @@
+{
+  "devices": [
+    {
+      "name": "left_microbit",
+      "hand": "left",
+      "address": "AA:BB:CC:DD:EE:01"
+    },
+    {
+      "name": "right_microbit",
+      "hand": "right",
+      "address": "AA:BB:CC:DD:EE:02"
+    }
+  ]
+}
