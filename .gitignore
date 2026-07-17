@@ -1,23 +1,90 @@
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
+*.py[codz]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
 .pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Logs
+*.log
+
+# Environments
+.env
+.envrc
 .venv/
 venv/
-*.egg-info/
+ENV/
+env.bak/
+venv.bak/
 
-# Node (viewer has its own too, this covers the root scope)
-node_modules/
-dist/
-dist-ssr/
-
-# OS
-.DS_Store
+# mypy / ruff / type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+cython_debug/
 
 # Editors
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Node (viewer/ has its own too; this covers the root scope)
+node_modules/
+dist-ssr/
+
+# OS
+.DS_Store
 
 # Scratch / generated audio artifacts from local testing
 *.wav
