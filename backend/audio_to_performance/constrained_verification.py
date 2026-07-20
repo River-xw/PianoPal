@@ -32,6 +32,8 @@ from typing import Optional
 import librosa
 import numpy as np
 
+from backend.hardware import KEYBOARD_RANGE
+
 # --- config -----------------------------------------------------------------
 
 
@@ -40,11 +42,13 @@ class ConstrainedVerificationConfig:
     # candidate generation: {ref_pitch + offset for offset in candidate_semitone_offsets}
     candidate_semitone_offsets: tuple = (0, 12, -12, 24, -24, 1, -1, 2, -2)
 
-    # TODO: set keyboard_range=(lowest_pitch, highest_pitch) once the physical
-    # keyboard is measured; this narrows candidates and reduces false
-    # octave-confusion matches for notes near our actual range boundary.
-    # None (no filtering) for now since we don't know the range yet.
-    keyboard_range: Optional[tuple] = None
+    # The physical keyboard is 37 keys, MIDI 48-84 (backend/hardware.py) --
+    # candidates outside it are impossible and are filtered, which sharpens
+    # octave disambiguation near the range boundary (e.g. for ref_pitch 48,
+    # the -12/-24 sub-octave candidates can't exist, so a strong low-frequency
+    # harmonic can't win). Set to None only when the audio didn't come from
+    # the physical keyboard (synthesized renderings of arbitrary MIDIs).
+    keyboard_range: Optional[tuple] = KEYBOARD_RANGE
 
     # harmonic-aware scoring: a candidate that's the octave-up of another,
     # stronger candidate is treated as probably just that candidate's

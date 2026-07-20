@@ -205,6 +205,12 @@ def _summarize(note_results: list, config: ScoringConfig, global_tempo_ratio) ->
         + config.score_weight_timing_stability * timing_stability
     )
 
+    octave_slips = sum(
+        1 for r in note_results
+        if r.status == "wrong_pitch" and r.pitch_ref is not None and r.pitch_perf is not None
+        and (r.pitch_ref - r.pitch_perf) % 12 == 0
+    )
+
     return ScoringSummary(
         score=round(overall, 2),
         sub_scores={
@@ -215,6 +221,7 @@ def _summarize(note_results: list, config: ScoringConfig, global_tempo_ratio) ->
         global_tempo_ratio=round(global_tempo_ratio, 4) if global_tempo_ratio is not None else None,
         tempo_trend=_tempo_trend(note_results, config),
         counts=counts,
+        octave_slips_in_wrong_pitch=octave_slips,
     )
 
 

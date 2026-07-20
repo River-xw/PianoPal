@@ -115,11 +115,20 @@ python3 -m pytest audio_to_performance/tests -v
 - `test_pipeline.py`：**會真的呼叫 basic-pitch 做推論**——用加法合成器(sine+泛音+包絡線)生一段C大調分解和弦的假鋼琴音訊，跑完整 pipeline，檢查轉譜出來的音符數量、音高是否大致吻合(容忍度故意放寬，因為轉譜本來就不會100%精確，這裡測的是「整條路接得起來」，不是幫 basic-pitch 打分數)
 - `test_constrained_verification.py`：全部用手造的假 CQT 能量陣列測，不需要真的音訊——候選音生成、泛音折扣邏輯(含「真的彈錯不會被誤壓下去」的反例)、三種 reverify 結果、還有一個回歸測試專門確認「不確定的時候絕對不會偷偷改狀態」
 
+## 37鍵實體鍵盤限制(`keyboard_range`，預設開啟)
+
+專案的鍵盤只有37鍵(MIDI 48-84，C3-C6，唯一定義處在 `backend/hardware.py`)。這不是啟發式規則而是物理事實：鍵盤彈不出範圍外的音，所以**錄「這台鍵盤」的音檔裡轉譜出範圍外的音，百分之百是誤判**(通常是真音符的低八度/泛音鬼影)，直接刪掉。兩個地方都吃這個限制：
+
+- `pipeline.transcribe()`：範圍外的轉譜音符直接過濾(`config.keyboard_range`，預設 48-84)
+- `constrained_verification`：八度候選音超出鍵盤範圍的不列入考慮——邊界效果特別好，例如參考音是最低鍵48時，往下八度的36/24物理上不存在，低頻泛音就沒機會贏
+
+**唯一要注意的**：音檔不是來自實體鍵盤時(例如 `validation/roundtrip` 拿任意MIDI合成的音訊)必須設 `keyboard_range=None`，不然會把真實存在的範圍外音符當誤判刪掉——`roundtrip.py` 已經自動處理，`scripts/grade_audio.py` 會依「參考譜是否落在鍵盤範圍內」自動決定。如果鍵盤其實有八度移調(octave shift)設定，改 `backend/hardware.py` 一個地方即可。
+
 ## 檔案結構
 
 | 檔案 | 作用 |
 | --- | --- |
-| `config.py` | `AudioToPerformanceConfig`：前處理開關 + basic-pitch 參數 + 後處理開關，全部集中一處 |
+| `config.py` | `AudioToPerformanceConfig`：前處理開關 + basic-pitch 參數 + 後處理開關 + 鍵盤範圍，全部集中一處 |
 | `preprocess.py` | 降噪/bandpass/正規化，預設全關 |
 | `transcribe.py` | 包裝 basic-pitch `predict()`，輸出 `pretty_midi.PrettyMIDI` |
 | `postprocess.py` | 泛音/延音踏板誤判成新音符的過濾器，預設關閉 |

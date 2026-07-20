@@ -268,3 +268,19 @@ class TestHarmonicExtraSuppression:
         result = score_performance(reference, performance)
         assert result.summary.counts["correct"] == len(reference["notes"])
         assert result.summary.harmonic_extras_removed == 0
+
+
+class TestOctaveSlipCount:
+    def test_octave_slip_counted_inside_wrong_pitch(self):
+        reference = _build_reference()
+        performance = _perfect_performance(reference)
+        performance[0]["pitch"] += 12   # octave slip
+        performance[1]["pitch"] += 1    # ordinary wrong pitch
+        result = score_performance(reference, performance)
+        assert result.summary.counts["wrong_pitch"] == 2
+        assert result.summary.octave_slips_in_wrong_pitch == 1
+
+    def test_zero_when_no_wrong_pitch(self):
+        reference = _build_reference()
+        result = score_performance(reference, _perfect_performance(reference))
+        assert result.summary.octave_slips_in_wrong_pitch == 0

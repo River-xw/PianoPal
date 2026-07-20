@@ -50,6 +50,13 @@ class ScoringSummary:
     tempo_trend: TempoTrend
     counts: dict
     harmonic_extras_removed: int = 0
+    # of the wrong_pitch notes, how many are EXACT octave slips (|ref-perf|
+    # a multiple of 12) -- the same category validation/compare.py calls
+    # octave_error. On audio input these are usually transcription octave
+    # errors, not the player hitting a key 12 keys away; scripts/
+    # grade_audio.py's constrained re-verification resolves the resolvable
+    # ones, this counts whatever remains.
+    octave_slips_in_wrong_pitch: int = 0
 
 
 @dataclass
@@ -68,6 +75,7 @@ class ScoringResult:
                 "tempo_trend": self.summary.tempo_trend,
                 "counts": self.summary.counts,
                 "harmonic_extras_removed": self.summary.harmonic_extras_removed,
+                "octave_slips_in_wrong_pitch": self.summary.octave_slips_in_wrong_pitch,
             },
             "notes": [
                 {

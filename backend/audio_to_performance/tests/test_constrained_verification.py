@@ -182,3 +182,25 @@ class TestFlagUnexpectedOnsets:
         known_onsets = [0.0, 1.0, 2.0]
         flagged = _flag_unexpected_onsets(onset_times, known_onsets, config)
         assert [f["onset_sec"] for f in flagged] == [5.0]
+
+
+class TestKeyboardRangeDefault:
+    """The config now defaults to the physical 37-key range (48-84,
+    backend/hardware.py) -- candidates outside it are impossible.
+    """
+
+    def test_default_config_uses_the_hardware_range(self):
+        from backend.hardware import KEYBOARD_RANGE
+        assert ConstrainedVerificationConfig().keyboard_range == KEYBOARD_RANGE
+
+    def test_lowest_key_has_no_sub_octave_candidates(self):
+        config = ConstrainedVerificationConfig()
+        candidates = get_candidates(48, config.keyboard_range, config)
+        assert 36 not in candidates and 24 not in candidates
+        assert 48 in candidates and 60 in candidates  # itself + octave-up remain
+
+    def test_highest_key_has_no_super_octave_candidates(self):
+        config = ConstrainedVerificationConfig()
+        candidates = get_candidates(84, config.keyboard_range, config)
+        assert 96 not in candidates and 108 not in candidates
+        assert 84 in candidates and 72 in candidates

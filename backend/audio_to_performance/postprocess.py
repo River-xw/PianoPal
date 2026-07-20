@@ -134,3 +134,20 @@ def suppress_note_splits(notes: list, velocity_ratio: float = 0.7) -> list:
                 suppressed.add(j)
 
     return [n for idx, n in enumerate(ordered) if idx not in suppressed]
+
+
+def filter_impossible_pitches(notes: list, keyboard_range: tuple) -> list:
+    """Drop transcribed notes outside the physical keyboard's pitch range.
+
+    Unlike every other filter in this file, this one isn't a heuristic: a
+    37-key keyboard physically cannot produce MIDI 36 or 96, so when the
+    audio source IS that keyboard, an out-of-range transcription is a
+    guaranteed artifact (usually sub-octave/harmonic ghosts of a real note).
+
+    Callers must only apply it when the audio really came from the physical
+    keyboard (or from a reference that itself fits the range) -- synthesized
+    audio from an arbitrary MIDI can genuinely contain out-of-range pitches.
+    See backend/hardware.py and scripts/grade_audio.py.
+    """
+    low, high = keyboard_range
+    return [n for n in notes if low <= n["pitch"] <= high]

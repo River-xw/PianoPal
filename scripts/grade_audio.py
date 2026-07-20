@@ -36,8 +36,10 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from backend.hardware import KEYBOARD_RANGE  # noqa: E402
 from backend.score_to_reference import convert as convert_score  # noqa: E402
 from backend.scoring import ScoringConfig, score_performance  # noqa: E402
+from backend.audio_to_performance.config import AudioToPerformanceConfig  # noqa: E402
 from backend.audio_to_performance.pipeline import load_audio, transcribe  # noqa: E402
 from backend.audio_to_performance.constrained_verification import (  # noqa: E402
     ConstrainedVerificationConfig,
@@ -127,13 +129,29 @@ def main(argv=None) -> int:
     parser.add_argument("--synthesize", action="store_true", help="Render the reference to audio with a soundfont instead of using a recording.")
     parser.add_argument("--soundfont", help="Soundfont path (required with --synthesize).")
     parser.add_argument("--song-name", default=None, help="Display name for the viewer (defaults to the reference title).")
-    parser.add_argument("--keyboard-range", type=int, nargs=2, default=None, metavar=("LOW", "HIGH"), help="Physical keyboard MIDI range, once known -- narrows octave candidates.")
+    parser.add_argument("--keyboard-range", type=int, nargs=2, default=list(KEYBOARD_RANGE), metavar=("LOW", "HIGH"), help="Physical keyboard MIDI range (default: the project's 37-key board, 48-84 -- see backend/hardware.py).")
     parser.add_argument("-o", "--output", default=str(VIEWER_DIR / "public" / "result.json"), help="Where to write result.json (defaults to the viewer's public/).")
     parser.add_argument("--no-reverify", action="store_true", help="Skip the constrained-verification octave re-check.")
     args = parser.parse_args(argv)
 
     reference = convert_score(args.reference)
     print(f"reference: {reference.get('title')}  ({len(reference['notes'])} notes)")
+
+    # --- 37-key physical constraint (backend/hardware.py) ---
+    # The keyboard can't produce pitches outside kb_range, so out-of-range
+    # transcriptions from a REAL recording are guaranteed artifacts. For
+    # --synthesize the audio comes from the MIDI file, not the keyboard, so
+    # the filter is only safe when the reference itself fits the range.
+    kb_range = tuple(args.keyboard_range)
+    unplayable = [n["pitch"] for n in reference["notes"] if not (kb_range[0] <= n["pitch"] <= kb_range[1])]
+    if unplayable:
+        print(f"  WARNING: {len(unplayable)} reference note(s) fall outside the {kb_range} keyboard range "
+              f"(pitches {sorted(set(unplayable))}) -- the student physically cannot play them as written.")
+    reference_fits = not unplayable
+    apply_range = (not args.synthesize) or reference_fits
+    effective_range = kb_range if apply_range else None
+    if not apply_range:
+        print("  (keyboard-range artifact filtering disabled: synthesized audio genuinely contains out-of-range pitches)")
 
     cleanup_wav = None
     if args.synthesize:
@@ -163,7 +181,7 @@ def main(argv=None) -> int:
         audio_path = args.audio
 
     print("transcribing (basic-pitch)...")
-    performance = transcribe(wav_path=audio_path)
+    performance = transcribe(wav_path=audio_path, config=AudioToPerformanceConfig(keyboard_range=effective_range))
     print(f"  transcribed {len(performance)} notes")
 
     result = score_performance(reference, performance, song_name=args.song_name)
@@ -184,9 +202,7 @@ def main(argv=None) -> int:
         # preserves the per-note verification audit trail.
         print("constrained re-verification of wrong_pitch against raw audio...")
         audio, sr = load_audio(audio_path)
-        cv_config = ConstrainedVerificationConfig(
-            keyboard_range=tuple(args.keyboard_range) if args.keyboard_range else None,
-        )
+        cv_config = ConstrainedVerificationConfig(keyboard_range=effective_range)
         result_dict = reverify_result(result_dict, audio, sr, reference=reference, config=cv_config)
         corrected = _reclassify_corrected_octaves(result_dict, tol_ms=ScoringConfig().tol_ms)
         print(f"  {corrected} wrong_pitch note(s) corrected to the reference pitch by audio evidence,"

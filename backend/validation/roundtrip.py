@@ -70,6 +70,12 @@ def run_roundtrip(
     try:
         synthesize_midi_to_wav(midi_path, soundfont_path, wav_path)
         ref_notes = midi_to_performance(midi_path)
+        if audio_config is None:
+            # This audio is synthesized from an arbitrary MIDI, NOT recorded
+            # from the physical 37-key keyboard -- it can genuinely contain
+            # out-of-range pitches, so the keyboard-range artifact filter
+            # must be off or it would corrupt the octave-error diagnostic.
+            audio_config = AudioToPerformanceConfig(keyboard_range=None)
         transcribed_notes = transcribe(
             wav_path=wav_path, config=audio_config, save_midi_path=save_transcribed_midi
         )

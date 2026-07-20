@@ -89,6 +89,13 @@ export default function SummaryPanel({ summary }) {
           out before scoring (spurious octave-up notes coinciding with a real note).
         </div>
       )}
+
+      {(summary.octave_slips_in_wrong_pitch ?? 0) > 0 && (
+        <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+          {summary.octave_slips_in_wrong_pitch} of the wrong-pitch notes {summary.octave_slips_in_wrong_pitch === 1 ? "is" : "are"} an
+          exact octave slip — on audio input this usually means a transcription octave error rather than a finger 12 keys away.
+        </div>
+      )}
     </div>
   );
 }

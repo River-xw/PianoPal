@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from backend.hardware import KEYBOARD_RANGE
+
 PIANO_LOW_HZ = 27.5    # A0, lowest note on a standard piano
 PIANO_HIGH_HZ = 4186.0  # C8, highest note on a standard piano
 
@@ -40,6 +42,15 @@ class AudioToPerformanceConfig:
     # minimum_frequency/maximum_frequency bounded to the piano's range had
     # zero effect in the sweep (basic-pitch already stays in-range
     # internally) so they're left unset rather than added as a no-op knob.
+    #
+    # RE-VALIDATED after the downstream artifact stack landed (37-key range
+    # filter + scoring's reference-aware harmonic-extras filter + constrained
+    # octave re-verification): reverting to the looser 0.5/0.3+melodia
+    # defaults through that FULL path recovered 16 missed notes (23 -> 7 of
+    # 1024) but flooded extras 48 -> 307 -- the flood is mostly non-octave
+    # spurious detections that no reference-aware filter can safely remove.
+    # For a practice coach, phantom notes shown to the student are worse
+    # than a 2% miss rate, so strict stays.
     onset_threshold: float = 0.6
     frame_threshold: float = 0.4
     minimum_note_length_ms: float = 58.0
@@ -62,3 +73,13 @@ class AudioToPerformanceConfig:
     # own suppression pass. See postprocess.suppress_note_splits.
     suppress_split_notes: bool = False
     note_split_velocity_ratio: float = 0.7
+
+    # --- physical keyboard constraint (ON by default) ---
+    # The project's keyboard has 37 keys (MIDI 48-84, see backend/hardware.py)
+    # -- it physically cannot produce a note outside that range, so any
+    # out-of-range transcription from a recording of it is a guaranteed
+    # artifact and is dropped. NOT a heuristic, unlike the filters above.
+    # Set to None when transcribing audio that did NOT come from the physical
+    # keyboard (e.g. validation/roundtrip's synthesized renderings of
+    # arbitrary MIDI files, which may genuinely exceed the range).
+    keyboard_range: Optional[tuple] = KEYBOARD_RANGE

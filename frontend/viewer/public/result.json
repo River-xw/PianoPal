@@ -16,7 +16,8 @@
       "missed": 8,
       "extra": 10
     },
-    "harmonic_extras_removed": 17
+    "harmonic_extras_removed": 17,
+    "octave_slips_in_wrong_pitch": 1
   },
   "notes": [
     {

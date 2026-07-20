@@ -20,7 +20,7 @@ from backend.scoring.midi_io import midi_to_performance
 
 from .config import AudioToPerformanceConfig
 from .errors import UnsupportedAudioError
-from .postprocess import suppress_harmonic_artifacts, suppress_note_splits
+from .postprocess import filter_impossible_pitches, suppress_harmonic_artifacts, suppress_note_splits
 from .preprocess import preprocess
 from .transcribe import transcribe_to_midi
 
@@ -83,6 +83,13 @@ def transcribe(
     finally:
         if cleanup_midi:
             Path(midi_path).unlink(missing_ok=True)
+
+    # hard physical constraint first (not a heuristic): the 37-key keyboard
+    # can't produce notes outside its range, so out-of-range transcriptions
+    # are artifacts by definition. See config.keyboard_range for when to
+    # disable this (audio not sourced from the physical keyboard).
+    if config.keyboard_range is not None:
+        performance = filter_impossible_pitches(performance, config.keyboard_range)
 
     if config.suppress_harmonics:
         performance = suppress_harmonic_artifacts(

@@ -117,3 +117,25 @@ class TestSuppressNoteSplits:
         a = suppress_note_splits(notes)
         b = suppress_note_splits(notes)
         assert a == b
+
+
+class TestFilterImpossiblePitches:
+    """The 37-key physical constraint (backend/hardware.py): out-of-range
+    transcriptions from a recording of the keyboard are guaranteed artifacts.
+    """
+
+    def test_out_of_range_notes_dropped_in_range_kept(self):
+        from backend.audio_to_performance.postprocess import filter_impossible_pitches
+        notes = [
+            _note(36, 0.0, 80),   # below 48 -- impossible
+            _note(48, 0.0, 80),   # lowest key -- kept
+            _note(60, 1.0, 80),   # kept
+            _note(84, 2.0, 80),   # highest key -- kept
+            _note(96, 2.0, 40),   # above 84 -- impossible (octave-up ghost)
+        ]
+        kept = filter_impossible_pitches(notes, (48, 84))
+        assert [n["pitch"] for n in kept] == [48, 60, 84]
+
+    def test_empty_list_ok(self):
+        from backend.audio_to_performance.postprocess import filter_impossible_pitches
+        assert filter_impossible_pitches([], (48, 84)) == []
