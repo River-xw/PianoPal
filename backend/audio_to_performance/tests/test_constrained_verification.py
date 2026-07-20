@@ -204,3 +204,53 @@ class TestKeyboardRangeDefault:
         candidates = get_candidates(84, config.keyboard_range, config)
         assert 96 not in candidates and 108 not in candidates
         assert 84 in candidates and 72 in candidates
+
+
+class TestTemplateScoring:
+    """score_candidate switches to per-instrument learned fingerprints when
+    `templates` covers ref_pitch -- for instruments (e.g. a toy keyboard)
+    whose timbre doesn't match the generic harmonic-discount heuristic's
+    real-piano assumptions.
+    """
+
+    def test_candidate_matching_its_own_template_wins(self):
+        # this instrument's "62" key happens to sound almost nothing like a
+        # generic 62 (that's the whole point -- an idiosyncratic timbre)
+        weird_62_template = _frame_with_energy({64: 1.0, 67: 0.3}).magnitudes
+        weird_62_template = weird_62_template / np.linalg.norm(weird_62_template)
+        templates = {62: weird_62_template}
+
+        # the live frame looks like the template, NOT like a generic 62
+        frame = _frame_with_energy({64: 1.0, 67: 0.3})
+        candidates = get_candidates(62)
+        score_62 = score_candidate(frame, 62, 62, candidates, templates=templates)
+        score_64 = score_candidate(frame, 64, 62, candidates, templates=templates)  # no template -> 0
+        assert score_62 > score_64
+        assert score_64 == 0.0
+
+    def test_no_template_for_this_ref_pitch_falls_back_to_generic(self):
+        config = ConstrainedVerificationConfig()
+        frame = _frame_with_energy({48: 1.0, 60: 0.3})
+        candidates = get_candidates(48)
+        templates = {999: np.zeros(N_BINS)}  # covers some OTHER pitch, not 48
+        with_templates = score_candidate(frame, 48, 48, candidates, config, templates=templates)
+        without_templates = score_candidate(frame, 48, 48, candidates, config, templates=None)
+        assert with_templates == without_templates  # unaffected -- generic path used
+
+    def test_reverify_note_uses_templates_to_correct_an_idiosyncratic_key(self):
+        # a key whose true sound doesn't match generic assumptions at all,
+        # but DOES match its own learned template
+        template_vec = _frame_with_energy({48: 0.2, 76: 1.0}).magnitudes
+        template_vec = template_vec / np.linalg.norm(template_vec)
+        templates = {60: template_vec}
+
+        note = {
+            "ref_index": 0, "perf_index": 0, "pitch_ref": 60, "pitch_perf": 48,
+            "name": "note", "onset_ref_sec": 1.0, "onset_perf_sec": 1.0, "offset_ms": 0.0,
+            "status": "wrong_pitch", "timing": "accurate", "measure": 1, "hand": "right", "dur_beats": 1.0,
+        }
+        # the actual audio matches THIS instrument's weird template for key 60
+        frame = _frame_with_energy({48: 0.2, 76: 1.0})
+        result = reverify_note(note, audio_window=None, sr=None, cqt_frame=frame, templates=templates)
+        assert result["status"] == "corrected_octave_or_harmonic_error"
+        assert result["pitch_perf"] == 60

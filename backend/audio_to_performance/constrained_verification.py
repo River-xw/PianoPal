@@ -145,12 +145,40 @@ def score_candidate(
     ref_pitch: int,
     all_candidates: list,
     config: Optional[ConstrainedVerificationConfig] = None,
+    templates: Optional[dict] = None,
 ) -> float:
-    """Evidence score for one candidate pitch: its own fundamental energy,
-    heavily discounted if it's plausibly just the octave-up harmonic of
-    another, stronger candidate rather than an independently played note.
+    """Evidence score for one candidate pitch.
+
+    If `templates` is given AND covers `ref_pitch` (a per-key spectral
+    fingerprint learned from THIS instrument -- see timbre_fingerprint.py),
+    scoring switches entirely to template-similarity for every candidate on
+    this note: a candidate with no template scores 0 rather than falling
+    back to the generic heuristic, so the two scoring modes are never mixed
+    within one note (their scales aren't comparable -- cosine similarity in
+    [0,1] vs. raw CQT energy). This is for instruments whose timbre doesn't
+    match basic-pitch's real-piano training (e.g. a toy keyboard whose
+    low-register keys have almost no energy at the true fundamental -- a
+    generic "octave-up = probably a harmonic" assumption doesn't capture
+    that, but a template learned from the instrument's own recordings does).
+
+    Otherwise (no templates, or none for this ref_pitch): the original
+    generic heuristic -- own fundamental energy, heavily discounted if
+    it's plausibly just the octave-up harmonic of another, stronger
+    candidate rather than an independently played note.
     """
     config = config or ConstrainedVerificationConfig()
+
+    if templates and ref_pitch in templates:
+        template = templates.get(candidate_pitch)
+        if template is None:
+            return 0.0
+        vec = cqt_frame.magnitudes
+        norm = np.linalg.norm(vec)
+        if norm < 1e-12:
+            return 0.0
+        similarity = float(np.dot(vec / norm, template))
+        return max(0.0, similarity)
+
     energy = cqt_frame.energy_at_pitch(candidate_pitch)
     score = energy
 
@@ -172,11 +200,15 @@ def reverify_note(
     sr: Optional[int] = None,
     config: Optional[ConstrainedVerificationConfig] = None,
     cqt_frame: Optional[CQTFrame] = None,
+    templates: Optional[dict] = None,
 ) -> dict:
     """Re-examines one wrong_pitch/missed note against constrained,
     harmonic-aware audio evidence. Pass a pre-computed `cqt_frame` directly
     (e.g. in tests) to skip audio/CQT extraction entirely; otherwise
-    `audio_window` + `sr` are used to compute one.
+    `audio_window` + `sr` are used to compute one. `templates` (see
+    timbre_fingerprint.py) switches scoring to per-instrument learned
+    fingerprints for notes whose reference pitch has one -- see
+    score_candidate for why the two scoring modes are never mixed.
     """
     config = config or ConstrainedVerificationConfig()
     if cqt_frame is None:
@@ -190,7 +222,7 @@ def reverify_note(
     original_pitch_guess = note.get("pitch_perf")
 
     candidates = get_candidates(ref_pitch, config.keyboard_range, config)
-    scores = {c: score_candidate(cqt_frame, c, ref_pitch, candidates, config) for c in candidates}
+    scores = {c: score_candidate(cqt_frame, c, ref_pitch, candidates, config, templates) for c in candidates}
 
     total = sum(scores.values())
     winner = max(scores, key=scores.get)
@@ -233,10 +265,12 @@ def reverify_result(
     sr: int,
     reference: Optional[dict] = None,
     config: Optional[ConstrainedVerificationConfig] = None,
+    templates: Optional[dict] = None,
 ) -> dict:
     """Runs reverify_note over every trigger-status note in `result`, and
     (if `reference` is given) scan_unexpected_onsets over the whole
     recording. Returns a new, augmented result; never mutates the input.
+    `templates`: see timbre_fingerprint.py / score_candidate.
     """
     config = config or ConstrainedVerificationConfig()
     augmented = copy.deepcopy(result)
@@ -266,7 +300,7 @@ def reverify_result(
         start_sample = max(0, int((onset - half_window) * sr))
         end_sample = max(start_sample, int((onset + half_window) * sr))
         window = audio[start_sample:end_sample]
-        augmented["notes"][i] = reverify_note(note, window, sr, config)
+        augmented["notes"][i] = reverify_note(note, window, sr, config, templates=templates)
 
     reference_for_scan = reference if reference is not None else {
         "notes": [

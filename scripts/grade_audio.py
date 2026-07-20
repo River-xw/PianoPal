@@ -132,26 +132,30 @@ def main(argv=None) -> int:
     parser.add_argument("--keyboard-range", type=int, nargs=2, default=list(KEYBOARD_RANGE), metavar=("LOW", "HIGH"), help="Physical keyboard MIDI range (default: the project's 37-key board, 48-84 -- see backend/hardware.py).")
     parser.add_argument("-o", "--output", default=str(VIEWER_DIR / "public" / "result.json"), help="Where to write result.json (defaults to the viewer's public/).")
     parser.add_argument("--no-reverify", action="store_true", help="Skip the constrained-verification octave re-check.")
+    parser.add_argument("--templates", default=None, help="Per-key spectral fingerprints learned from THIS instrument (see backend/audio_to_performance/timbre_fingerprint.py) -- use when the instrument's timbre doesn't match basic-pitch's real-piano training, e.g. data/toy_keyboard_fingerprints.json.")
     args = parser.parse_args(argv)
 
     reference = convert_score(args.reference)
     print(f"reference: {reference.get('title')}  ({len(reference['notes'])} notes)")
 
     # --- 37-key physical constraint (backend/hardware.py) ---
-    # The keyboard can't produce pitches outside kb_range, so out-of-range
-    # transcriptions from a REAL recording are guaranteed artifacts. For
-    # --synthesize the audio comes from the MIDI file, not the keyboard, so
-    # the filter is only safe when the reference itself fits the range.
+    # The keyboard can't produce pitches outside kb_range, so a transcription
+    # outside it is a guaranteed artifact -- BUT only if this piece could
+    # plausibly have been played on that keyboard at all. If the reference
+    # itself needs notes outside the range, this performance (live or
+    # synthesized) did not come from the 37-key board as written, so forcing
+    # the filter would delete real out-of-range notes rather than artifacts.
+    # The rule is the same regardless of audio source.
     kb_range = tuple(args.keyboard_range)
     unplayable = [n["pitch"] for n in reference["notes"] if not (kb_range[0] <= n["pitch"] <= kb_range[1])]
     if unplayable:
         print(f"  WARNING: {len(unplayable)} reference note(s) fall outside the {kb_range} keyboard range "
-              f"(pitches {sorted(set(unplayable))}) -- the student physically cannot play them as written.")
+              f"(pitches {sorted(set(unplayable))}) -- the student physically cannot play them as written "
+              f"on the 37-key board (or this performance wasn't recorded on it).")
     reference_fits = not unplayable
-    apply_range = (not args.synthesize) or reference_fits
-    effective_range = kb_range if apply_range else None
-    if not apply_range:
-        print("  (keyboard-range artifact filtering disabled: synthesized audio genuinely contains out-of-range pitches)")
+    effective_range = kb_range if reference_fits else None
+    if not reference_fits:
+        print("  (keyboard-range artifact filtering disabled: reference exceeds the 37-key range)")
 
     cleanup_wav = None
     if args.synthesize:
@@ -203,7 +207,12 @@ def main(argv=None) -> int:
         print("constrained re-verification of wrong_pitch against raw audio...")
         audio, sr = load_audio(audio_path)
         cv_config = ConstrainedVerificationConfig(keyboard_range=effective_range)
-        result_dict = reverify_result(result_dict, audio, sr, reference=reference, config=cv_config)
+        templates = None
+        if args.templates:
+            from backend.audio_to_performance.timbre_fingerprint import load_templates
+            templates = load_templates(args.templates)
+            print(f"  using {len(templates)} instrument-specific fingerprint(s) from {args.templates}")
+        result_dict = reverify_result(result_dict, audio, sr, reference=reference, config=cv_config, templates=templates)
         corrected = _reclassify_corrected_octaves(result_dict, tol_ms=ScoringConfig().tol_ms)
         print(f"  {corrected} wrong_pitch note(s) corrected to the reference pitch by audio evidence,"
               f" {len(result_dict.get('unscored_extra_onsets', []))} unscored onset(s) flagged")
