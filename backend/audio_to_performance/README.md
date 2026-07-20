@@ -109,6 +109,24 @@ basic-pitch 是自由(不受限)的複音轉譜——在整個鋼琴音域裡自
 
 **機制驗證(用那份標錯來源、但仍可拿來驗證比對邏輯的 `twinkle_take1.m4a`，涵蓋37鍵裡的6個、每個1-4次)**：有指紋 vs 沒指紋，分數 13.83→20.69，`correct` 1→4，`wrong_pitch` 32→24——證實「指紋比對能改善」這個機制方向正確，**但這組數字不代表電子琴實際會有多好**，資料來源標錯了。相關檔案已改名成 `data/computer_midi_playback_fingerprints.json` / `data/experiments/computer_midi_playback/`，避免以後被誤認成電子琴資料。下一步需要真的錄一份電子琴的音檔(理想上每個鍵單獨錄、或多首涵蓋不同音域的曲子)才能重新做一次。
 
+## 曲庫預先已知：用單曲音域縮小 basic-pitch 的搜尋範圍(`song_range.py`，預設開啟)
+
+專案的曲庫不是開放式的任意音檔——每首歌的參考譜都預先知道，也就知道**這首歌實際會用到哪些音高**。之前測過把 basic-pitch 的 `minimum_frequency`/`maximum_frequency` 綁到整個鋼琴音域(27.5-4186Hz)完全沒效果，因為那個範圍太寬、幾乎沒縮小到什麼。單曲的音域通常窄很多，值得單獨測。
+
+拿11首真實曲子(FluidSynth合成音，走完整評分流程)實測掃過幾種留白(padding)大小：
+
+| padding | correct | wrong_pitch | missed | extra |
+| --- | --- | --- | --- | --- |
+| 不設範圍 | 995 | 7 | 22 | 60 |
+| ±1個八度(12半音) | 995 | 7 | 22 | 60（跟不設一樣，留白太寬沒縮到東西） |
+| ±6半音 | 995 | 6 | 23 | **50** |
+| ±3半音 | 995 | 6 | 23 | 50（跟±6一樣） |
+| 完全不留白(0) | **962** | 11 | **51** | 43（矯枉過正——曲子自己寫的音剛好卡在邊界也被切掉） |
+
+**預設用 ±6半音**：extra 從60降到50、wrong_pitch 7→6，代價只有1個新增的missed，乾淨的淨改善。低於6沒有額外好處，降到0直接爆掉(correct掉33個、missed多29個)——所以6是實測出來的甜蜜點，不是隨便猜的。
+
+`compute_song_frequency_range(reference, pad_semitones=6)`：算出這首歌實際音高範圍(留白後)對應的Hz範圍，餵給 `AudioToPerformanceConfig(minimum_frequency=..., maximum_frequency=...)`。`grade_audio.py` 預設會用，`--no-song-range` 關閉。
+
 用法：
 
 ```bash

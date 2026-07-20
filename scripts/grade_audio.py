@@ -41,6 +41,7 @@ from backend.score_to_reference import convert as convert_score  # noqa: E402
 from backend.scoring import ScoringConfig, score_performance  # noqa: E402
 from backend.audio_to_performance.config import AudioToPerformanceConfig  # noqa: E402
 from backend.audio_to_performance.pipeline import load_audio, transcribe  # noqa: E402
+from backend.audio_to_performance.song_range import compute_song_frequency_range  # noqa: E402
 from backend.audio_to_performance.constrained_verification import (  # noqa: E402
     ConstrainedVerificationConfig,
     reverify_result,
@@ -138,6 +139,7 @@ def main(argv=None) -> int:
     parser.add_argument("--no-reverify", action="store_true", help="Skip the constrained-verification octave re-check.")
     parser.add_argument("--templates", default=None, help="Per-key spectral fingerprints learned from THIS instrument (see backend/audio_to_performance/timbre_fingerprint.py) -- use when the instrument's timbre doesn't match basic-pitch's real-piano training, e.g. data/computer_midi_playback_fingerprints.json.")
     parser.add_argument("--ignore-timing", action="store_true", help="Drop the timing dimension entirely (see ScoringConfig.ignore_timing) -- for isolating pitch/transcription accuracy from a real performer's natural tempo rubato.")
+    parser.add_argument("--no-song-range", action="store_true", help="Don't narrow basic-pitch's frequency search to this song's own pitch range (see backend/audio_to_performance/song_range.py). On by default -- a real 11-piece A/B found it cuts extras ~17%% with a negligible cost.")
     args = parser.parse_args(argv)
 
     reference = convert_score(args.reference)
@@ -190,7 +192,14 @@ def main(argv=None) -> int:
         audio_path = args.audio
 
     print("transcribing (basic-pitch)...")
-    performance = transcribe(wav_path=audio_path, config=AudioToPerformanceConfig(keyboard_range=effective_range))
+    min_hz, max_hz = (None, None)
+    if not args.no_song_range:
+        min_hz, max_hz = compute_song_frequency_range(reference)
+        print(f"  narrowing basic-pitch's frequency search to this song's range: {min_hz:.1f}-{max_hz:.1f}Hz")
+    performance = transcribe(
+        wav_path=audio_path,
+        config=AudioToPerformanceConfig(keyboard_range=effective_range, minimum_frequency=min_hz, maximum_frequency=max_hz),
+    )
     print(f"  transcribed {len(performance)} notes")
 
     result = score_performance(
