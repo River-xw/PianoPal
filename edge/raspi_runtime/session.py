@@ -83,17 +83,21 @@ async def run_session(
         db_path=config.db_path,
     )
 
-    _register_artifacts(config.session_id, paths, started_at, config.db_path)
+    _register_audio_artifact(config.session_id, paths, started_at, config.db_path)
+    if config.mode != "audio-only":
+        _register_imu_artifacts(config.session_id, paths, started_at, config.db_path)
+
     model_run_id = f"modelrun_{config.session_id}_imu_posture"
-    add_model_run(
-        model_run_id,
-        config.session_id,
-        "imu_posture_classifier",
-        pipeline.model.model_version,
-        started_at,
-        output_artifact_id=f"artifact_{config.session_id}_imu_predictions",
-        db_path=config.db_path,
-    )
+    if config.mode != "audio-only":
+        add_model_run(
+            model_run_id,
+            config.session_id,
+            "imu_posture_classifier",
+            pipeline.model.model_version,
+            started_at,
+            output_artifact_id=f"artifact_{config.session_id}_imu_predictions",
+            db_path=config.db_path,
+        )
 
     packet_counts = {"L": 0, "R": 0}
     prediction_count = 0
@@ -115,36 +119,42 @@ async def run_session(
     await recorder.start(paths.audio_path)
 
     try:
-        with JsonlWriter(paths.imu_left_path) as left_writer, JsonlWriter(
-            paths.imu_right_path
-        ) as right_writer, JsonlWriter(paths.imu_predictions_path) as prediction_writer:
-            if config.mode == "simulate":
-                await run_simulated_packets(
-                    stop_event,
-                    handle_packet,
-                    duration_sec=config.duration_sec,
-                )
-            elif config.mode == "ble":
-                if config.ble_config is None:
-                    raise ValueError("--ble-config is required in ble mode")
-                await BleHandSensorSource(config.ble_config).run(stop_event, handle_packet)
-            else:
-                raise ValueError(f"unknown runtime mode: {config.mode}")
+        if config.mode == "audio-only":
+            await asyncio.sleep(config.duration_sec)
+        else:
+            with JsonlWriter(paths.imu_left_path) as left_writer, JsonlWriter(
+                paths.imu_right_path
+            ) as right_writer, JsonlWriter(paths.imu_predictions_path) as prediction_writer:
+                if config.mode == "simulate":
+                    await run_simulated_packets(
+                        stop_event,
+                        handle_packet,
+                        duration_sec=config.duration_sec,
+                    )
+                elif config.mode == "ble":
+                    if config.ble_config is None:
+                        raise ValueError("--ble-config is required in ble mode")
+                    await BleHandSensorSource(config.ble_config).run(stop_event, handle_packet)
+                else:
+                    raise ValueError(f"unknown runtime mode: {config.mode}")
     finally:
         await recorder.stop()
 
     ended_at = utc_now_iso()
-    finish_model_run(
-        model_run_id,
-        ended_at,
-        output_artifact_id=f"artifact_{config.session_id}_imu_predictions",
-        metrics={
-            "left_packets": packet_counts["L"],
-            "right_packets": packet_counts["R"],
-            "predictions": prediction_count,
-        },
-        db_path=config.db_path,
-    )
+    if config.mode != "audio-only":
+        finish_model_run(
+            model_run_id,
+            ended_at,
+            output_artifact_id=f"artifact_{config.session_id}_imu_predictions",
+            metrics={
+                "left_packets": packet_counts["L"],
+                "right_packets": packet_counts["R"],
+                "predictions": prediction_count,
+            },
+            db_path=config.db_path,
+        )
+
+    status = "audio_acquired" if config.mode == "audio-only" else "acquired"
     finish_practice_session(
         config.session_id,
         ended_at,
@@ -155,23 +165,39 @@ async def run_session(
                 "right_packets": packet_counts["R"],
                 "imu_predictions": prediction_count,
                 "audio_uri": str(paths.audio_path),
+                "mode": config.mode,
             }
         },
-        status="acquired",
+        status=status,
         db_path=config.db_path,
     )
-    await feedback.say("session acquired")
+    await feedback.say(status)
     return paths
 
 
-def _register_artifacts(
+def _register_audio_artifact(
+    session_id: str,
+    paths: SessionPaths,
+    created_at: str,
+    db_path: Path | None,
+) -> None:
+    add_artifact(
+        f"artifact_{session_id}_raw_audio",
+        session_id,
+        "raw_audio",
+        str(paths.audio_path),
+        created_at,
+        db_path,
+    )
+
+
+def _register_imu_artifacts(
     session_id: str,
     paths: SessionPaths,
     created_at: str,
     db_path: Path | None,
 ) -> None:
     artifacts = [
-        ("raw_audio", paths.audio_path),
         ("imu_left_raw", paths.imu_left_path),
         ("imu_right_raw", paths.imu_right_path),
         ("imu_predictions", paths.imu_predictions_path),
