@@ -31,6 +31,16 @@ class ScoringConfig:
     tol_ms: float = 50.0
     tol_beat: Optional[float] = None  # e.g. 1/16; overrides tol_ms (via effective bpm) when set
 
+    # When True, drop the timing dimension entirely: a pitch-matched note is
+    # always "correct" (never "timing_off"), offset_ms/timing are omitted
+    # from each note (None), timing_stability is omitted from sub_scores
+    # (None), and the overall score is pitch+rhythm only (their configured
+    # weights renormalized to sum to 1.0). For diagnosing pitch/transcription
+    # accuracy on real recordings, where a real performer's natural tempo
+    # rubato -- not transcription error -- can otherwise dominate the
+    # timing_off count and obscure the actual question being asked.
+    ignore_timing: bool = False
+
     # --- reference-aware harmonic-extra suppression ---
     # basic-pitch (or any audio transcription) emits spurious overtone notes:
     # an octave (or octave+fifth / two octaves) ABOVE a genuinely-played note,

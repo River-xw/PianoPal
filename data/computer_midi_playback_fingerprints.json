@@ -1,5 +1,5 @@
 {
-  "instrument_id": "toy_keyboard_v1 (from twinkle_take1.m4a, 2026-07-20)",
+  "instrument_id": "CORRECTION 2026-07-20: this is NOT the toy keyboard. twinkle_take1.m4a is a phone recording of a COMPUTER playing back the reference MIDI through its speakers, not the physical 37-key instrument. Kept as a proof-of-concept dataset for the template-matching mechanism; do not use for real deployment decisions about the actual keyboard's timbre.",
   "cqt_fmin_hz": 27.5,
   "cqt_bins_per_octave": 36,
   "cqt_n_octaves": 8,

@@ -1,29 +1,35 @@
 """Per-key spectral fingerprints, learned directly from a recording of THIS
-specific instrument -- for when the instrument's timbre doesn't match what
+specific instrument -- for when an instrument's timbre doesn't match what
 basic-pitch was trained on (a real acoustic piano).
 
-Motivation: on a real recording of the project's toy keyboard, basic-pitch
-scored 12/100 (1 of 69 notes correct). Direct spectral analysis of the raw
-audio showed why: the toy keyboard's low-register keys have almost no
-energy at their true fundamental frequency (a small speaker's frequency
-response can't reproduce it) -- the dominant peak sits on a harmonic
-instead (observed 2x-5x the fundamental, not perfectly consistent, but
-never near 1x). basic-pitch, trained on real piano recordings where the
-fundamental IS normally present and dominant, has no reason to expect this
-and locks onto the wrong pitch.
+Motivation, and an important correction: an early test recording
+(twinkle_take1.m4a) was believed to be the project's actual 37-key toy
+keyboard and scored 12/100 (1 of 69 notes correct) on basic-pitch. Direct
+spectral analysis showed a striking pattern -- low-register notes had
+almost no energy at their true fundamental frequency, with the dominant
+peak sitting on a harmonic instead (2x-5x the fundamental). BUT that
+recording was later found to be a phone recording of a COMPUTER playing
+the reference MIDI through its own speakers, not the physical keyboard --
+so the missing-fundamental finding is real (it's a genuine property of
+*that* audio) but is NOT confirmed to describe the actual toy keyboard's
+timbre. The real instrument's response is still unclarified pending a
+proper recording of it. See data/computer_midi_playback_fingerprints.json
+and data/experiments/computer_midi_playback/ for that (mislabeled but
+kept, as a proof-of-concept dataset) recording and its results.
 
-Since this instrument's odd response is FIXED (same 37 keys, same
-electronics every time) rather than random noise, it doesn't need to be
-modeled or understood theoretically -- it can be learned empirically:
-record this keyboard playing known pieces, extract each key's actual
-observed spectral shape as a template, and match future recordings against
-those templates instead of (or alongside) basic-pitch's generic,
-real-piano-trained judgment.
+The mechanism this module builds is still exactly what's needed once a
+real recording of the actual keyboard exists: an instrument's odd acoustic
+response, if FIXED (same keys, same electronics every time) rather than
+random noise, doesn't need to be modeled or understood theoretically -- it
+can be learned empirically. Record the instrument playing known pieces,
+extract each key's actual observed spectral shape as a template, and match
+future recordings against those templates instead of (or alongside)
+basic-pitch's generic, real-piano-trained judgment.
 
 Honest limitation: templates can only be built for keys that actually
 appear in the training recording(s) provided. A single short piece will
-cover a handful of the 37 keys, not all of them -- more recordings (ideally
-a chromatic scale, or several pieces spanning the full range) improve
+cover a handful of the keys, not all 37 -- more recordings (ideally a
+chromatic scale, or several pieces spanning the full range) improve
 coverage. See constrained_verification.score_candidate for how a missing
 template for a candidate falls back to the generic harmonic-aware scoring.
 """

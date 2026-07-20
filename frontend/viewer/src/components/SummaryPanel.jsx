@@ -15,11 +15,14 @@ const STATUS_VARS = {
 };
 
 function StatTile({ label, value }) {
+  // null when the timing dimension was dropped (ScoringConfig.ignore_timing) --
+  // not applicable rather than a real zero
+  const display = value === null || value === undefined ? "N/A" : value.toFixed(1);
   return (
     <div className="flex flex-col gap-1 rounded-lg border px-4 py-3" style={{ borderColor: "var(--border)" }}>
       <span className="text-sm" style={{ color: "var(--text-muted)" }}>{label}</span>
       <span className="text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
-        {value.toFixed(1)}
+        {display}
       </span>
     </div>
   );

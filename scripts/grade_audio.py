@@ -53,13 +53,14 @@ def _status_labels():
     return {"correct": 0, "timing_off": 0, "wrong_pitch": 0, "missed": 0, "extra": 0}
 
 
-def _reclassify_corrected_octaves(result: dict, tol_ms: float) -> int:
+def _reclassify_corrected_octaves(result: dict, tol_ms: float, ignore_timing: bool = False) -> int:
     """In place: for each wrong_pitch note the audio re-check corrected to the
     reference pitch, flip its verdict to correct/timing_off (by its existing
-    timing offset), then recompute summary counts + sub-scores + score with
-    the SAME formula backend.scoring._summarize uses. `missed` notes are left
-    as-is -- correcting one would mean fabricating a note the audio pipeline
-    never emitted, which this pipeline deliberately never does. Returns the
+    timing offset, or always correct when `ignore_timing`), then recompute
+    summary counts + sub-scores + score with the SAME formula
+    backend.scoring._summarize uses. `missed` notes are left as-is --
+    correcting one would mean fabricating a note the audio pipeline never
+    emitted, which this pipeline deliberately never does. Returns the
     number of notes corrected.
     """
     corrected = 0
@@ -73,7 +74,7 @@ def _reclassify_corrected_octaves(result: dict, tol_ms: float) -> int:
         if flag == "corrected_octave_or_harmonic_error" and original_status == "wrong_pitch":
             # audio confirms the reference pitch was played -> flip the verdict
             offset_ms = n.get("offset_ms")
-            within = offset_ms is not None and abs(offset_ms) <= tol_ms
+            within = ignore_timing or (offset_ms is not None and abs(offset_ms) <= tol_ms)
             n["status"] = "correct" if within else "timing_off"
             n["pitch_perf"] = n.get("pitch_ref")
             corrected += 1
@@ -87,11 +88,11 @@ def _reclassify_corrected_octaves(result: dict, tol_ms: float) -> int:
             n["status"] = original_status
             n["pitch_perf"] = v.get("original_pitch_guess")
 
-    _recompute_summary(result, tol_ms)
+    _recompute_summary(result, tol_ms, ignore_timing)
     return corrected
 
 
-def _recompute_summary(result: dict, tol_ms: float) -> None:
+def _recompute_summary(result: dict, tol_ms: float, ignore_timing: bool = False) -> None:
     """Recompute summary counts/sub_scores/score from the (possibly
     reclassified) notes -- mirrors backend.scoring.score._summarize so the
     audio path stays consistent with the symbolic path's formula.
@@ -106,17 +107,20 @@ def _recompute_summary(result: dict, tol_ms: float) -> None:
     matched_ok = counts["correct"] + counts["timing_off"]
     rhythm = 100.0 * counts["correct"] / matched_ok if matched_ok else 100.0
 
-    # timing_stability depends only on matched-note offset spread, which the
-    # reclassification doesn't change, so keep the value scoring already computed
-    timing_stability = result["summary"]["sub_scores"]["timing_stability"]
-
     summary = result["summary"]
+    if ignore_timing:
+        summary["sub_scores"] = {"pitch": round(pitch, 2), "rhythm": round(rhythm, 2), "timing_stability": None}
+        summary["score"] = round(0.5 * pitch + 0.5 * rhythm, 2)
+    else:
+        # timing_stability depends only on matched-note offset spread, which the
+        # reclassification doesn't change, so keep the value scoring already computed
+        timing_stability = summary["sub_scores"]["timing_stability"]
+        summary["sub_scores"] = {
+            "pitch": round(pitch, 2), "rhythm": round(rhythm, 2),
+            "timing_stability": round(timing_stability, 2),
+        }
+        summary["score"] = round(0.4 * pitch + 0.4 * rhythm + 0.2 * timing_stability, 2)
     summary["counts"] = counts
-    summary["sub_scores"] = {
-        "pitch": round(pitch, 2), "rhythm": round(rhythm, 2),
-        "timing_stability": round(timing_stability, 2),
-    }
-    summary["score"] = round(0.4 * pitch + 0.4 * rhythm + 0.2 * timing_stability, 2)
 
 
 def main(argv=None) -> int:
@@ -132,7 +136,8 @@ def main(argv=None) -> int:
     parser.add_argument("--keyboard-range", type=int, nargs=2, default=list(KEYBOARD_RANGE), metavar=("LOW", "HIGH"), help="Physical keyboard MIDI range (default: the project's 37-key board, 48-84 -- see backend/hardware.py).")
     parser.add_argument("-o", "--output", default=str(VIEWER_DIR / "public" / "result.json"), help="Where to write result.json (defaults to the viewer's public/).")
     parser.add_argument("--no-reverify", action="store_true", help="Skip the constrained-verification octave re-check.")
-    parser.add_argument("--templates", default=None, help="Per-key spectral fingerprints learned from THIS instrument (see backend/audio_to_performance/timbre_fingerprint.py) -- use when the instrument's timbre doesn't match basic-pitch's real-piano training, e.g. data/toy_keyboard_fingerprints.json.")
+    parser.add_argument("--templates", default=None, help="Per-key spectral fingerprints learned from THIS instrument (see backend/audio_to_performance/timbre_fingerprint.py) -- use when the instrument's timbre doesn't match basic-pitch's real-piano training, e.g. data/computer_midi_playback_fingerprints.json.")
+    parser.add_argument("--ignore-timing", action="store_true", help="Drop the timing dimension entirely (see ScoringConfig.ignore_timing) -- for isolating pitch/transcription accuracy from a real performer's natural tempo rubato.")
     args = parser.parse_args(argv)
 
     reference = convert_score(args.reference)
@@ -188,7 +193,9 @@ def main(argv=None) -> int:
     performance = transcribe(wav_path=audio_path, config=AudioToPerformanceConfig(keyboard_range=effective_range))
     print(f"  transcribed {len(performance)} notes")
 
-    result = score_performance(reference, performance, song_name=args.song_name)
+    result = score_performance(
+        reference, performance, ScoringConfig(ignore_timing=args.ignore_timing), song_name=args.song_name,
+    )
     result_dict = result.to_dict()
     print(f"  pass 1 score {result_dict['summary']['score']}  counts {result_dict['summary']['counts']}"
           f"  (harmonic extras removed: {result_dict['summary']['harmonic_extras_removed']})")
@@ -213,7 +220,7 @@ def main(argv=None) -> int:
             templates = load_templates(args.templates)
             print(f"  using {len(templates)} instrument-specific fingerprint(s) from {args.templates}")
         result_dict = reverify_result(result_dict, audio, sr, reference=reference, config=cv_config, templates=templates)
-        corrected = _reclassify_corrected_octaves(result_dict, tol_ms=ScoringConfig().tol_ms)
+        corrected = _reclassify_corrected_octaves(result_dict, tol_ms=ScoringConfig().tol_ms, ignore_timing=args.ignore_timing)
         print(f"  {corrected} wrong_pitch note(s) corrected to the reference pitch by audio evidence,"
               f" {len(result_dict.get('unscored_extra_onsets', []))} unscored onset(s) flagged")
 

@@ -1,18 +1,18 @@
 {
-  "song_name": "Twinkle (toy keyboard, with templates)",
+  "song_name": "Twinkle (computer MIDI playback, no templates)",
   "summary": {
-    "score": 20.69,
+    "score": 13.83,
     "sub_scores": {
-      "pitch": 33.33,
-      "rhythm": 12.9,
+      "pitch": 24.73,
+      "rhythm": 4.35,
       "timing_stability": 10.98
     },
     "global_tempo_ratio": 0.9663,
     "tempo_trend": "accelerating",
     "counts": {
-      "correct": 4,
-      "timing_off": 27,
-      "wrong_pitch": 24,
+      "correct": 1,
+      "timing_off": 22,
+      "wrong_pitch": 32,
       "missed": 14,
       "extra": 24
     },
@@ -149,16 +149,16 @@
         "original_status": "missed",
         "original_pitch_guess": null,
         "candidates_scored": {
-          "55": 0.0,
-          "65": 0.207805,
-          "66": 0.0,
-          "67": 0.156148,
-          "68": 0.0,
-          "69": 0.09731,
-          "79": 0.0
+          "55": 0.007614,
+          "65": 0.003133,
+          "66": 0.002576,
+          "67": 0.004613,
+          "68": 0.002262,
+          "69": 0.003418,
+          "79": 0.000173
         },
-        "winner": 65,
-        "confidence": 0.4505,
+        "winner": 55,
+        "confidence": 0.3201,
         "new_status": "reverified_different_pitch",
         "flag": "reverified_different_pitch"
       }
@@ -181,16 +181,16 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 72,
         "candidates_scored": {
-          "55": 0.0,
-          "65": 0.451235,
-          "66": 0.0,
-          "67": 0.501335,
-          "68": 0.0,
-          "69": 0.933092,
-          "79": 0.0
+          "55": 0.012777,
+          "65": 0.033402,
+          "66": 0.021922,
+          "67": 0.042031,
+          "68": 0.024286,
+          "69": 0.016338,
+          "79": 0.161309
         },
-        "winner": 69,
-        "confidence": 0.4948,
+        "winner": 79,
+        "confidence": 0.5169,
         "new_status": "reverified_different_pitch",
         "flag": "reverified_different_pitch"
       }
@@ -231,12 +231,12 @@
       "ref_index": 7,
       "perf_index": 3,
       "pitch_ref": 69,
-      "pitch_perf": 69,
+      "pitch_perf": 72,
       "name": "A4",
       "onset_ref_sec": 2.4,
       "onset_perf_sec": 3.2295454545454545,
       "offset_ms": 345.0146627565984,
-      "status": "timing_off",
+      "status": "wrong_pitch",
       "timing": "drag",
       "measure": 2,
       "hand": "R",
@@ -245,18 +245,18 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 72,
         "candidates_scored": {
-          "57": 0.0,
-          "67": 0.466391,
-          "68": 0.0,
-          "69": 0.987061,
-          "70": 0.0,
-          "71": 0.0,
-          "81": 0.0
+          "57": 0.017591,
+          "67": 0.031398,
+          "68": 0.026933,
+          "69": 0.030612,
+          "70": 0.041484,
+          "71": 0.068364,
+          "81": 0.001808
         },
-        "winner": 69,
-        "confidence": 0.6791,
-        "new_status": "corrected_octave_or_harmonic_error",
-        "flag": "corrected_octave_or_harmonic_error"
+        "winner": 71,
+        "confidence": 0.3133,
+        "new_status": "reverified_different_pitch",
+        "flag": "reverified_different_pitch"
       }
     },
     {
@@ -277,18 +277,18 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 64,
         "candidates_scored": {
-          "57": 0.0,
-          "67": 0.366794,
-          "68": 0.0,
-          "69": 0.358167,
-          "70": 0.0,
-          "71": 0.0,
-          "81": 0.0
+          "57": 0.020696,
+          "67": 0.050438,
+          "68": 0.026927,
+          "69": 0.038507,
+          "70": 0.022574,
+          "71": 0.026559,
+          "81": 0.030965
         },
         "winner": 67,
-        "confidence": 0.5059,
-        "new_status": "reverified_different_pitch",
-        "flag": "reverified_different_pitch"
+        "confidence": 0.2328,
+        "new_status": "wrong_pitch",
+        "flag": "reverification_inconclusive"
       }
     },
     {
@@ -341,16 +341,16 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 64,
         "candidates_scored": {
-          "55": 0.0,
-          "65": 0.37722,
-          "66": 0.0,
-          "67": 0.337547,
-          "68": 0.0,
-          "69": 0.165907,
-          "79": 0.0
+          "55": 0.0215,
+          "65": 0.044566,
+          "66": 0.033428,
+          "67": 0.027982,
+          "68": 0.026551,
+          "69": 0.025103,
+          "79": 0.670595
         },
-        "winner": 65,
-        "confidence": 0.4283,
+        "winner": 79,
+        "confidence": 0.7892,
         "new_status": "reverified_different_pitch",
         "flag": "reverified_different_pitch"
       }
@@ -437,16 +437,16 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 81,
         "candidates_scored": {
-          "53": 0.0,
-          "63": 0.0,
-          "64": 0.165744,
-          "65": 0.829584,
-          "66": 0.0,
-          "67": 0.130621,
-          "77": 0.0
+          "53": 0.017191,
+          "63": 0.016478,
+          "64": 0.033351,
+          "65": 0.329216,
+          "66": 0.018066,
+          "67": 0.015439,
+          "77": 0.151615
         },
         "winner": 65,
-        "confidence": 0.7368,
+        "confidence": 0.5663,
         "new_status": "corrected_octave_or_harmonic_error",
         "flag": "corrected_octave_or_harmonic_error"
       }
@@ -469,16 +469,16 @@
         "original_status": "missed",
         "original_pitch_guess": null,
         "candidates_scored": {
-          "48": 0.089549,
-          "49": 0.0,
-          "50": 0.0,
-          "60": 0.075045,
-          "72": 0.0
+          "48": 0.013564,
+          "49": 0.01593,
+          "50": 0.004774,
+          "60": 0.000646,
+          "72": 0.002762
         },
-        "winner": 48,
-        "confidence": 0.5441,
-        "new_status": "corrected_octave_or_harmonic_error",
-        "flag": "corrected_octave_or_harmonic_error"
+        "winner": 49,
+        "confidence": 0.4228,
+        "new_status": "reverified_different_pitch",
+        "flag": "reverified_different_pitch"
       }
     },
     {
@@ -515,16 +515,16 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 76,
         "candidates_scored": {
-          "52": 0.0,
-          "62": 0.0,
-          "63": 0.0,
-          "64": 0.980514,
-          "65": 0.38602,
-          "66": 0.0,
-          "76": 0.0
+          "52": 0.012482,
+          "62": 0.021726,
+          "63": 0.076891,
+          "64": 1.13514,
+          "65": 0.096458,
+          "66": 0.097998,
+          "76": 0.053023
         },
         "winner": 64,
-        "confidence": 0.7175,
+        "confidence": 0.7599,
         "new_status": "corrected_octave_or_harmonic_error",
         "flag": "corrected_octave_or_harmonic_error"
       }
@@ -725,12 +725,12 @@
       "ref_index": 23,
       "perf_index": 19,
       "pitch_ref": 48,
-      "pitch_perf": 48,
+      "pitch_perf": 76,
       "name": "C3",
       "onset_ref_sec": 9.0,
       "onset_perf_sec": 9.247727272727273,
       "offset_ms": -14.222873900292754,
-      "status": "correct",
+      "status": "wrong_pitch",
       "timing": "accurate",
       "measure": 4,
       "hand": "R",
@@ -739,16 +739,16 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 76,
         "candidates_scored": {
-          "48": 0.988451,
-          "49": 0.0,
-          "50": 0.0,
-          "60": 0.931347,
-          "72": 0.0
+          "48": 0.008827,
+          "49": 0.01322,
+          "50": 0.011152,
+          "60": 0.409889,
+          "72": 0.346769
         },
-        "winner": 48,
-        "confidence": 0.5149,
-        "new_status": "corrected_octave_or_harmonic_error",
-        "flag": "corrected_octave_or_harmonic_error"
+        "winner": 60,
+        "confidence": 0.5189,
+        "new_status": "reverified_different_pitch",
+        "flag": "reverified_different_pitch"
       }
     },
     {
@@ -803,12 +803,12 @@
       "ref_index": 25,
       "perf_index": 22,
       "pitch_ref": 67,
-      "pitch_perf": 67,
+      "pitch_perf": 77,
       "name": "G4",
       "onset_ref_sec": 9.6,
       "onset_perf_sec": 9.827272727272726,
       "offset_ms": -14.442815249266161,
-      "status": "correct",
+      "status": "wrong_pitch",
       "timing": "accurate",
       "measure": 5,
       "hand": "R",
@@ -817,18 +817,18 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 77,
         "candidates_scored": {
-          "55": 0.0,
-          "65": 0.552397,
-          "66": 0.0,
-          "67": 0.793836,
-          "68": 0.0,
-          "69": 0.190018,
-          "79": 0.0
+          "55": 0.013383,
+          "65": 0.610358,
+          "66": 0.151601,
+          "67": 0.070112,
+          "68": 0.0378,
+          "69": 0.024785,
+          "79": 0.036571
         },
-        "winner": 67,
-        "confidence": 0.5167,
-        "new_status": "corrected_octave_or_harmonic_error",
-        "flag": "corrected_octave_or_harmonic_error"
+        "winner": 65,
+        "confidence": 0.6461,
+        "new_status": "reverified_different_pitch",
+        "flag": "reverified_different_pitch"
       }
     },
     {
@@ -913,16 +913,16 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 72,
         "candidates_scored": {
-          "53": 0.0,
-          "63": 0.0,
-          "64": 0.725612,
-          "65": 0.474184,
-          "66": 0.0,
-          "67": 0.519133,
-          "77": 0.0
+          "53": 0.009519,
+          "63": 0.108034,
+          "64": 1.209116,
+          "65": 0.102575,
+          "66": 0.091961,
+          "67": 0.214245,
+          "77": 0.096358
         },
         "winner": 64,
-        "confidence": 0.4221,
+        "confidence": 0.6601,
         "new_status": "reverified_different_pitch",
         "flag": "reverified_different_pitch"
       }
@@ -945,16 +945,16 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 60,
         "candidates_scored": {
-          "53": 0.0,
-          "63": 0.0,
-          "64": 0.65477,
-          "65": 0.491825,
-          "66": 0.0,
-          "67": 0.492966,
-          "77": 0.0
+          "53": 0.022162,
+          "63": 0.061933,
+          "64": 0.710843,
+          "65": 0.048186,
+          "66": 0.036531,
+          "67": 0.042943,
+          "77": 0.028131
         },
         "winner": 64,
-        "confidence": 0.3994,
+        "confidence": 0.7477,
         "new_status": "reverified_different_pitch",
         "flag": "reverified_different_pitch"
       }
@@ -1281,16 +1281,16 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 74,
         "candidates_scored": {
-          "53": 0.0,
-          "63": 0.0,
-          "64": 0.187123,
-          "65": 0.49712,
-          "66": 0.0,
-          "67": 0.894385,
-          "77": 0.0
+          "53": 0.015567,
+          "63": 0.025624,
+          "64": 0.040322,
+          "65": 0.039515,
+          "66": 0.163551,
+          "67": 0.607643,
+          "77": 0.036322
         },
         "winner": 67,
-        "confidence": 0.5666,
+        "confidence": 0.6544,
         "new_status": "reverified_different_pitch",
         "flag": "reverified_different_pitch"
       }
@@ -1313,16 +1313,16 @@
         "original_status": "missed",
         "original_pitch_guess": null,
         "candidates_scored": {
-          "53": 0.0,
-          "63": 0.0,
-          "64": 0.182998,
-          "65": 0.482273,
-          "66": 0.0,
-          "67": 0.849485,
-          "77": 0.0
+          "53": 0.024302,
+          "63": 0.01091,
+          "64": 0.009449,
+          "65": 0.016849,
+          "66": 0.02101,
+          "67": 0.469425,
+          "77": 0.008328
         },
         "winner": 67,
-        "confidence": 0.5608,
+        "confidence": 0.8378,
         "new_status": "reverified_different_pitch",
         "flag": "reverified_different_pitch"
       }
@@ -1491,12 +1491,12 @@
       "ref_index": 46,
       "perf_index": 51,
       "pitch_ref": 48,
-      "pitch_perf": 48,
+      "pitch_perf": 65,
       "name": "C3",
       "onset_ref_sec": 19.2,
       "onset_perf_sec": 18.820454545454545,
       "offset_ms": -297.50733137829855,
-      "status": "timing_off",
+      "status": "wrong_pitch",
       "timing": "rush",
       "measure": 9,
       "hand": "R",
@@ -1505,16 +1505,16 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 65,
         "candidates_scored": {
-          "48": 0.154733,
-          "49": 0.0,
-          "50": 0.0,
-          "60": 0.140954,
-          "72": 0.0
+          "48": 0.011687,
+          "49": 0.012317,
+          "50": 0.009992,
+          "60": 0.012975,
+          "72": 0.010268
         },
-        "winner": 48,
-        "confidence": 0.5233,
-        "new_status": "corrected_octave_or_harmonic_error",
-        "flag": "corrected_octave_or_harmonic_error"
+        "winner": 60,
+        "confidence": 0.2267,
+        "new_status": "wrong_pitch",
+        "flag": "reverification_inconclusive"
       }
     },
     {
@@ -1535,19 +1535,19 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 77,
         "candidates_scored": {
-          "48": 0.158166,
-          "58": 0.0,
-          "59": 0.0,
-          "60": 0.144662,
-          "61": 0.0,
-          "62": 0.0,
-          "72": 0.0,
-          "84": 0.0
+          "48": 0.008745,
+          "58": 0.007326,
+          "59": 0.012431,
+          "60": 0.013174,
+          "61": 0.011897,
+          "62": 0.023657,
+          "72": 0.010491,
+          "84": 0.019465
         },
-        "winner": 48,
-        "confidence": 0.5223,
-        "new_status": "reverified_different_pitch",
-        "flag": "reverified_different_pitch"
+        "winner": 62,
+        "confidence": 0.2207,
+        "new_status": "wrong_pitch",
+        "flag": "reverification_inconclusive"
       }
     },
     {
@@ -1568,19 +1568,19 @@
         "original_status": "missed",
         "original_pitch_guess": null,
         "candidates_scored": {
-          "48": 0.870047,
-          "58": 0.0,
-          "59": 0.0,
-          "60": 0.915011,
-          "61": 0.0,
-          "62": 0.0,
-          "72": 0.0,
-          "84": 0.0
+          "48": 0.041398,
+          "58": 0.003621,
+          "59": 0.002898,
+          "60": 0.000818,
+          "61": 0.009647,
+          "62": 0.008759,
+          "72": 0.010508,
+          "84": 0.006341
         },
-        "winner": 60,
-        "confidence": 0.5126,
-        "new_status": "corrected_octave_or_harmonic_error",
-        "flag": "corrected_octave_or_harmonic_error"
+        "winner": 48,
+        "confidence": 0.4929,
+        "new_status": "reverified_different_pitch",
+        "flag": "reverified_different_pitch"
       }
     },
     {
@@ -1715,12 +1715,12 @@
       "ref_index": 53,
       "perf_index": 57,
       "pitch_ref": 69,
-      "pitch_perf": 69,
+      "pitch_perf": 60,
       "name": "A4",
       "onset_ref_sec": 21.6,
       "onset_perf_sec": 21.852272727272727,
       "offset_ms": 415.249266862169,
-      "status": "timing_off",
+      "status": "wrong_pitch",
       "timing": "drag",
       "measure": 10,
       "hand": "R",
@@ -1729,30 +1729,30 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 60,
         "candidates_scored": {
-          "57": 0.0,
-          "67": 0.503086,
-          "68": 0.0,
-          "69": 0.911006,
-          "70": 0.0,
-          "71": 0.0,
-          "81": 0.0
+          "57": 0.031633,
+          "67": 0.052387,
+          "68": 0.028245,
+          "69": 0.015971,
+          "70": 0.02961,
+          "71": 0.065004,
+          "81": 0.0098
         },
-        "winner": 69,
-        "confidence": 0.6442,
-        "new_status": "corrected_octave_or_harmonic_error",
-        "flag": "corrected_octave_or_harmonic_error"
+        "winner": 71,
+        "confidence": 0.2794,
+        "new_status": "wrong_pitch",
+        "flag": "reverification_inconclusive"
       }
     },
     {
       "ref_index": 54,
       "perf_index": 58,
       "pitch_ref": 69,
-      "pitch_perf": 69,
+      "pitch_perf": 72,
       "name": "A4",
       "onset_ref_sec": 22.2,
       "onset_perf_sec": 21.852272727272727,
       "offset_ms": -164.51612903225765,
-      "status": "timing_off",
+      "status": "wrong_pitch",
       "timing": "rush",
       "measure": 10,
       "hand": "R",
@@ -1761,18 +1761,18 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 72,
         "candidates_scored": {
-          "57": 0.0,
-          "67": 0.503086,
-          "68": 0.0,
-          "69": 0.911006,
-          "70": 0.0,
-          "71": 0.0,
-          "81": 0.0
+          "57": 0.031633,
+          "67": 0.052387,
+          "68": 0.028245,
+          "69": 0.015971,
+          "70": 0.02961,
+          "71": 0.065004,
+          "81": 0.0098
         },
-        "winner": 69,
-        "confidence": 0.6442,
-        "new_status": "corrected_octave_or_harmonic_error",
-        "flag": "corrected_octave_or_harmonic_error"
+        "winner": 71,
+        "confidence": 0.2794,
+        "new_status": "wrong_pitch",
+        "flag": "reverification_inconclusive"
       }
     },
     {
@@ -1825,16 +1825,16 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 72,
         "candidates_scored": {
-          "55": 0.0,
-          "65": 0.436785,
-          "66": 0.0,
-          "67": 0.485307,
-          "68": 0.0,
-          "69": 0.966004,
-          "79": 0.0
+          "55": 0.012666,
+          "65": 0.038089,
+          "66": 0.042355,
+          "67": 0.035834,
+          "68": 0.031286,
+          "69": 0.028711,
+          "79": 0.123191
         },
-        "winner": 69,
-        "confidence": 0.5116,
+        "winner": 79,
+        "confidence": 0.3947,
         "new_status": "reverified_different_pitch",
         "flag": "reverified_different_pitch"
       }
@@ -1937,16 +1937,16 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 81,
         "candidates_scored": {
-          "53": 0.0,
-          "63": 0.0,
-          "64": 0.342189,
-          "65": 0.810848,
-          "66": 0.0,
-          "67": 0.223154,
-          "77": 0.0
+          "53": 0.028364,
+          "63": 0.043815,
+          "64": 0.306328,
+          "65": 0.618821,
+          "66": 0.132785,
+          "67": 0.0536,
+          "77": 0.423118
         },
         "winner": 65,
-        "confidence": 0.5892,
+        "confidence": 0.3851,
         "new_status": "corrected_octave_or_harmonic_error",
         "flag": "corrected_octave_or_harmonic_error"
       }
@@ -1955,12 +1955,12 @@
       "ref_index": 60,
       "perf_index": 66,
       "pitch_ref": 48,
-      "pitch_perf": 48,
+      "pitch_perf": 81,
       "name": "C3",
       "onset_ref_sec": 25.2,
       "onset_perf_sec": 24.825,
       "offset_ms": -90.6158357771254,
-      "status": "timing_off",
+      "status": "wrong_pitch",
       "timing": "rush",
       "measure": 11,
       "hand": "R",
@@ -1969,16 +1969,16 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 81,
         "candidates_scored": {
-          "48": 0.084343,
-          "49": 0.0,
-          "50": 0.0,
-          "60": 0.074635,
-          "72": 0.0
+          "48": 0.019001,
+          "49": 0.011713,
+          "50": 0.017164,
+          "60": 0.012181,
+          "72": 0.010621
         },
         "winner": 48,
-        "confidence": 0.5305,
-        "new_status": "corrected_octave_or_harmonic_error",
-        "flag": "corrected_octave_or_harmonic_error"
+        "confidence": 0.2688,
+        "new_status": "wrong_pitch",
+        "flag": "reverification_inconclusive"
       }
     },
     {
@@ -2015,16 +2015,16 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 79,
         "candidates_scored": {
-          "52": 0.0,
-          "62": 0.0,
-          "63": 0.0,
-          "64": 0.971966,
-          "65": 0.43039,
-          "66": 0.0,
-          "76": 0.0
+          "52": 0.011321,
+          "62": 0.026017,
+          "63": 0.079295,
+          "64": 1.098881,
+          "65": 0.116107,
+          "66": 0.099184,
+          "76": 0.051102
         },
         "winner": 64,
-        "confidence": 0.6931,
+        "confidence": 0.7415,
         "new_status": "corrected_octave_or_harmonic_error",
         "flag": "corrected_octave_or_harmonic_error"
       }
@@ -2145,12 +2145,12 @@
       "ref_index": 67,
       "perf_index": 71,
       "pitch_ref": 48,
-      "pitch_perf": 48,
+      "pitch_perf": 77,
       "name": "C3",
       "onset_ref_sec": 27.6,
       "onset_perf_sec": 27.229545454545452,
       "offset_ms": -5.131964809386602,
-      "status": "correct",
+      "status": "wrong_pitch",
       "timing": "accurate",
       "measure": 12,
       "hand": "R",
@@ -2159,16 +2159,16 @@
         "original_status": "wrong_pitch",
         "original_pitch_guess": 77,
         "candidates_scored": {
-          "48": 0.146972,
-          "49": 0.0,
-          "50": 0.0,
-          "60": 0.134251,
-          "72": 0.0
+          "48": 0.021419,
+          "49": 0.035347,
+          "50": 0.010777,
+          "60": 0.022963,
+          "72": 0.010489
         },
-        "winner": 48,
-        "confidence": 0.5226,
-        "new_status": "corrected_octave_or_harmonic_error",
-        "flag": "corrected_octave_or_harmonic_error"
+        "winner": 49,
+        "confidence": 0.35,
+        "new_status": "reverified_different_pitch",
+        "flag": "reverified_different_pitch"
       }
     },
     {
