@@ -5,10 +5,18 @@ from __future__ import annotations
 import asyncio
 import json
 import signal
+import sys
+import time
 from pathlib import Path
 from typing import Any
 
 from bleak import BleakClient
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from backend.sensors import RawHandSensorPacket, parse_hand_sensor_packet
 
 
 # micro:bit Bluetooth UART Service
@@ -33,7 +41,7 @@ COMMAND_DELAY_SECONDS = 0.5
 def parse_message(
     device_name: str,
     line: str,
-) -> dict[str, int | str] | None:
+) -> RawHandSensorPacket | None:
     """
     Parse one complete line received from a micro:bit.
 
@@ -43,8 +51,12 @@ def parse_message(
         STARTED LEFT
         STARTED RIGHT
         STOPPED
-        DATA,left,t,ax,ay,az
-        DATA,right,t,ax,ay,az
+        L,seq,timestamp_ms,tip_ax,tip_ay,tip_az,tip_gx,tip_gy,tip_gz,
+          wrist_ax,wrist_ay,wrist_az,wrist_gx,wrist_gy,wrist_gz,
+          back_ax,back_ay,back_az
+        R,seq,timestamp_ms,tip_ax,tip_ay,tip_az,tip_gx,tip_gy,tip_gz,
+          wrist_ax,wrist_ay,wrist_az,wrist_gx,wrist_gy,wrist_gz,
+          back_ax,back_ay,back_az
     """
 
     line = line.strip()
@@ -68,50 +80,33 @@ def parse_message(
         print(f"[{device_name}] data streaming stopped")
         return None
 
-    parts = line.split(",")
+    received_at_unix_ms = time.time_ns() // 1_000_000
+    packet = parse_hand_sensor_packet(
+        line,
+        received_at_unix_ms=received_at_unix_ms,
+    )
 
-    if len(parts) != 6:
-        print(f"[{device_name}] Unknown message: {line}")
-        return None
-
-    packet_type, hand, t_text, ax_text, ay_text, az_text = parts
-
-    if packet_type != "DATA":
-        print(f"[{device_name}] Unknown packet type: {packet_type}")
-        return None
-
-    hand = hand.lower()
-
-    if hand not in {"left", "right"}:
-        print(f"[{device_name}] Invalid hand value: {hand}")
-        return None
-
-    try:
-        packet: dict[str, int | str] = {
-            "device": device_name,
-            "hand": hand,
-            "t": int(t_text),
-            "ax": int(ax_text),
-            "ay": int(ay_text),
-            "az": int(az_text),
-        }
-    except ValueError:
-        print(f"[{device_name}] Invalid numeric data: {line}")
-        return None
+    if packet is None:
+        print(f"[{device_name}] Skipped invalid packet")
 
     return packet
 
 
-def print_packet(packet: dict[str, int | str]) -> None:
-    """Print one parsed acceleration packet."""
+def print_packet(device_name: str, packet: RawHandSensorPacket) -> None:
+    """Print one parsed aggregate hand sensor packet."""
+
+    fingertip_gyro_y = packet.fingertip.gyro.y if packet.fingertip.gyro else None
+    wrist_gyro_z = packet.wrist.gyro.z if packet.wrist.gyro else None
 
     print(
-        f"[{packet['device']}] "
-        f"hand={packet['hand']} "
-        f"t={packet['t']} ms "
-        f"ax={packet['ax']} mg "
-        f"ay={packet['ay']} mg "
-        f"az={packet['az']} mg"
+        f"[{device_name}] "
+        f"hand={packet.hand} "
+        f"seq={packet.sequence_number} "
+        f"t={packet.device_timestamp_ms} ms "
+        f"tip_ax={packet.fingertip.accel.x:g} "
+        f"tip_gy={fingertip_gyro_y:g} "
+        f"wrist_gz={wrist_gyro_z:g} "
+        f"back_az={packet.hand_back.accel.z:g}"
     )
 
 
@@ -189,7 +184,7 @@ async def connect_microbit(
                 )
 
                 if packet is not None:
-                    print_packet(packet)
+                    print_packet(device_name, packet)
 
         try:
             print(f"[{device_name}] Connecting to {address}...")
