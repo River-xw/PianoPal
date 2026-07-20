@@ -65,16 +65,15 @@ function readRegisters(address: number, registerAddress: number, length: number)
 }
 
 function initMpu(address: number): boolean {
-    let ok = true
-    try {
-        writeRegister(address, MPU_PWR_MGMT_1, 0)
-        basic.pause(10)
-        writeRegister(address, MPU_ACCEL_CONFIG, 0)
-        writeRegister(address, MPU_GYRO_CONFIG, 0)
-    } catch (e) {
-        ok = false
+    let checkBuf = readRegisters(address, MPU_PWR_MGMT_1, 1)
+    if (checkBuf.length === 0) {
+        return false
     }
-    return ok
+    writeRegister(address, MPU_PWR_MGMT_1, 0)
+    basic.pause(10)
+    writeRegister(address, MPU_ACCEL_CONFIG, 0)
+    writeRegister(address, MPU_GYRO_CONFIG, 0)
+    return true
 }
 
 function readMpu(address: number): number[] {
