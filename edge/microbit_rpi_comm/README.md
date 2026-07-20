@@ -1,6 +1,6 @@
 # micro:bit v2 ↔ Raspberry Pi 5 (BLE)
 
-通过蓝牙同时连接两块 micro:bit v2，将手部传感器数据传到树莓派 Pi 5。当前提交的 MakeCode 示例读取 micro:bit 内置加速度计；`mpu6050.py` 保留为外接 MPU6050 的 MicroPython 实验驱动。
+通过蓝牙同时连接两块 micro:bit v2，将左右手聚合传感器数据传到树莓派 Pi 5。当前 MakeCode 示例读取每只手的指尖 MPU6050、手腕 MPU6050，以及手背 micro:bit 内置加速度计；`mpu6050.py` 保留为 MicroPython 实验驱动。
 
 ## 目录结构
 
@@ -18,7 +18,7 @@ edge/microbit_rpi_comm/
 ## 硬件要求
 
 - 2 × BBC micro:bit v2
-- 2 × MPU6050 陀螺仪模块（或兼容的 6 轴 IMU，默认读取陀螺仪部分）
+- 4 × MPU6050 6 轴 IMU（每只手 2 个：指尖 + 手腕）
 - 1 × Raspberry Pi 5（内置蓝牙）
 -杜邦线 / breakout 板
 
@@ -31,17 +31,24 @@ edge/microbit_rpi_comm/
 | SCL | Pin 19 |
 | SDA | Pin 20 |
 
-> micro:bit 内置加速度计仍可用，但本方案读取的是外接 MPU6050 的**陀螺仪角速度**（°/s）。
+每块 micro:bit 同一条 I2C 总线上有两个 MPU6050：
+
+| 位置 | I2C 地址 | 说明 |
+|------|---------|------|
+| 指尖 | `0x68` | MPU6050 默认地址 |
+| 手腕 | `0x69` | 需要把该模块 AD0 拉高 |
+
+> 如果两个 MPU6050 都保持默认 `0x68`，它们会地址冲突，micro:bit 无法分别读取。
 
 ## micro:bit 端
 
 1. 用 MakeCode 打开或导入 `microbit/microbit.js`
 2. 按需要把 `START LEFT` 或 `START RIGHT` 指令发给对应手的 micro:bit
 3. 上电后屏幕显示：
-   - 启动：`L` 或 `R`
-   - MPU6050 未检测到：😞（检查接线）
-   - 等待蓝牙连接：`✗`
-   - 连接成功：`✓`
+   - 两个 MPU6050 初始化成功：`✓`
+   - 至少一个 MPU6050 未检测到：😞（检查接线和 `0x68`/`0x69` 地址）
+   - 收到 `CONNECT`：心形
+   - 收到 `START LEFT` / `START RIGHT`：笑脸
 
 若改用 MicroPython 和外接 MPU6050，可以继续基于 `mpu6050.py` 扩展烧录脚本。
 
@@ -172,7 +179,7 @@ BLE 使用 Nordic UART Service：
 | micro:bit 显示 😞 | 检查 MPU6050 接线；确认模块为 3.3V 供电 |
 | 扫描不到 micro:bit | 确认已烧录 `mpu6050.py` + `main_*.py`；板子显示 `L`/`R`；运行 `--scan-all`；靠近 Pi；临时 `sudo rfkill block wlan` |
 | 只能连上一块 | 先 `--scan` 确认两个不同 MAC |
-| 数据全为 0 | 转动 MPU6050 模块验证；检查 I2C 地址是否为 0x68 |
+| 指尖/手腕数据全为 0 | 转动对应 MPU6050 模块验证；检查指尖是否为 `0x68`、手腕是否为 `0x69` |
 | 频繁断线 | 减少遮挡；脚本已内置 5 秒自动重连 |
 
 ## 与 score_to_reference 集成

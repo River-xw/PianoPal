@@ -207,12 +207,12 @@ def finish_model_run(
 def finish_practice_session(
     session_id: str,
     ended_at: str,
-    score: float,
-    summary: dict[str, Any],
+    score: float | None,
+    summary: dict[str, Any] | None,
     status: str = "completed",
     db_path: Path | str | None = None,
 ) -> None:
-    """Store the final score summary for a completed practice session."""
+    """Store the final score summary or acquisition status for a session."""
 
     with transaction(db_path) as conn:
         conn.execute(
