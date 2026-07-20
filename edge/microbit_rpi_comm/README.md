@@ -117,19 +117,42 @@ python ble_sensor_reader.py
 ```
 [left] linked: AA:BB:CC:DD:EE:01
 [left] connected
-[left] tag=L gx=12 gy=-34 gz=5 dps
+[left] hand=L seq=381 t=15230 ms tip_ax=120 tip_gy=-6.1 wrist_gz=1.2 back_az=16310
 [right] linked: AA:BB:CC:DD:EE:02
 [right] connected
-[right] tag=R gx=0 gy=2 gz=-1 dps
+[right] hand=R seq=382 t=15240 ms tip_ax=118 tip_gy=-5.8 wrist_gz=1.1 back_az=16302
 ```
 
 ## 通信协议
 
+早期单传感器实验可以用：
+
+```text
+R,timestamp,ax,ay,az,gx,gy,gz
+```
+
+但当前手部硬件是一只手一个 micro:bit，汇总指尖 MPU6050、手腕 MPU6050、手背 micro:bit 加速度。因此正式采集建议使用一只手一行的固定长聚合包：
+
+```text
+hand,seq,timestamp_ms,
+tip_ax,tip_ay,tip_az,tip_gx,tip_gy,tip_gz,
+wrist_ax,wrist_ay,wrist_az,wrist_gx,wrist_gy,wrist_gz,
+back_ax,back_ay,back_az
+```
+
+示例：
+
+```text
+R,381,15230,120,-84,16320,3.2,-6.1,1.8,98,-70,16288,2.1,-4.4,1.2,110,-66,16310
+```
+
+后端的规范化存储结构和解析 helper 见 `backend/sensors/`。
+
 ```
 树莓派  --CONNECT-->  micro:bit
 树莓派  <--READY---   micro:bit（屏幕显示 ✓）
-树莓派  <--L:gx,gy,gz---  左手陀螺仪（约 10Hz，单位 °/s）
-树莓派  <--R:gx,gy,gz---  右手陀螺仪（约 10Hz，单位 °/s）
+树莓派  <--L 聚合传感器包---  左手指尖/手腕/手背数据
+树莓派  <--R 聚合传感器包---  右手指尖/手腕/手背数据
 ```
 
 BLE 使用 Nordic UART Service：
@@ -154,4 +177,4 @@ BLE 使用 Nordic UART Service：
 
 ## 与 score_to_reference 集成
 
-树莓派可订阅左右手陀螺仪角速度，结合 `score_to_reference` 生成的 JSON 乐谱，用于检测手部旋转动作或演奏姿态。
+树莓派可订阅左右手聚合传感器包，结合 `score_to_reference` / `scoring` 生成的 JSON 乐谱和实际 onset，用于切出每次按键前后约 0.8 秒的姿势窗口。

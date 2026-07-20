@@ -40,3 +40,9 @@ edge/microbit_rpi_comm/raspberry/config.json
 *.wav
 *.mp3
 *.sf2
+
+# Local generated data stores
+data/db/
+data/chroma/
+data/raw/sessions/
+data/artifacts/sessions/
