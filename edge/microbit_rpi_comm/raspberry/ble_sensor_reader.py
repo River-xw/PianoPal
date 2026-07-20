@@ -31,11 +31,12 @@ UART_TX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 UART_RX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 
 
-CONFIG_PATH = Path("config.json")
+CONFIG_PATH = Path(__file__).resolve().with_name("config.json")
 
 RECONNECT_DELAY_SECONDS = 5
 CONNECT_TIMEOUT_SECONDS = 20
 COMMAND_DELAY_SECONDS = 0.5
+CONNECT_ATTEMPT_GAP_SECONDS = 2
 
 
 def parse_message(
@@ -52,11 +53,11 @@ def parse_message(
         STARTED RIGHT
         STOPPED
         L,seq,timestamp_ms,tip_ax,tip_ay,tip_az,tip_gx,tip_gy,tip_gz,
-          wrist_ax,wrist_ay,wrist_az,wrist_gx,wrist_gy,wrist_gz,
-          back_ax,back_ay,back_az
+          back_ax,back_ay,back_az,back_gx,back_gy,back_gz,
+          wrist_ax,wrist_ay,wrist_az
         R,seq,timestamp_ms,tip_ax,tip_ay,tip_az,tip_gx,tip_gy,tip_gz,
-          wrist_ax,wrist_ay,wrist_az,wrist_gx,wrist_gy,wrist_gz,
-          back_ax,back_ay,back_az
+          back_ax,back_ay,back_az,back_gx,back_gy,back_gz,
+          wrist_ax,wrist_ay,wrist_az
     """
 
     line = line.strip()
@@ -96,7 +97,7 @@ def print_packet(device_name: str, packet: RawHandSensorPacket) -> None:
     """Print one parsed aggregate hand sensor packet."""
 
     fingertip_gyro_y = packet.fingertip.gyro.y if packet.fingertip.gyro else None
-    wrist_gyro_z = packet.wrist.gyro.z if packet.wrist.gyro else None
+    hand_back_gyro_z = packet.hand_back.gyro.z if packet.hand_back.gyro else None
 
     print(
         f"[{device_name}] "
@@ -105,8 +106,8 @@ def print_packet(device_name: str, packet: RawHandSensorPacket) -> None:
         f"t={packet.device_timestamp_ms} ms "
         f"tip_ax={packet.fingertip.accel.x:g} "
         f"tip_gy={fingertip_gyro_y:g} "
-        f"wrist_gz={wrist_gyro_z:g} "
-        f"back_az={packet.hand_back.accel.z:g}"
+        f"back_gz={hand_back_gyro_z:g} "
+        f"wrist_az={packet.wrist.accel.z:g}"
     )
 
 
@@ -133,6 +134,8 @@ async def connect_microbit(
     address: str,
     hand: str,
     stop_event: asyncio.Event,
+    connect_lock: asyncio.Lock,
+    startup_delay_seconds: float = 0,
 ) -> None:
     """
     Connect to one micro:bit and receive acceleration data.
@@ -147,6 +150,16 @@ async def connect_microbit(
             f'Invalid hand "{hand}" for {device_name}. '
             'Expected "left" or "right".'
         )
+
+    if startup_delay_seconds > 0:
+        try:
+            await asyncio.wait_for(
+                stop_event.wait(),
+                timeout=startup_delay_seconds,
+            )
+            return
+        except asyncio.TimeoutError:
+            pass
 
     while not stop_event.is_set():
         receive_buffer = ""
@@ -187,12 +200,22 @@ async def connect_microbit(
                     print_packet(device_name, packet)
 
         try:
-            print(f"[{device_name}] Connecting to {address}...")
+            print(f"[{device_name}] Waiting for BLE connection slot...")
 
-            async with BleakClient(
-                address,
-                timeout=CONNECT_TIMEOUT_SECONDS,
-            ) as client:
+            async with connect_lock:
+                if stop_event.is_set():
+                    return
+
+                print(f"[{device_name}] Connecting to {address}...")
+
+                client = BleakClient(
+                    address,
+                    timeout=CONNECT_TIMEOUT_SECONDS,
+                )
+
+                await client.connect()
+
+            try:
                 if not client.is_connected:
                     raise ConnectionError("BLE connection was not established")
 
@@ -258,6 +281,10 @@ async def connect_microbit(
 
                 if not stop_event.is_set():
                     print(f"[{device_name}] Connection lost")
+
+            finally:
+                if client.is_connected:
+                    await client.disconnect()
 
         except asyncio.CancelledError:
             raise
@@ -384,18 +411,21 @@ async def main() -> None:
             f"({device['hand']})"
         )
 
-    tasks = [
-        asyncio.create_task(
+    connect_lock = asyncio.Lock()
+    tasks = []
+
+    for index, device in enumerate(devices):
+        tasks.append(asyncio.create_task(
             connect_microbit(
                 device_name=device["name"],
                 address=device["address"],
                 hand=device["hand"],
                 stop_event=stop_event,
+                connect_lock=connect_lock,
+                startup_delay_seconds=index * CONNECT_ATTEMPT_GAP_SECONDS,
             ),
             name=device["name"],
-        )
-        for device in devices
-    ]
+        ))
 
     try:
         await stop_event.wait()

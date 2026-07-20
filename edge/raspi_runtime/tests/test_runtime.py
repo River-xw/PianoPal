@@ -35,7 +35,7 @@ def test_simulated_runtime_writes_session_files(tmp_path):
     prediction_lines = paths.imu_predictions_path.read_text(encoding="utf-8").splitlines()
 
     assert left_lines
-    assert json.loads(left_lines[0])["schema_version"] == "hand_imu_raw_v2"
+    assert json.loads(left_lines[0])["schema_version"] == "hand_imu_raw_v3"
     assert prediction_lines
     assert json.loads(prediction_lines[0])["schema_version"] == "imu_posture_prediction_v1"
 

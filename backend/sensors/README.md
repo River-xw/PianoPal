@@ -6,11 +6,11 @@ pipeline.
 
 ## Hardware Shape
 
-Each hand has one micro:bit on the back of the hand. It gathers:
+Each hand has one micro:bit on the wrist. It gathers:
 
 - fingertip MPU6050: acceleration xyz + gyroscope xyz
-- wrist MPU6050: acceleration xyz + gyroscope xyz
-- hand-back micro:bit: acceleration xyz only
+- hand-back MPU6050: acceleration xyz + gyroscope xyz
+- wrist micro:bit: acceleration xyz only
 
 The storage schema normalizes all axes to `x`, `y`, `z`. If device firmware
 reports axes in a different physical order, convert them before writing JSONL.
@@ -29,8 +29,8 @@ packet per hand:
 ```text
 hand,seq,timestamp_ms,
 tip_ax,tip_ay,tip_az,tip_gx,tip_gy,tip_gz,
-wrist_ax,wrist_ay,wrist_az,wrist_gx,wrist_gy,wrist_gz,
-back_ax,back_ay,back_az
+back_ax,back_ay,back_az,back_gx,back_gy,back_gz,
+wrist_ax,wrist_ay,wrist_az
 ```
 
 Example:
@@ -56,7 +56,7 @@ The Raspberry Pi should write one normalized JSON object per line:
 
 ```json
 {
-  "schema_version": "hand_imu_raw_v2",
+  "schema_version": "hand_imu_raw_v3",
   "hand": "R",
   "sequence_number": 381,
   "device_timestamp_ms": 15230,
@@ -67,12 +67,12 @@ The Raspberry Pi should write one normalized JSON object per line:
       "gyro": {"x": 3.2, "y": -6.1, "z": 1.8}
     },
     "wrist": {
-      "accel": {"x": 98.0, "y": -70.0, "z": 16288.0},
-      "gyro": {"x": 2.1, "y": -4.4, "z": 1.2}
-    },
-    "hand_back": {
       "accel": {"x": 110.0, "y": -66.0, "z": 16310.0},
       "gyro": null
+    },
+    "hand_back": {
+      "accel": {"x": 98.0, "y": -70.0, "z": 16288.0},
+      "gyro": {"x": 2.1, "y": -4.4, "z": 1.2}
     }
   }
 }
@@ -127,8 +127,8 @@ These windows later become posture-classification samples:
   "window_end_sec": 1.42,
   "features": {
     "fingertip_accel_rms_x": 123.4,
-    "wrist_gyro_peak_z": 8.2,
-    "hand_back_accel_mean_y": -72.1
+    "hand_back_gyro_peak_z": 8.2,
+    "wrist_accel_mean_y": -72.1
   },
   "predicted_label": "wrist_tension",
   "confidence": 0.91,

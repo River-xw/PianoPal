@@ -17,8 +17,8 @@ SensorPosition = Literal["fingertip", "wrist", "hand_back"]
 # One hand per line:
 # hand,seq,timestamp_ms,
 # fingertip ax,ay,az,gx,gy,gz,
-# wrist ax,ay,az,gx,gy,gz,
-# hand_back ax,ay,az
+# hand_back ax,ay,az,gx,gy,gz,
+# wrist ax,ay,az
 HAND_SENSOR_PACKET_FIELD_COUNT = 18
 
 
@@ -55,7 +55,7 @@ class RawHandSensorPacket:
     fingertip: SensorReading
     wrist: SensorReading
     hand_back: SensorReading
-    schema_version: str = "hand_imu_raw_v2"
+    schema_version: str = "hand_imu_raw_v3"
 
     def to_dict(self) -> dict:
         return {
@@ -97,8 +97,8 @@ def parse_hand_sensor_packet(
     Expected packet:
 
         R,seq,timestamp,tip_ax,tip_ay,tip_az,tip_gx,tip_gy,tip_gz,
-        wrist_ax,wrist_ay,wrist_az,wrist_gx,wrist_gy,wrist_gz,
-        back_ax,back_ay,back_az
+        back_ax,back_ay,back_az,back_gx,back_gy,back_gz,
+        wrist_ax,wrist_ay,wrist_az
 
     Invalid packets return ``None`` so the Raspberry Pi reader can skip them.
     """
@@ -122,11 +122,11 @@ def parse_hand_sensor_packet(
         accel=SensorVector(values[0], values[1], values[2]),
         gyro=SensorVector(values[3], values[4], values[5]),
     )
-    wrist = SensorReading(
+    hand_back = SensorReading(
         accel=SensorVector(values[6], values[7], values[8]),
         gyro=SensorVector(values[9], values[10], values[11]),
     )
-    hand_back = SensorReading(
+    wrist = SensorReading(
         accel=SensorVector(values[12], values[13], values[14]),
         gyro=None,
     )

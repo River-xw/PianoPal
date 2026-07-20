@@ -68,8 +68,8 @@ The BLE data packet format is:
 ```text
 hand,seq,timestamp_ms,
 tip_ax,tip_ay,tip_az,tip_gx,tip_gy,tip_gz,
-wrist_ax,wrist_ay,wrist_az,wrist_gx,wrist_gy,wrist_gz,
-back_ax,back_ay,back_az
+back_ax,back_ay,back_az,back_gx,back_gy,back_gz,
+wrist_ax,wrist_ay,wrist_az
 ```
 
 `seq` is per hand device, not shared globally across both hands.
