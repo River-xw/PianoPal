@@ -22,12 +22,13 @@ def test_parse_aggregate_hand_sensor_packet():
     assert packet.fingertip.accel.z == 16320
     assert packet.fingertip.gyro is not None
     assert packet.fingertip.gyro.y == -6.1
-    assert packet.wrist.gyro is not None
-    assert packet.wrist.gyro.x == 2.1
-    assert packet.hand_back.gyro is None
-    assert packet.to_dict()["schema_version"] == "hand_imu_raw_v2"
+    assert packet.hand_back.gyro is not None
+    assert packet.hand_back.gyro.x == 2.1
+    assert packet.wrist.gyro is None
+    assert packet.to_dict()["schema_version"] == "hand_imu_raw_v3"
     assert packet.to_dict()["sequence_number"] == 381
-    assert packet.to_dict()["sensors"]["hand_back"]["accel"]["z"] == 16310
+    assert packet.to_dict()["sensors"]["hand_back"]["accel"]["z"] == 16288
+    assert packet.to_dict()["sensors"]["wrist"]["accel"]["z"] == 16310
 
 
 def test_parse_invalid_packet_returns_none():

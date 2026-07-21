@@ -27,7 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--target-bpm", type=int, default=None)
     parser.add_argument("--data-root", type=Path, default=REPO_ROOT / "data")
     parser.add_argument("--db-path", type=Path, default=None)
-    parser.add_argument("--mode", choices=["simulate", "ble"], default="simulate")
+    parser.add_argument("--mode", choices=["simulate", "ble", "audio-only"], default="simulate")
     parser.add_argument("--duration-sec", type=float, default=5.0)
     parser.add_argument("--ble-config", type=Path, default=None)
     parser.add_argument(

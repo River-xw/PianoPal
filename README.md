@@ -94,7 +94,7 @@ npm run dev
 
 ## Overview
 
-本项目采用 **3 个 IMU（Accelerometer + Gyroscope）** 采集钢琴演奏时的手部运动数据。
+本项目采用 **2 个外接 6 轴 IMU + 1 个 micro:bit 内置加速度计** 采集钢琴演奏时的手部运动数据。
 
 数据流如下：
 
@@ -103,16 +103,16 @@ Finger IMU
         │
 Hand IMU
         ├──> micro:bit ──Bluetooth UART──> Raspberry Pi
-Wrist IMU
+Wrist micro:bit accel
 ```
 
 其中：
 
 * **Finger IMU**：安装于手指第一关节
 * **Hand IMU**：安装于手背
-* **Wrist IMU**：安装于手腕
+* **Wrist micro:bit**：micro:bit 本体安装于手腕，读取内置 `x/y/z` 加速度
 
-micro:bit 负责采集三个 IMU 的原始数据，并通过 Bluetooth UART 实时发送至 Raspberry Pi。
+micro:bit 负责采集指尖/手背 MPU6050 和自身手腕加速度，并通过 Bluetooth UART 实时发送至 Raspberry Pi。
 
 Raspberry Pi 负责：
 
@@ -161,8 +161,8 @@ Raspberry Pi 负责：
       │ Hand Back │
       └───────────┘
 
-         Wrist IMU
-      ─────────────
+      Wrist micro:bit
+      ───────────────
           Wrist
 ```
 
@@ -172,7 +172,7 @@ Raspberry Pi 负责：
 | ---------- | ---------------------------------------------- |
 | Finger IMU | Finger posture, finger collapse, raised finger |
 | Hand IMU   | Palm posture, palm rotation                    |
-| Wrist IMU  | Wrist posture, wrist movement                  |
+| Wrist micro:bit | Wrist posture, wrist movement             |
 
 ---
 
@@ -198,16 +198,15 @@ dataset/
 
 # CSV Format
 
-建议每一行表示 **同一时间点三个 IMU 的同步数据**。
+建议每一行表示 **同一时间点两颗外接 MPU6050 + 手腕 micro:bit 加速度**。
 
 ```csv
 timestamp,
 finger_ax,finger_ay,finger_az,
 finger_gx,finger_gy,finger_gz,
-hand_ax,hand_ay,hand_az,
-hand_gx,hand_gy,hand_gz,
+hand_back_ax,hand_back_ay,hand_back_az,
+hand_back_gx,hand_back_gy,hand_back_gz,
 wrist_ax,wrist_ay,wrist_az,
-wrist_gx,wrist_gy,wrist_gz,
 label
 ```
 
@@ -220,7 +219,6 @@ Example:
 0.05,0.18,0.97,
 0.60,-1.50,0.20,
 0.01,0.10,0.99,
-0.30,-0.50,0.10,
 0
 ```
 
@@ -236,7 +234,7 @@ Example:
     "piece": "demo_song",
     "hand": "left",
     "sample_rate": 100,
-    "sensor_type": "3x IMU",
+    "sensor_type": "2x MPU6050 + wrist microbit accel",
     "start_time": "2026-07-17T14:30:00",
     "collector": "user01"
 }
@@ -271,9 +269,9 @@ Example:
 | ---------- | ------------------------------------------------ |
 | Finger IMU | Finger Collapse, Raised Finger, Finger Stiffness |
 | Hand IMU   | Palm Collapse, Palm Rotation                     |
-| Wrist IMU  | Wrist Drop, High Wrist, Wrist Swing, Arm Lift    |
+| Wrist micro:bit | Wrist Drop, High Wrist, Wrist Swing, Arm Lift |
 
-三个 IMU 的数据将在 Raspberry Pi 上同步，并作为机器学习模型的输入特征。
+两颗外接 MPU6050 和手腕 micro:bit 加速度数据将在 Raspberry Pi 上同步，并作为机器学习模型的输入特征。
 
 ---
 
@@ -287,8 +285,8 @@ micro:bit 通过 Bluetooth UART 向 Raspberry Pi 实时发送数据。
 DATA,
 timestamp,
 finger_ax,finger_ay,finger_az,finger_gx,finger_gy,finger_gz,
-hand_ax,hand_ay,hand_az,hand_gx,hand_gy,hand_gz,
-wrist_ax,wrist_ay,wrist_az,wrist_gx,wrist_gy,wrist_gz
+hand_back_ax,hand_back_ay,hand_back_az,hand_back_gx,hand_back_gy,hand_back_gz,
+wrist_ax,wrist_ay,wrist_az
 ```
 
 Example:
@@ -298,7 +296,7 @@ DATA,
 125,
 -0.02,0.13,0.98,1.2,-0.8,0.4,
 0.05,0.18,0.97,0.6,-1.5,0.2,
-0.01,0.10,0.99,0.3,-0.5,0.1
+0.01,0.10,0.99
 ```
 
 Raspberry Pi 负责：
@@ -335,4 +333,3 @@ Raspberry Pi
         ├── Filter abnormal packets
         └── Generate visualization
 ```
-

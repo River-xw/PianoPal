@@ -35,7 +35,7 @@ def test_simulated_runtime_writes_session_files(tmp_path):
     prediction_lines = paths.imu_predictions_path.read_text(encoding="utf-8").splitlines()
 
     assert left_lines
-    assert json.loads(left_lines[0])["schema_version"] == "hand_imu_raw_v2"
+    assert json.loads(left_lines[0])["schema_version"] == "hand_imu_raw_v3"
     assert prediction_lines
     assert json.loads(prediction_lines[0])["schema_version"] == "imu_posture_prediction_v1"
 
@@ -50,3 +50,36 @@ def test_simulated_runtime_writes_session_files(tmp_path):
         "imu_right_raw",
         "imu_predictions",
     }
+
+
+def test_audio_only_runtime_records_audio_artifact(tmp_path):
+    import asyncio
+
+    config = RuntimeConfig(
+        user_id="u_audio",
+        user_name="Audio",
+        piece_id="piece_audio",
+        piece_title="Audio Test",
+        piece_composer=None,
+        session_id="sess_audio",
+        data_root=tmp_path / "data",
+        mode="audio-only",
+        ble_config=None,
+        duration_sec=0.01,
+        target_bpm=None,
+        db_path=tmp_path / "pianopal.sqlite3",
+    )
+
+    paths = asyncio.run(run_session(config))
+
+    assert paths.audio_path.exists()
+    assert paths.audio_path.read_text(encoding="utf-8")
+    assert not paths.imu_left_path.exists()
+    assert not paths.imu_right_path.exists()
+    assert not paths.imu_predictions_path.exists()
+
+    sessions = get_recent_sessions("u_audio", db_path=config.db_path)
+    artifacts = get_session_artifacts("sess_audio", db_path=config.db_path)
+
+    assert sessions[0]["status"] == "audio_acquired"
+    assert [artifact["artifact_type"] for artifact in artifacts] == ["raw_audio"]

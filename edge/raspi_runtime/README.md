@@ -48,6 +48,30 @@ python -m edge.raspi_runtime \
 This writes simulated IMU streams and prediction records, then registers them
 in SQLite.
 
+## Audio-Only Test
+
+Use this when you want to test the Raspberry Pi microphone without BLE or
+micro:bit devices:
+
+```bash
+python -m edge.raspi_runtime \
+  --mode audio-only \
+  --duration-sec 5 \
+  --audio-command "arecord -f cd -t wav {output}" \
+  --user-id u_local_001 \
+  --piece-id piece_audio_test \
+  --piece-title "Audio Test"
+```
+
+Expected output path:
+
+```text
+data/raw/sessions/<session_id>/audio.wav
+```
+
+The SQLite session status becomes `audio_acquired`, and `artifacts` contains a
+single `raw_audio` path.
+
 ## Raspberry Pi BLE Mode
 
 Example:
@@ -68,8 +92,8 @@ The BLE data packet format is:
 ```text
 hand,seq,timestamp_ms,
 tip_ax,tip_ay,tip_az,tip_gx,tip_gy,tip_gz,
-wrist_ax,wrist_ay,wrist_az,wrist_gx,wrist_gy,wrist_gz,
-back_ax,back_ay,back_az
+back_ax,back_ay,back_az,back_gx,back_gy,back_gz,
+wrist_ax,wrist_ay,wrist_az
 ```
 
 `seq` is per hand device, not shared globally across both hands.
