@@ -3,6 +3,9 @@
 Developer-facing wrappers around the main pipeline.
 
 - `grade.py`: converts a reference score and a performance file into a scoring result, writes it to `frontend/viewer/public/result.json`, and starts the local viewer.
+- `train_imu_from_session.py`: uses backend audio transcription/performance JSON
+  to cut audio-triggered IMU windows, then trains a baseline classifier from
+  all hand sensor streams.
 - `filter_wav_noise.py`: filters simple microphone electrical hum from PCM `.wav`
   files. Example:
 
