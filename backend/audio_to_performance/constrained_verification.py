@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field
+import json
 from typing import Optional
 
 import librosa
@@ -56,6 +57,14 @@ class ConstrainedVerificationConfig:
     # below this ratio of the lower candidate's energy.
     harmonic_energy_discount_ratio: float = 0.4
     harmonic_discount_factor: float = 0.15  # multiply score by this when discounted (heavy penalty, not zero)
+
+    # Optional electronic-keyboard timbre profile, produced by
+    # scripts/train_keyboard_profile.py. This adds a weak supervised signal:
+    # candidates whose harmonic energy shape matches the real keyboard's
+    # recorded tone get a score boost. Missing profile notes fall back to the
+    # original CQT fundamental-energy path, so partial profiles are safe.
+    keyboard_profile: Optional[dict] = None
+    keyboard_profile_weight: float = 0.75
 
     # winner must account for at least this fraction of total scored "mass"
     # across all candidates, else the result is inconclusive (relative, not
@@ -118,6 +127,9 @@ class CQTFrame:
 
     def energy_at_pitch(self, pitch: int) -> float:
         freq_hz = _midi_to_hz(pitch)
+        return self.energy_at_hz(freq_hz)
+
+    def energy_at_hz(self, freq_hz: float) -> float:
         if freq_hz <= 0 or self.fmin_hz <= 0:
             return 0.0
         bin_index = int(round(self.bins_per_octave * np.log2(freq_hz / self.fmin_hz)))
@@ -139,48 +151,82 @@ def _compute_cqt_frame(audio_window: np.ndarray, sr: int, config: ConstrainedVer
     return CQTFrame(magnitudes, config.cqt_fmin_hz, config.cqt_bins_per_octave)
 
 
+def load_keyboard_profile(path: str) -> dict:
+    with open(path, "r", encoding="utf-8") as fh:
+        profile = json.load(fh)
+    if profile.get("schema") != "pianopal.keyboard_profile.v1":
+        raise ValueError(f"unsupported keyboard profile schema in {path!r}")
+    return profile
+
+
+def _profile_note(profile: Optional[dict], pitch: int) -> Optional[dict]:
+    if not profile:
+        return None
+    return profile.get("notes", {}).get(str(pitch))
+
+
+def _candidate_harmonic_vector(cqt_frame: CQTFrame, pitch: int, max_harmonic: int) -> np.ndarray:
+    f0 = _midi_to_hz(pitch)
+    values = np.array([
+        cqt_frame.energy_at_hz(f0 * harmonic)
+        for harmonic in range(1, max_harmonic + 1)
+    ], dtype=np.float64)
+    total = float(values.sum())
+    if total <= 0:
+        return values
+    return values / total
+
+
+def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    if len(a) == 0 or len(b) == 0:
+        return 0.0
+    n = min(len(a), len(b))
+    a = a[:n]
+    b = b[:n]
+    denom = float(np.linalg.norm(a) * np.linalg.norm(b))
+    if denom <= 0:
+        return 0.0
+    return float(np.dot(a, b) / denom)
+
+
+def profile_similarity_for_candidate(
+    cqt_frame: CQTFrame,
+    candidate_pitch: int,
+    config: Optional[ConstrainedVerificationConfig] = None,
+) -> Optional[float]:
+    config = config or ConstrainedVerificationConfig()
+    note_profile = _profile_note(config.keyboard_profile, candidate_pitch)
+    if note_profile is None:
+        return None
+    max_harmonic = int(config.keyboard_profile.get("max_harmonic", 10))
+    observed = _candidate_harmonic_vector(cqt_frame, candidate_pitch, max_harmonic)
+    template = np.array(note_profile["harmonic_energy_mean"], dtype=np.float64)
+    return _cosine_similarity(observed, template)
+
+
 def score_candidate(
     cqt_frame: CQTFrame,
     candidate_pitch: int,
     ref_pitch: int,
     all_candidates: list,
     config: Optional[ConstrainedVerificationConfig] = None,
-    templates: Optional[dict] = None,
 ) -> float:
-    """Evidence score for one candidate pitch.
-
-    If `templates` is given AND covers `ref_pitch` (a per-key spectral
-    fingerprint learned from THIS instrument -- see timbre_fingerprint.py),
-    scoring switches entirely to template-similarity for every candidate on
-    this note: a candidate with no template scores 0 rather than falling
-    back to the generic heuristic, so the two scoring modes are never mixed
-    within one note (their scales aren't comparable -- cosine similarity in
-    [0,1] vs. raw CQT energy). This is for instruments whose timbre doesn't
-    match basic-pitch's real-piano training (e.g. a toy keyboard whose
-    low-register keys have almost no energy at the true fundamental -- a
-    generic "octave-up = probably a harmonic" assumption doesn't capture
-    that, but a template learned from the instrument's own recordings does).
-
-    Otherwise (no templates, or none for this ref_pitch): the original
-    generic heuristic -- own fundamental energy, heavily discounted if
-    it's plausibly just the octave-up harmonic of another, stronger
-    candidate rather than an independently played note.
+    """Evidence score for one candidate pitch: its own fundamental energy,
+    heavily discounted if it's plausibly just the octave-up harmonic of
+    another, stronger candidate rather than an independently played note.
     """
     config = config or ConstrainedVerificationConfig()
-
-    if templates and ref_pitch in templates:
-        template = templates.get(candidate_pitch)
-        if template is None:
-            return 0.0
-        vec = cqt_frame.magnitudes
-        norm = np.linalg.norm(vec)
-        if norm < 1e-12:
-            return 0.0
-        similarity = float(np.dot(vec / norm, template))
-        return max(0.0, similarity)
-
     energy = cqt_frame.energy_at_pitch(candidate_pitch)
     score = energy
+
+    similarity = profile_similarity_for_candidate(cqt_frame, candidate_pitch, config)
+    if similarity is not None:
+        max_harmonic = int(config.keyboard_profile.get("max_harmonic", 10))
+        harmonic_energy = sum(
+            cqt_frame.energy_at_hz(_midi_to_hz(candidate_pitch) * harmonic)
+            for harmonic in range(1, max_harmonic + 1)
+        )
+        score += config.keyboard_profile_weight * harmonic_energy * max(0.0, similarity)
 
     lower_octave_pitch = candidate_pitch - 12
     if lower_octave_pitch in all_candidates and lower_octave_pitch != candidate_pitch:
@@ -200,15 +246,11 @@ def reverify_note(
     sr: Optional[int] = None,
     config: Optional[ConstrainedVerificationConfig] = None,
     cqt_frame: Optional[CQTFrame] = None,
-    templates: Optional[dict] = None,
 ) -> dict:
     """Re-examines one wrong_pitch/missed note against constrained,
     harmonic-aware audio evidence. Pass a pre-computed `cqt_frame` directly
     (e.g. in tests) to skip audio/CQT extraction entirely; otherwise
-    `audio_window` + `sr` are used to compute one. `templates` (see
-    timbre_fingerprint.py) switches scoring to per-instrument learned
-    fingerprints for notes whose reference pitch has one -- see
-    score_candidate for why the two scoring modes are never mixed.
+    `audio_window` + `sr` are used to compute one.
     """
     config = config or ConstrainedVerificationConfig()
     if cqt_frame is None:
@@ -222,7 +264,12 @@ def reverify_note(
     original_pitch_guess = note.get("pitch_perf")
 
     candidates = get_candidates(ref_pitch, config.keyboard_range, config)
-    scores = {c: score_candidate(cqt_frame, c, ref_pitch, candidates, config, templates) for c in candidates}
+    scores = {c: score_candidate(cqt_frame, c, ref_pitch, candidates, config) for c in candidates}
+    profile_similarities = {
+        c: profile_similarity_for_candidate(cqt_frame, c, config)
+        for c in candidates
+        if _profile_note(config.keyboard_profile, c) is not None
+    }
 
     total = sum(scores.values())
     winner = max(scores, key=scores.get)
@@ -232,6 +279,11 @@ def reverify_note(
         "original_status": original_status,
         "original_pitch_guess": original_pitch_guess,
         "candidates_scored": {c: round(s, 6) for c, s in scores.items()},
+        "profile_similarity_by_candidate": {
+            c: round(float(similarity), 4)
+            for c, similarity in profile_similarities.items()
+            if similarity is not None
+        },
         "winner": winner,
         "confidence": round(confidence, 4),
     }
@@ -265,12 +317,10 @@ def reverify_result(
     sr: int,
     reference: Optional[dict] = None,
     config: Optional[ConstrainedVerificationConfig] = None,
-    templates: Optional[dict] = None,
 ) -> dict:
     """Runs reverify_note over every trigger-status note in `result`, and
     (if `reference` is given) scan_unexpected_onsets over the whole
     recording. Returns a new, augmented result; never mutates the input.
-    `templates`: see timbre_fingerprint.py / score_candidate.
     """
     config = config or ConstrainedVerificationConfig()
     augmented = copy.deepcopy(result)
@@ -300,7 +350,7 @@ def reverify_result(
         start_sample = max(0, int((onset - half_window) * sr))
         end_sample = max(start_sample, int((onset + half_window) * sr))
         window = audio[start_sample:end_sample]
-        augmented["notes"][i] = reverify_note(note, window, sr, config, templates=templates)
+        augmented["notes"][i] = reverify_note(note, window, sr, config)
 
     reference_for_scan = reference if reference is not None else {
         "notes": [
@@ -377,6 +427,8 @@ def main(argv=None) -> int:
     parser.add_argument("audio", help="Path to the original recording (wav)")
     parser.add_argument("--reference", default=None, help="Path to reference.json (optional; falls back to result.json's own onset_ref_sec values).")
     parser.add_argument("--keyboard-range", type=int, nargs=2, default=None, metavar=("LOW", "HIGH"), help="Physical keyboard's MIDI pitch range, once known.")
+    parser.add_argument("--keyboard-profile", default=None, help="Optional profile JSON from scripts/train_keyboard_profile.py.")
+    parser.add_argument("--keyboard-profile-weight", type=float, default=0.75, help="Weight of the keyboard profile score boost.")
     parser.add_argument("-o", "--output", required=True, help="Path to write the augmented result JSON.")
     args = parser.parse_args(argv)
 
@@ -394,6 +446,8 @@ def main(argv=None) -> int:
 
     config = ConstrainedVerificationConfig(
         keyboard_range=tuple(args.keyboard_range) if args.keyboard_range else None,
+        keyboard_profile=load_keyboard_profile(args.keyboard_profile) if args.keyboard_profile else None,
+        keyboard_profile_weight=args.keyboard_profile_weight,
     )
 
     augmented = reverify_result(result, audio, sr, reference=reference, config=config)

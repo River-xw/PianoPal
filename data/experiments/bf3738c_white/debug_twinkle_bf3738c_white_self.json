@@ -1,0 +1,14 @@
+{
+  "demo": {
+    "mode": "candidate_events",
+    "detected_onsets": 55,
+    "events": 55,
+    "top_k": 5
+  },
+  "student": {
+    "mode": "candidate_events",
+    "detected_onsets": 55,
+    "events": 55,
+    "top_k": 5
+  }
+}

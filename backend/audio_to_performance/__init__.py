@@ -9,7 +9,14 @@ Raspberry Pi (see transcribe.py).
 """
 from .config import AudioToPerformanceConfig
 from .errors import AudioToPerformanceError, TranscriptionError, UnsupportedAudioError
-from .pipeline import transcribe
+
+
+def __getattr__(name):
+    if name == "transcribe":
+        from .pipeline import transcribe
+
+        return transcribe
+    raise AttributeError(name)
 
 __all__ = [
     "AudioToPerformanceConfig",

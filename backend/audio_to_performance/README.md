@@ -2,6 +2,31 @@
 
 把單人單鋼琴的麥克風錄音，轉成 [scoring](../scoring) 引擎吃的 `performance.json`。跟先前 `latency_test` 那套用通用 onset 偵測（librosa spectral flux）的做法不同——這裡用 Spotify 的 **basic-pitch**，一個真正訓練過的複音鋼琴轉譜神經網路，而不是「有沒有聲音突然變大聲」這種通用方法。
 
+## 目前的建議用法：已知曲譜時，評分學生錄音改用 `grade_audio_reference_constrained.py`
+
+**評分「學生錄音 vs 已知曲譜」這個主要場景，現在改用 `scripts/grade_audio_reference_constrained.py --mode reference-grid`（不經過 basic-pitch），不再用 `scripts/grade_audio.py`。**
+
+原因：這台 BF-3738C 電子琴的音色跟 basic-pitch 訓練用的真鋼琴差很多，一直有「多餘音符」(harmonic bleed 誤判成新音符)的問題，就算加了 `suppress_harmonic_extras` 之類的heuristic 也只能減少、不能根除。
+
+實測拿曲庫裡5首完全落在22個白鍵範圍內的歌(其餘6首含黑鍵/超出範圍，用keybank合成會不公平)，各自合成成真實音色音檔，同一份音檔分別跑兩條路徑評分：
+
+| 曲目 | refgrid分數 | bp分數 | refgrid(對/錯音/漏/多) | bp(對/錯音/漏/多) |
+| --- | --- | --- | --- | --- |
+| 10_little_indians | 92.96 | 87.29 | 66/0/5/0 | 69/0/2/10 |
+| alabama | 93.14 | 85.67 | 95/0/7/0 | 95/5/2/13 |
+| pachelbel_canon_bpno | 94.23 | 92.03 | 98/0/6/0 | 102/0/2/6 |
+| silent_night_easy | 100.00 | 90.05 | 74/0/0/0 | 72/0/2/7 |
+| twinkle_twinkle | 95.65 | 90.65 | 66/0/3/0 | 69/0/0/7 |
+| **合計(438個音符)** | | | **399/0/21/0** | **407/5/8/43** |
+
+`reference-grid` 每一首歌分數都比 basic-pitch 高，而且**5首歌加總 0 個 extra、0 個 wrong_pitch**——不是單一首歌的偶然結果。basic-pitch 抓到的音符總數略多(漏音較少)，但代價是 43 個 extra + 5 個 wrong_pitch，這就是一直存在的「泛音誤判成新音符」問題；`reference-grid` 完全不會有這個毛病，因為它從頭到尾只在已知候選音高集合裡驗證，不會憑空多冒出音符。
+
+`reference-grid` 模式（`reference_constrained.py` 的 `transcribe_reference_constrained`）完全不猜音高——已知曲譜的每個音符各自在對應時間點的音檔窗口裡驗證「參考音高的證據夠不夠強」，不會像 basic-pitch 那樣把泛音誤判成獨立新音符。漏掉的21個音，一部分是已知的 F3 硬體特性(基頻弱)這類個別鍵的問題，其餘屬於還可以調參數優化的範圍(見下方)，不是新 bug。
+
+**這條路線原本有一個嚴重 bug 已修好**：時間對齊原本用一個粗略的「音檔哪裡有聲音」RMS 門檻估計，28秒的曲子會累積將近0.7秒的誤差，導致後半首歌大量誤判成 `missed`（分數曾經只有42分）。改成用模組裡已有的 onset 偵測去對齊第一個/最後一個音符的時間，才修正回 95.65 分。
+
+**沒有被取代的部分**：`transcribe.py`/`pipeline.py`/`preprocess.py`/`postprocess.py` 這些 basic-pitch 模組保留，`validation/roundtrip.py` 等內部驗證工具還在用它們做「合成音檔反向驗證 MIDI 轉譜」這件事，跟「評分學生錄音」是不同用途。`grade_audio.py` 本身也還在，沒有刪除，只是不再是評分學生錄音的預設工具。
+
 ## 為什麼要換掉之前的方法
 
 之前用 `latency_test` 測試過兩首完全不同的曲子（Für Elise 真實演奏、Bach前奏曲排除rubato變因），都得到同樣的結果：**72% 的音符完全沒被偵測到**，而且從頭到尾沒有音高資訊（只能判斷「有沒有聲音、什麼時候」，判斷不了「彈了哪個音」）。這是通用 onset 偵測方法在複音、連續鋼琴音樂上的已知天花板，不是調參數能解決的。
@@ -94,22 +119,35 @@ basic-pitch 是自由(不受限)的複音轉譜——在整個鋼琴音域裡自
 - **逐音重新驗證**(`reverify_note`)：贏家 = 參考音高 → 改判 `corrected_octave_or_harmonic_error`；贏家 = 原本 basic-pitch 猜的音 → 維持原狀(證實真的彈錯/沒偵測到)；贏家是集合裡其他候選音 → 改判 `reverified_different_pitch`；沒有候選音的信心度(佔全部候選音能量的比例)超過門檻 → 維持原狀，標 `reverification_inconclusive`，絕不亂猜。
 - **獨立的「未預期起音」掃描**(`scan_unexpected_onsets`)：上面的方法結構上只會去參考譜「預期有音符」的地方找證據，看不到完全不在預期範圍內的音符。這裡改用最單純的 onset-strength 包絡線(不管音高)掃過整段錄音，找出離所有已知起音(參考譜 + `result.json` 裡已經配對過的起音)都太遠(預設 >0.2秒)的起音，標成 `possible_unscored_extra_onset`——純資訊性質，不會自己生一個配了分的音符，因為我們還不夠確定它的音高。
 
-## 音色不符實體樂器(`timbre_fingerprint.py`)：機制已驗證，但目前的樣本錄音標錯了
+## 音色不符實體樂器：改用實體按鍵錄音的樣本比對(`keybank.py` / `keyboard_profile.py`)
 
-**重要更正**：最早拿來測試的 `twinkle_take1.m4a`，原本以為是專案的37鍵玩具琴錄音，basic-pitch 只對1/69(分數12.16)。後來確認**那份錄音其實是手機錄「電腦播放參考MIDI」的聲音，不是真的電子琴**。頻譜分析發現的現象是真的（見下段），但那是這台電腦喇叭+這次錄音鏈路的特性，**還不能當作是實際電子琴音色的結論**。電子琴本身的音色還沒有真的錄過、還要再釐清。
+舊版 `timbre_fingerprint.py`（每個鍵的 CQT 指紋、比對候選音）已移除，改用另一套機制：直接錄一段「從左到右彈過全部37個鍵」的音檔，按物理順序切成一段一段的樣本(`train_keybank_from_scale.py` → `keybank.py`)，不靠音高偵測去猜每一段是哪個音——因為這台琴的音色本來就容易讓音高偵測器(pYIN、basic-pitch)誤判，用彈奏順序當標籤才可靠。
 
-實測當時看到的現象（來源已知是電腦播放，不是電子琴，但機制本身值得記錄）：低音鍵**真實基頻幾乎沒有能量**——例如標記 C3(130.8Hz)的音，錄音裡能量最強的頻率其實在 656.7Hz(第5泛音，5倍)。basic-pitch(在真鋼琴錄音上訓練，那裡基頻通常都在)自然會抓錯峰。
+- **`keybank.py`**：從左到右的音階錄音偵測 onset、依序切割貼上 midi 標籤，同時算每個鍵的泛音能量統計；額外用 pYIN 做一個「診斷用」複核，跟物理順序標籤差超過 0.75 半音就標記 `pyin_octave_or_pitch_disagrees_with_order_label`——但這只是診斷資訊，不影響標籤本身。
+- **`keyboard_profile.py`**：把 keybank 的每鍵泛音統計整理成一份可重複使用的「這台琴聽起來長怎樣」的 profile。
+- **`constrained_verification.py` 的 `keyboard_profile` 參數**：候選音評分時，如果這個候選音在 profile 裡有記錄，會用觀測到的泛音能量分佈跟 profile 模板做 cosine 相似度，加權疊加到原本的 CQT 能量分數上(不是整個切換，是額外加分)。
+- **`synthesize_reference_from_keybank.py`**：直接照參考譜的音高、時間，從 keybank 找對應樣本原音重播混音，不做任何 pitch-shift。
 
-**這個機制本身還是有意義的**：不管最後查出來電子琴實際音色如何，只要它是「固定不變」的樂器(同一組鍵、同一套電路，每次發出的聲音一樣)，就可以直接學出每個鍵的頻譜「指紋」，比對新錄音，而不是靠 basic-pitch 對真鋼琴的假設——這套工具就是為了那個情況準備的，等真正的電子琴錄音到位就能用。
+### 另一條路：完全不用 basic-pitch 的「音對音」比對(`audio_reference.py` / `reference_constrained.py`)
 
-- `extract_labeled_segments`：給一份「這個樂器彈某首曲子」的錄音 + 對應參考譜，把參考譜切成單音事件(排除和弦——沒辦法歸因給單一音高)，用**音訊 onset 偵測**(不是音高偵測，攻擊瞬間偵測對音色不熟悉的樂器還算可靠)對齊到錄音裡的真實起音，每個對齊到的事件切一段 CQT
-- `build_templates`：同音高的多次出現正規化後取平均，做成每個音高一個指紋向量；出現次數越多模板越穩健
-- `save_templates` / `load_templates`：存成JSON，載入時會檢查 CQT 參數(fmin/bins_per_octave/n_octaves)是否跟目前設定一致，不一致直接報錯而不是默默比錯
-- `score_candidate` 現在接受 `templates` 參數：**只要某個音符的參考音高在指紋庫裡，這個音符的候選音評分整個切換成指紋相似度比對**(不會跟原本的泛音啟發式混用，兩者分數尺度不能比)；沒指紋覆蓋的參考音高，維持原本的通用邏輯不受影響
+上面的 `keyboard_profile` 只是疊加在 basic-pitch 轉譜結果上的加分項，錄音本身還是得先過一次 basic-pitch。這裡是另一套獨立機制，完全跳過 basic-pitch：
 
-**機制驗證(用那份標錯來源、但仍可拿來驗證比對邏輯的 `twinkle_take1.m4a`，涵蓋37鍵裡的6個、每個1-4次)**：有指紋 vs 沒指紋，分數 13.83→20.69，`correct` 1→4，`wrong_pitch` 32→24——證實「指紋比對能改善」這個機制方向正確，**但這組數字不代表電子琴實際會有多好**，資料來源標錯了。相關檔案已改名成 `data/computer_midi_playback_fingerprints.json` / `data/experiments/computer_midi_playback/`，避免以後被誤認成電子琴資料。下一步需要真的錄一份電子琴的音檔(理想上每個鍵單獨錄、或多首涵蓋不同音域的曲子)才能重新做一次。
+- **`reference_constrained.py`**：`_candidate_pitches()` 直接把候選音高鎖死在 22 個白鍵(或整個鍵盤範圍)——不是拿 basic-pitch 的猜測結果來篩選，而是從一開始就只在這個小集合裡評分，`ReferenceConstrainedConfig` 可設 `allowed_pitches=WHITE_KEY_MIDIS` 限定白鍵模式。
+- **`audio_reference.py`**：
+  - `build_audio_reference()`：直接對一段「範例錄音」做 onset 偵測 + 上面的候選音高評分，產生一份音訊原生的參考譜(不需要對應的 MIDI/樂譜檔)——`scripts/build_demo_audio_reference.py` 的實作。
+  - `grade_student_against_demo()`：把學生錄音一樣做 onset+候選音評分，直接拿去跟這份「範例錄音」的參考譜比對評分——完全是音檔對音檔，兩邊都不經過 basic-pitch——`scripts/grade_against_demo_audio.py` 的實作。
+- **`train_keyboard_profile.py`**：另一種訓練 profile 的方式，直接對任意錄音跑 pYIN 抓穩定音高段落分組平均，不需要像 `keybank.py` 那樣照順序彈一次音階（兩者輸出的 profile JSON 格式相容）。
+- **`scripts/grade_audio_reference_constrained.py`**：`grade_audio.py` 的替代品——用符號化參考譜(MIDI/MusicXML)+候選音限制的方式評分麥克風錄音，同樣完全不經過 basic-pitch。
 
-## 曲庫預先已知：用單曲音域縮小 basic-pitch 的搜尋範圍(`song_range.py`，預設開啟)
+**跟前面 `keyboard_profile` 疊加機制的差別**：前者仍然信任 basic-pitch 的轉譜，只在它猜錯時用泛音相似度去修正；這裡是從根本上不信任 basic-pitch，只在已知候選音高集合裡挑一個最像的。
+
+**目前狀態**：`reference_constrained.py` 裡的 `transcribe_reference_constrained`（對應 `grade_audio_reference_constrained.py --mode reference-grid`）已經是評分「已知曲譜 + 學生錄音」的**預設工具**，見本文開頭——時間對齊的 bug 修好後實測比 basic-pitch 少了全部的 extra 誤判(見開頭比較表)。
+
+`audio_reference.py` 的 `build_audio_reference()`/`grade_student_against_demo()`（沒有已知 MIDI 曲譜，純粹音檔對音檔）跟 `transcribe_onset_first`/`transcribe_reference_guided_onsets` 這兩個模式，還停留在只跑過自我一致性檢查的階段——這兩個模式受限於 `max_pitches_per_onset`(預設1)，同一個時間點有兩個音同時彈(和弦)時只會保留最強的那個，這在小星星這首歌(69個音符裡有26個時間點是2音同時)已經證實會漏掉大量音符，還沒有調過。
+
+## 曲庫預先已知：用單曲音域縮小 basic-pitch 的搜尋範圍(`song_range.py`)
+
+> **目前狀態**：`grade_audio.py` 整包被 Codex 版本覆蓋後，暫時沒有呼叫這個模組了(`--no-song-range`/`--ignore-timing` 這兩個 CLI 參數也一併消失)。模組本身、測試都還在，下面的 A/B 數據依然成立，只是還沒重新接回 `grade_audio.py`。
 
 專案的曲庫不是開放式的任意音檔——每首歌的參考譜都預先知道，也就知道**這首歌實際會用到哪些音高**。之前測過把 basic-pitch 的 `minimum_frequency`/`maximum_frequency` 綁到整個鋼琴音域(27.5-4186Hz)完全沒效果，因為那個範圍太寬、幾乎沒縮小到什麼。單曲的音域通常窄很多，值得單獨測。
 
@@ -166,7 +204,11 @@ python3 -m pytest audio_to_performance/tests -v
 | `transcribe.py` | 包裝 basic-pitch `predict()`，輸出 `pretty_midi.PrettyMIDI` |
 | `postprocess.py` | 泛音/延音踏板誤判成新音符的過濾器，預設關閉 |
 | `pipeline.py` | 串起來：載入音訊 → 前處理 → 轉譜 → 存成MIDI → 呼叫 `scoring.midi_io.midi_to_performance()` → (可選)後處理過濾 |
-| `constrained_verification.py` | 疊加層：用參考譜縮小候選音高範圍，重新檢視 `wrong_pitch`/`missed`，外加獨立的未預期起音掃描 |
+| `constrained_verification.py` | 疊加層：用參考譜縮小候選音高範圍，重新檢視 `wrong_pitch`/`missed`，外加獨立的未預期起音掃描；也是 `keyboard_profile` 加分機制的所在地 |
+| `keybank.py` | 從左到右白鍵音階錄音訓練樣本庫，供 `synthesize_reference_from_keybank.py` 原音重播用 |
+| `keyboard_profile.py` | 把 keybank 的泛音統計整理成可重複使用的音色 profile |
+| `reference_constrained.py` | 候選音高從一開始就鎖在已知集合(白鍵/鍵盤範圍)裡評分，不信任 basic-pitch 的猜測 |
+| `audio_reference.py` | 音對音比對：`build_audio_reference()` 從範例錄音產生音訊原生參考譜，`grade_student_against_demo()` 拿學生錄音直接比對 |
 | `cli.py` / `__main__.py` | `python -m backend.audio_to_performance ...` |
 | `tests/` | 見上 |
 

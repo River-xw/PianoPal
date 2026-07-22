@@ -3,10 +3,10 @@
 Sub-score formulas (all 0-100):
   pitch accuracy    = (correct+timing_off) / (correct+timing_off+wrong_pitch+missed+extra) * 100
                        -- fraction of the performance that landed on the right pitch at all.
-  rhythm accuracy   = correct / (correct+timing_off) * 100
-                       -- of the notes played with the right pitch, % within tolerance.
-  timing stability  = 100 / (1 + std(offset_ms) / tol_ms)
-                       -- 100 at std=0, 50 at std=tol_ms, asymptotic to 0 as std grows.
+  rhythm accuracy   = pitch_accuracy * correct / (correct+timing_off)
+                       -- coverage-adjusted: missing most notes cannot still score 100 rhythm.
+  timing stability  = pitch_accuracy * raw_timing_stability / 100
+                       -- coverage-adjusted: a few perfectly-aligned notes cannot hide many misses.
   overall           = score_weight_pitch*pitch + score_weight_rhythm*rhythm
                        + score_weight_timing_stability*timing_stability   (weights in ScoringConfig)
 """
@@ -100,20 +100,19 @@ def score_performance(
         if ref_note is not None and perf_note is not None:
             predicted = tempo_curve.predict(ref_note["onset_sec"])
             offset_ms = (perf_note["onset_sec"] - predicted) * 1000.0
-            within_tol = abs(offset_ms) <= tol_ms
             if ref_note["pitch"] != perf_note["pitch"]:
                 status = "wrong_pitch"
-            elif config.ignore_timing or within_tol:
+            elif abs(offset_ms) <= tol_ms:
                 status = "correct"
             else:
                 status = "timing_off"
-            timing = None if config.ignore_timing else ("accurate" if within_tol else ("rush" if offset_ms < 0 else "drag"))
+            timing = "accurate" if abs(offset_ms) <= tol_ms else ("rush" if offset_ms < 0 else "drag")
             note_results.append(NoteResult(
                 ref_index=ref_idx, perf_index=perf_idx,
                 pitch_ref=ref_note["pitch"], pitch_perf=perf_note["pitch"],
                 name=ref_note.get("name"),
                 onset_ref_sec=ref_note["onset_sec"], onset_perf_sec=perf_note["onset_sec"],
-                offset_ms=None if config.ignore_timing else offset_ms, status=status, timing=timing,
+                offset_ms=offset_ms, status=status, timing=timing,
                 measure=ref_note.get("measure"), hand=ref_note.get("hand"),
                 dur_beats=ref_note.get("dur_beats"),
             ))
@@ -194,25 +193,19 @@ def _summarize(note_results: list, config: ScoringConfig, global_tempo_ratio) ->
     )
 
     matched_pitch_ok = counts["correct"] + counts["timing_off"]
-    rhythm_accuracy = 100.0 * counts["correct"] / matched_pitch_ok if matched_pitch_ok else 100.0
+    raw_rhythm_accuracy = 100.0 * counts["correct"] / matched_pitch_ok if matched_pitch_ok else 0.0
+    rhythm_accuracy = pitch_accuracy * (raw_rhythm_accuracy / 100.0)
 
-    if config.ignore_timing:
-        # timing dimension dropped entirely -- score is pitch+rhythm only,
-        # their configured weights renormalized to sum to 1.0
-        timing_stability = None
-        weight_total = config.score_weight_pitch + config.score_weight_rhythm
-        w_pitch = config.score_weight_pitch / weight_total if weight_total else 0.5
-        w_rhythm = config.score_weight_rhythm / weight_total if weight_total else 0.5
-        overall = w_pitch * pitch_accuracy + w_rhythm * rhythm_accuracy
-    else:
-        offsets = [r.offset_ms for r in note_results if r.offset_ms is not None]
-        std_ms = float(np.std(offsets)) if offsets else 0.0
-        timing_stability = 100.0 / (1.0 + std_ms / config.tol_ms)
-        overall = (
-            config.score_weight_pitch * pitch_accuracy
-            + config.score_weight_rhythm * rhythm_accuracy
-            + config.score_weight_timing_stability * timing_stability
-        )
+    offsets = [r.offset_ms for r in note_results if r.offset_ms is not None]
+    std_ms = float(np.std(offsets)) if offsets else 0.0
+    raw_timing_stability = 100.0 / (1.0 + std_ms / config.tol_ms)
+    timing_stability = pitch_accuracy * (raw_timing_stability / 100.0)
+
+    overall = (
+        config.score_weight_pitch * pitch_accuracy
+        + config.score_weight_rhythm * rhythm_accuracy
+        + config.score_weight_timing_stability * timing_stability
+    )
 
     octave_slips = sum(
         1 for r in note_results
@@ -225,7 +218,7 @@ def _summarize(note_results: list, config: ScoringConfig, global_tempo_ratio) ->
         sub_scores={
             "pitch": round(pitch_accuracy, 2),
             "rhythm": round(rhythm_accuracy, 2),
-            "timing_stability": round(timing_stability, 2) if timing_stability is not None else None,
+            "timing_stability": round(timing_stability, 2),
         },
         global_tempo_ratio=round(global_tempo_ratio, 4) if global_tempo_ratio is not None else None,
         tempo_trend=_tempo_trend(note_results, config),

@@ -41,9 +41,9 @@ from backend.score_to_reference import convert as convert_score  # noqa: E402
 from backend.scoring import ScoringConfig, score_performance  # noqa: E402
 from backend.audio_to_performance.config import AudioToPerformanceConfig  # noqa: E402
 from backend.audio_to_performance.pipeline import load_audio, transcribe  # noqa: E402
-from backend.audio_to_performance.song_range import compute_song_frequency_range  # noqa: E402
 from backend.audio_to_performance.constrained_verification import (  # noqa: E402
     ConstrainedVerificationConfig,
+    load_keyboard_profile,
     reverify_result,
 )
 
@@ -54,14 +54,13 @@ def _status_labels():
     return {"correct": 0, "timing_off": 0, "wrong_pitch": 0, "missed": 0, "extra": 0}
 
 
-def _reclassify_corrected_octaves(result: dict, tol_ms: float, ignore_timing: bool = False) -> int:
+def _reclassify_corrected_octaves(result: dict, tol_ms: float) -> int:
     """In place: for each wrong_pitch note the audio re-check corrected to the
     reference pitch, flip its verdict to correct/timing_off (by its existing
-    timing offset, or always correct when `ignore_timing`), then recompute
-    summary counts + sub-scores + score with the SAME formula
-    backend.scoring._summarize uses. `missed` notes are left as-is --
-    correcting one would mean fabricating a note the audio pipeline never
-    emitted, which this pipeline deliberately never does. Returns the
+    timing offset), then recompute summary counts + sub-scores + score with
+    the SAME formula backend.scoring._summarize uses. `missed` notes are left
+    as-is -- correcting one would mean fabricating a note the audio pipeline
+    never emitted, which this pipeline deliberately never does. Returns the
     number of notes corrected.
     """
     corrected = 0
@@ -75,7 +74,7 @@ def _reclassify_corrected_octaves(result: dict, tol_ms: float, ignore_timing: bo
         if flag == "corrected_octave_or_harmonic_error" and original_status == "wrong_pitch":
             # audio confirms the reference pitch was played -> flip the verdict
             offset_ms = n.get("offset_ms")
-            within = ignore_timing or (offset_ms is not None and abs(offset_ms) <= tol_ms)
+            within = offset_ms is not None and abs(offset_ms) <= tol_ms
             n["status"] = "correct" if within else "timing_off"
             n["pitch_perf"] = n.get("pitch_ref")
             corrected += 1
@@ -89,11 +88,11 @@ def _reclassify_corrected_octaves(result: dict, tol_ms: float, ignore_timing: bo
             n["status"] = original_status
             n["pitch_perf"] = v.get("original_pitch_guess")
 
-    _recompute_summary(result, tol_ms, ignore_timing)
+    _recompute_summary(result, tol_ms)
     return corrected
 
 
-def _recompute_summary(result: dict, tol_ms: float, ignore_timing: bool = False) -> None:
+def _recompute_summary(result: dict, tol_ms: float) -> None:
     """Recompute summary counts/sub_scores/score from the (possibly
     reclassified) notes -- mirrors backend.scoring.score._summarize so the
     audio path stays consistent with the symbolic path's formula.
@@ -108,20 +107,17 @@ def _recompute_summary(result: dict, tol_ms: float, ignore_timing: bool = False)
     matched_ok = counts["correct"] + counts["timing_off"]
     rhythm = 100.0 * counts["correct"] / matched_ok if matched_ok else 100.0
 
+    # timing_stability depends only on matched-note offset spread, which the
+    # reclassification doesn't change, so keep the value scoring already computed
+    timing_stability = result["summary"]["sub_scores"]["timing_stability"]
+
     summary = result["summary"]
-    if ignore_timing:
-        summary["sub_scores"] = {"pitch": round(pitch, 2), "rhythm": round(rhythm, 2), "timing_stability": None}
-        summary["score"] = round(0.5 * pitch + 0.5 * rhythm, 2)
-    else:
-        # timing_stability depends only on matched-note offset spread, which the
-        # reclassification doesn't change, so keep the value scoring already computed
-        timing_stability = summary["sub_scores"]["timing_stability"]
-        summary["sub_scores"] = {
-            "pitch": round(pitch, 2), "rhythm": round(rhythm, 2),
-            "timing_stability": round(timing_stability, 2),
-        }
-        summary["score"] = round(0.4 * pitch + 0.4 * rhythm + 0.2 * timing_stability, 2)
     summary["counts"] = counts
+    summary["sub_scores"] = {
+        "pitch": round(pitch, 2), "rhythm": round(rhythm, 2),
+        "timing_stability": round(timing_stability, 2),
+    }
+    summary["score"] = round(0.4 * pitch + 0.4 * rhythm + 0.2 * timing_stability, 2)
 
 
 def main(argv=None) -> int:
@@ -135,34 +131,30 @@ def main(argv=None) -> int:
     parser.add_argument("--soundfont", help="Soundfont path (required with --synthesize).")
     parser.add_argument("--song-name", default=None, help="Display name for the viewer (defaults to the reference title).")
     parser.add_argument("--keyboard-range", type=int, nargs=2, default=list(KEYBOARD_RANGE), metavar=("LOW", "HIGH"), help="Physical keyboard MIDI range (default: the project's 37-key board, 48-84 -- see backend/hardware.py).")
+    parser.add_argument("--keyboard-profile", default=None, help="Optional electronic-keyboard profile JSON from scripts/train_keyboard_profile.py.")
+    parser.add_argument("--keyboard-profile-weight", type=float, default=0.75, help="Weight of the keyboard profile score boost during re-verification.")
     parser.add_argument("-o", "--output", default=str(VIEWER_DIR / "public" / "result.json"), help="Where to write result.json (defaults to the viewer's public/).")
     parser.add_argument("--no-reverify", action="store_true", help="Skip the constrained-verification octave re-check.")
-    parser.add_argument("--templates", default=None, help="Per-key spectral fingerprints learned from THIS instrument (see backend/audio_to_performance/timbre_fingerprint.py) -- use when the instrument's timbre doesn't match basic-pitch's real-piano training, e.g. data/computer_midi_playback_fingerprints.json.")
-    parser.add_argument("--ignore-timing", action="store_true", help="Drop the timing dimension entirely (see ScoringConfig.ignore_timing) -- for isolating pitch/transcription accuracy from a real performer's natural tempo rubato.")
-    parser.add_argument("--no-song-range", action="store_true", help="Don't narrow basic-pitch's frequency search to this song's own pitch range (see backend/audio_to_performance/song_range.py). On by default -- a real 11-piece A/B found it cuts extras ~17%% with a negligible cost.")
     args = parser.parse_args(argv)
 
     reference = convert_score(args.reference)
     print(f"reference: {reference.get('title')}  ({len(reference['notes'])} notes)")
 
     # --- 37-key physical constraint (backend/hardware.py) ---
-    # The keyboard can't produce pitches outside kb_range, so a transcription
-    # outside it is a guaranteed artifact -- BUT only if this piece could
-    # plausibly have been played on that keyboard at all. If the reference
-    # itself needs notes outside the range, this performance (live or
-    # synthesized) did not come from the 37-key board as written, so forcing
-    # the filter would delete real out-of-range notes rather than artifacts.
-    # The rule is the same regardless of audio source.
+    # The keyboard can't produce pitches outside kb_range, so out-of-range
+    # transcriptions from a REAL recording are guaranteed artifacts. For
+    # --synthesize the audio comes from the MIDI file, not the keyboard, so
+    # the filter is only safe when the reference itself fits the range.
     kb_range = tuple(args.keyboard_range)
     unplayable = [n["pitch"] for n in reference["notes"] if not (kb_range[0] <= n["pitch"] <= kb_range[1])]
     if unplayable:
         print(f"  WARNING: {len(unplayable)} reference note(s) fall outside the {kb_range} keyboard range "
-              f"(pitches {sorted(set(unplayable))}) -- the student physically cannot play them as written "
-              f"on the 37-key board (or this performance wasn't recorded on it).")
+              f"(pitches {sorted(set(unplayable))}) -- the student physically cannot play them as written.")
     reference_fits = not unplayable
-    effective_range = kb_range if reference_fits else None
-    if not reference_fits:
-        print("  (keyboard-range artifact filtering disabled: reference exceeds the 37-key range)")
+    apply_range = (not args.synthesize) or reference_fits
+    effective_range = kb_range if apply_range else None
+    if not apply_range:
+        print("  (keyboard-range artifact filtering disabled: synthesized audio genuinely contains out-of-range pitches)")
 
     cleanup_wav = None
     if args.synthesize:
@@ -192,19 +184,10 @@ def main(argv=None) -> int:
         audio_path = args.audio
 
     print("transcribing (basic-pitch)...")
-    min_hz, max_hz = (None, None)
-    if not args.no_song_range:
-        min_hz, max_hz = compute_song_frequency_range(reference)
-        print(f"  narrowing basic-pitch's frequency search to this song's range: {min_hz:.1f}-{max_hz:.1f}Hz")
-    performance = transcribe(
-        wav_path=audio_path,
-        config=AudioToPerformanceConfig(keyboard_range=effective_range, minimum_frequency=min_hz, maximum_frequency=max_hz),
-    )
+    performance = transcribe(wav_path=audio_path, config=AudioToPerformanceConfig(keyboard_range=effective_range))
     print(f"  transcribed {len(performance)} notes")
 
-    result = score_performance(
-        reference, performance, ScoringConfig(ignore_timing=args.ignore_timing), song_name=args.song_name,
-    )
+    result = score_performance(reference, performance, song_name=args.song_name)
     result_dict = result.to_dict()
     print(f"  pass 1 score {result_dict['summary']['score']}  counts {result_dict['summary']['counts']}"
           f"  (harmonic extras removed: {result_dict['summary']['harmonic_extras_removed']})")
@@ -222,14 +205,13 @@ def main(argv=None) -> int:
         # preserves the per-note verification audit trail.
         print("constrained re-verification of wrong_pitch against raw audio...")
         audio, sr = load_audio(audio_path)
-        cv_config = ConstrainedVerificationConfig(keyboard_range=effective_range)
-        templates = None
-        if args.templates:
-            from backend.audio_to_performance.timbre_fingerprint import load_templates
-            templates = load_templates(args.templates)
-            print(f"  using {len(templates)} instrument-specific fingerprint(s) from {args.templates}")
-        result_dict = reverify_result(result_dict, audio, sr, reference=reference, config=cv_config, templates=templates)
-        corrected = _reclassify_corrected_octaves(result_dict, tol_ms=ScoringConfig().tol_ms, ignore_timing=args.ignore_timing)
+        cv_config = ConstrainedVerificationConfig(
+            keyboard_range=effective_range,
+            keyboard_profile=load_keyboard_profile(args.keyboard_profile) if args.keyboard_profile else None,
+            keyboard_profile_weight=args.keyboard_profile_weight,
+        )
+        result_dict = reverify_result(result_dict, audio, sr, reference=reference, config=cv_config)
+        corrected = _reclassify_corrected_octaves(result_dict, tol_ms=ScoringConfig().tol_ms)
         print(f"  {corrected} wrong_pitch note(s) corrected to the reference pitch by audio evidence,"
               f" {len(result_dict.get('unscored_extra_onsets', []))} unscored onset(s) flagged")
 

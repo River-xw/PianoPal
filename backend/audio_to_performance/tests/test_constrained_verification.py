@@ -10,8 +10,14 @@ from backend.audio_to_performance.constrained_verification import (
     ConstrainedVerificationConfig,
     _flag_unexpected_onsets,
     get_candidates,
+    profile_similarity_for_candidate,
     reverify_note,
     score_candidate,
+)
+from backend.audio_to_performance.keybank import WHITE_KEY_MIDIS
+from backend.audio_to_performance.reference_constrained import (
+    ReferenceConstrainedConfig,
+    _candidate_pitches,
 )
 
 FMIN = 27.5   # A0
@@ -24,11 +30,40 @@ def _midi_to_bin(pitch: int, fmin=FMIN, bins_per_octave=BPO) -> int:
     return int(round(bins_per_octave * np.log2(freq / fmin)))
 
 
+def _midi_to_hz(pitch: int) -> float:
+    return 440.0 * (2.0 ** ((pitch - 69) / 12.0))
+
+
+def _hz_to_bin(freq: float, fmin=FMIN, bins_per_octave=BPO) -> int:
+    return int(round(bins_per_octave * np.log2(freq / fmin)))
+
+
 def _frame_with_energy(energy_by_pitch: dict) -> CQTFrame:
     magnitudes = np.zeros(N_BINS)
     for pitch, energy in energy_by_pitch.items():
         magnitudes[_midi_to_bin(pitch)] = energy
     return CQTFrame(magnitudes=magnitudes, fmin_hz=FMIN, bins_per_octave=BPO)
+
+
+def _frame_with_harmonics(energy_by_pitch_harmonic: dict) -> CQTFrame:
+    magnitudes = np.zeros(N_BINS)
+    for (pitch, harmonic), energy in energy_by_pitch_harmonic.items():
+        magnitudes[_hz_to_bin(_midi_to_hz(pitch) * harmonic)] = energy
+    return CQTFrame(magnitudes=magnitudes, fmin_hz=FMIN, bins_per_octave=BPO)
+
+
+def _profile(notes: dict) -> dict:
+    return {
+        "schema": "pianopal.keyboard_profile.v1",
+        "max_harmonic": 3,
+        "notes": {
+            str(pitch): {
+                "midi": pitch,
+                "harmonic_energy_mean": harmonics,
+            }
+            for pitch, harmonics in notes.items()
+        },
+    }
 
 
 class TestGetCandidates:
@@ -47,6 +82,20 @@ class TestGetCandidates:
     def test_deduplicates(self):
         candidates = get_candidates(60)
         assert len(candidates) == len(set(candidates))
+
+
+class TestReferenceConstrainedCandidatePitches:
+    def test_white_key_mode_removes_black_key_candidates(self):
+        config = ReferenceConstrainedConfig(
+            keyboard_range=(48, 84),
+            allowed_pitches=WHITE_KEY_MIDIS,
+        )
+
+        candidates = _candidate_pitches(config)
+
+        assert candidates == list(WHITE_KEY_MIDIS)
+        assert 49 not in candidates
+        assert 61 not in candidates
 
 
 class TestScoreCandidateHarmonicDiscount:
@@ -75,6 +124,45 @@ class TestScoreCandidateHarmonicDiscount:
         score_other = score_candidate(frame, 49, ref_pitch, candidates, config)
 
         assert score_other > score_ref  # genuine wrong note wins, not suppressed
+
+
+class TestScoreCandidateKeyboardProfile:
+    def test_profile_matching_candidate_can_beat_louder_fundamental(self):
+        profile = _profile({
+            60: [0.75, 0.25, 0.0],
+            61: [0.05, 0.95, 0.0],
+        })
+        config = ConstrainedVerificationConfig(
+            keyboard_profile=profile,
+            keyboard_profile_weight=0.75,
+            min_confidence_ratio=0.0,
+        )
+        candidates = get_candidates(60, config.keyboard_range, config)
+        frame = _frame_with_harmonics({
+            (60, 1): 0.6,
+            (60, 2): 0.2,
+            (61, 1): 0.8,
+            (61, 2): 0.0,
+        })
+
+        score_ref = score_candidate(frame, 60, 60, candidates, config)
+        score_near_miss = score_candidate(frame, 61, 60, candidates, config)
+
+        assert profile_similarity_for_candidate(frame, 60, config) > 0.99
+        assert profile_similarity_for_candidate(frame, 61, config) < 0.2
+        assert score_ref > score_near_miss
+
+    def test_missing_profile_note_falls_back_to_original_score(self):
+        profile = _profile({60: [1.0, 0.0, 0.0]})
+        with_profile = ConstrainedVerificationConfig(keyboard_profile=profile)
+        without_profile = ConstrainedVerificationConfig()
+        candidates = get_candidates(61, with_profile.keyboard_range, with_profile)
+        frame = _frame_with_energy({61: 0.8})
+
+        assert profile_similarity_for_candidate(frame, 61, with_profile) is None
+        assert score_candidate(frame, 61, 61, candidates, with_profile) == score_candidate(
+            frame, 61, 61, candidates, without_profile
+        )
 
 
 class TestReverifyNoteOutcomes:
@@ -204,53 +292,3 @@ class TestKeyboardRangeDefault:
         candidates = get_candidates(84, config.keyboard_range, config)
         assert 96 not in candidates and 108 not in candidates
         assert 84 in candidates and 72 in candidates
-
-
-class TestTemplateScoring:
-    """score_candidate switches to per-instrument learned fingerprints when
-    `templates` covers ref_pitch -- for instruments (e.g. a toy keyboard)
-    whose timbre doesn't match the generic harmonic-discount heuristic's
-    real-piano assumptions.
-    """
-
-    def test_candidate_matching_its_own_template_wins(self):
-        # this instrument's "62" key happens to sound almost nothing like a
-        # generic 62 (that's the whole point -- an idiosyncratic timbre)
-        weird_62_template = _frame_with_energy({64: 1.0, 67: 0.3}).magnitudes
-        weird_62_template = weird_62_template / np.linalg.norm(weird_62_template)
-        templates = {62: weird_62_template}
-
-        # the live frame looks like the template, NOT like a generic 62
-        frame = _frame_with_energy({64: 1.0, 67: 0.3})
-        candidates = get_candidates(62)
-        score_62 = score_candidate(frame, 62, 62, candidates, templates=templates)
-        score_64 = score_candidate(frame, 64, 62, candidates, templates=templates)  # no template -> 0
-        assert score_62 > score_64
-        assert score_64 == 0.0
-
-    def test_no_template_for_this_ref_pitch_falls_back_to_generic(self):
-        config = ConstrainedVerificationConfig()
-        frame = _frame_with_energy({48: 1.0, 60: 0.3})
-        candidates = get_candidates(48)
-        templates = {999: np.zeros(N_BINS)}  # covers some OTHER pitch, not 48
-        with_templates = score_candidate(frame, 48, 48, candidates, config, templates=templates)
-        without_templates = score_candidate(frame, 48, 48, candidates, config, templates=None)
-        assert with_templates == without_templates  # unaffected -- generic path used
-
-    def test_reverify_note_uses_templates_to_correct_an_idiosyncratic_key(self):
-        # a key whose true sound doesn't match generic assumptions at all,
-        # but DOES match its own learned template
-        template_vec = _frame_with_energy({48: 0.2, 76: 1.0}).magnitudes
-        template_vec = template_vec / np.linalg.norm(template_vec)
-        templates = {60: template_vec}
-
-        note = {
-            "ref_index": 0, "perf_index": 0, "pitch_ref": 60, "pitch_perf": 48,
-            "name": "note", "onset_ref_sec": 1.0, "onset_perf_sec": 1.0, "offset_ms": 0.0,
-            "status": "wrong_pitch", "timing": "accurate", "measure": 1, "hand": "right", "dur_beats": 1.0,
-        }
-        # the actual audio matches THIS instrument's weird template for key 60
-        frame = _frame_with_energy({48: 0.2, 76: 1.0})
-        result = reverify_note(note, audio_window=None, sr=None, cqt_frame=frame, templates=templates)
-        assert result["status"] == "corrected_octave_or_harmonic_error"
-        assert result["pitch_perf"] == 60
