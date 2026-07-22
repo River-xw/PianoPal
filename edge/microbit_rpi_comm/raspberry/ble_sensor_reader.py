@@ -99,14 +99,17 @@ def print_packet(device_name: str, packet: RawHandSensorPacket) -> None:
     fingertip_gyro_y = packet.fingertip.gyro.y if packet.fingertip.gyro else None
     hand_back_gyro_z = packet.hand_back.gyro.z if packet.hand_back.gyro else None
 
+    def format_optional(value: float | None) -> str:
+        return "NA" if value is None else f"{value:g}"
+
     print(
         f"[{device_name}] "
         f"hand={packet.hand} "
         f"seq={packet.sequence_number} "
         f"t={packet.device_timestamp_ms} ms "
         f"tip_ax={packet.fingertip.accel.x:g} "
-        f"tip_gy={fingertip_gyro_y:g} "
-        f"back_gz={hand_back_gyro_z:g} "
+        f"tip_gy={format_optional(fingertip_gyro_y)} "
+        f"back_gz={format_optional(hand_back_gyro_z)} "
         f"wrist_az={packet.wrist.accel.z:g}"
     )
 

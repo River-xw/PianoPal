@@ -57,14 +57,74 @@ function writeRegister(address: number, registerAddress: number, value: number) 
     )
 }
 
-function initMpu(address: number) {
+function readRegisterByte(address: number, registerAddress: number): number {
+    pins.i2cWriteNumber(address, registerAddress, NumberFormat.UInt8BE, true)
+    sensorBuffer = pins.i2cReadBuffer(address, 1, false)
+    if (sensorBuffer.length < 1) {
+        return -1
+    }
+    return sensorBuffer.getNumber(NumberFormat.UInt8BE, 0)
+}
+
+function initMpu(address: number): boolean {
+    if (readRegisterByte(address, MPU_WHO_AM_I) != 0x68) {
+        return false
+    }
     writeRegister(address, MPU_PWR_MGMT_1, 0)
     basic.pause(5)
     writeRegister(address, MPU_ACCEL_CONFIG, 0)
     writeRegister(address, MPU_GYRO_CONFIG, 0)
+    return true
+}
+
+function clearTipMpu() {
+    tipAx = 0
+    tipAy = 0
+    tipAz = 0
+    tipGx = 0
+    tipGy = 0
+    tipGz = 0
+}
+
+function clearHandBackMpu() {
+    handBackAx = 0
+    handBackAy = 0
+    handBackAz = 0
+    handBackGx = 0
+    handBackGy = 0
+    handBackGz = 0
+}
+
+function refreshMpuStatus() {
+    if (readRegisterByte(TIP_MPU_ADDR, MPU_WHO_AM_I) == 0x68) {
+        if (!(tipReady)) {
+            tipReady = initMpu(TIP_MPU_ADDR)
+        }
+    } else {
+        tipReady = false
+    }
+
+    if (readRegisterByte(HAND_BACK_MPU_ADDR, MPU_WHO_AM_I) == 0x68) {
+        if (!(handBackReady)) {
+            handBackReady = initMpu(HAND_BACK_MPU_ADDR)
+        }
+    } else {
+        handBackReady = false
+    }
+
+    if (!(tipReady)) {
+        clearTipMpu()
+    }
+
+    if (!(handBackReady)) {
+        clearHandBackMpu()
+    }
 }
 
 function readTipMpu() {
+    if (!(tipReady)) {
+        return
+    }
     pins.i2cWriteNumber(TIP_MPU_ADDR, MPU_ACCEL_XOUT_H, NumberFormat.UInt8BE, true)
     sensorBuffer = pins.i2cReadBuffer(TIP_MPU_ADDR, 14, false)
     if (sensorBuffer.length >= 14) {
@@ -78,6 +138,9 @@ function readTipMpu() {
 }
 
 function readHandBackMpu() {
+    if (!(handBackReady)) {
+        return
+    }
     pins.i2cWriteNumber(HAND_BACK_MPU_ADDR, MPU_ACCEL_XOUT_H, NumberFormat.UInt8BE, true)
     sensorBuffer = pins.i2cReadBuffer(HAND_BACK_MPU_ADDR, 14, false)
     if (sensorBuffer.length >= 14) {
@@ -106,24 +169,35 @@ let tipGz = 0
 let tipGy = 0
 let tipGx = 0
 let timestampMs = 0
+let lastMpuRefreshMs = 0
 let startTime = 0
 let seq = 0
 let running = false
 let connected = false
 let hand = "L"
-let SAMPLE_INTERVAL_MS = 200
+let handBackReady = false
+let tipReady = false
+let SAMPLE_INTERVAL_MS = 500
+let MPU_REFRESH_INTERVAL_MS = 10000
 let TIP_MPU_ADDR = 0x68
 let HAND_BACK_MPU_ADDR = 0x69
 let MPU_PWR_MGMT_1 = 0x6B
 let MPU_ACCEL_CONFIG = 0x1C
 let MPU_GYRO_CONFIG = 0x1B
 let MPU_ACCEL_XOUT_H = 0x3B
+let MPU_WHO_AM_I = 0x75
 let sensorBuffer = pins.createBuffer(0)
 
 bluetooth.startUartService()
-initMpu(TIP_MPU_ADDR)
-initMpu(HAND_BACK_MPU_ADDR)
-basic.showIcon(IconNames.Yes)
+refreshMpuStatus()
+
+if (tipReady && handBackReady) {
+    basic.showNumber(2)
+} else if (tipReady || handBackReady) {
+    basic.showNumber(1)
+} else {
+    basic.showNumber(0)
+}
 
 basic.forever(function () {
     if (!(connected)) {
@@ -138,6 +212,11 @@ basic.forever(function () {
 
     timestampMs = input.runningTime() - startTime
     seq += 1
+
+    if (input.runningTime() - lastMpuRefreshMs >= MPU_REFRESH_INTERVAL_MS) {
+        lastMpuRefreshMs = input.runningTime()
+        refreshMpuStatus()
+    }
 
     readTipMpu()
     readHandBackMpu()

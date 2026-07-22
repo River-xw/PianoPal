@@ -74,12 +74,35 @@ single `raw_audio` path.
 
 ## Raspberry Pi BLE Mode
 
-Example:
+From the repo root on the Raspberry Pi:
 
 ```bash
 python -m edge.raspi_runtime \
   --mode ble \
   --ble-config edge/microbit_rpi_comm/raspberry/config.json \
+  --duration-sec 30 \
+  --user-id u_local_001 \
+  --piece-id piece_motion_test \
+  --piece-title "Motion Test"
+```
+
+This connects both configured micro:bits, sends `CONNECT` then
+`START LEFT`/`START RIGHT`, records CSV UART packets for `--duration-sec`,
+sends `STOP`, and writes JSONL files under:
+
+```text
+edge/data/raw/sessions/<session_id>/imu_left.jsonl
+edge/data/raw/sessions/<session_id>/imu_right.jsonl
+edge/data/artifacts/sessions/<session_id>/imu_predictions.jsonl
+```
+
+Add audio recording only when the microphone path is ready:
+
+```bash
+python -m edge.raspi_runtime \
+  --mode ble \
+  --ble-config edge/microbit_rpi_comm/raspberry/config.json \
+  --duration-sec 30 \
   --audio-command "arecord -f cd -t wav {output}" \
   --speaker-command "espeak {message}" \
   --user-id u_local_001 \
