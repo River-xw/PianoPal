@@ -12,18 +12,21 @@
 
 | 曲目 | refgrid分數 | bp分數 | refgrid(對/錯音/漏/多) | bp(對/錯音/漏/多) |
 | --- | --- | --- | --- | --- |
-| 10_little_indians | 92.96 | 87.29 | 66/0/5/0 | 69/0/2/10 |
-| alabama | 93.14 | 85.67 | 95/0/7/0 | 95/5/2/13 |
-| pachelbel_canon_bpno | 94.23 | 92.03 | 98/0/6/0 | 102/0/2/6 |
-| silent_night_easy | 100.00 | 90.05 | 74/0/0/0 | 72/0/2/7 |
-| twinkle_twinkle | 95.65 | 90.65 | 66/0/3/0 | 69/0/0/7 |
-| **合計(438個音符)** | | | **399/0/21/0** | **407/5/8/43** |
+| 10_little_indians | 92.96 | 90.49 | 66/0/5/0 | 69/0/2/5 |
+| alabama | 95.10 | 87.37 | 97/0/5/0 | 95/5/2/9 |
+| pachelbel_canon_bpno | 96.15 | 93.97 | 100/0/4/0 | 102/0/2/2 |
+| silent_night_easy | 100.00 | 93.79 | 74/0/0/0 | 72/0/2/1 |
+| twinkle_twinkle | 97.10 | 92.17 | 67/0/2/0 | 69/0/0/4 |
+| **合計(438個音符)** | | | **404/0/16/0** | **407/5/8/21** |
 
-`reference-grid` 每一首歌分數都比 basic-pitch 高，而且**5首歌加總 0 個 extra、0 個 wrong_pitch**——不是單一首歌的偶然結果。basic-pitch 抓到的音符總數略多(漏音較少)，但代價是 43 個 extra + 5 個 wrong_pitch，這就是一直存在的「泛音誤判成新音符」問題；`reference-grid` 完全不會有這個毛病，因為它從頭到尾只在已知候選音高集合裡驗證，不會憑空多冒出音符。
+`reference-grid` 每一首歌分數都比 basic-pitch 高，而且**5首歌加總 0 個 extra、0 個 wrong_pitch**——不是單一首歌的偶然結果。basic-pitch 抓到的音符總數略多(漏音較少)，但代價是 21 個 extra + 5 個 wrong_pitch，這就是一直存在的「泛音誤判成新音符」問題；`reference-grid` 完全不會有這個毛病，因為它從頭到尾只在已知候選音高集合裡驗證，不會憑空多冒出音符。
 
-`reference-grid` 模式（`reference_constrained.py` 的 `transcribe_reference_constrained`）完全不猜音高——已知曲譜的每個音符各自在對應時間點的音檔窗口裡驗證「參考音高的證據夠不夠強」，不會像 basic-pitch 那樣把泛音誤判成獨立新音符。漏掉的21個音，一部分是已知的 F3 硬體特性(基頻弱)這類個別鍵的問題，其餘屬於還可以調參數優化的範圍(見下方)，不是新 bug。
+`reference-grid` 模式（`reference_constrained.py` 的 `transcribe_reference_constrained`）完全不猜音高——已知曲譜的每個音符各自在對應時間點的音檔窗口裡驗證「參考音高的證據夠不夠強」，不會像 basic-pitch 那樣把泛音誤判成獨立新音符。漏掉的16個音，一部分是已知的 F3 硬體特性(基頻弱)這類個別鍵的問題，其餘屬於還可以調參數優化的範圍(見下方)，不是新 bug。
 
-**這條路線原本有一個嚴重 bug 已修好**：時間對齊原本用一個粗略的「音檔哪裡有聲音」RMS 門檻估計，28秒的曲子會累積將近0.7秒的誤差，導致後半首歌大量誤判成 `missed`（分數曾經只有42分）。改成用模組裡已有的 onset 偵測去對齊第一個/最後一個音符的時間，才修正回 95.65 分。
+**這條路線原本有兩個嚴重 bug 已修好**：
+
+1. 時間對齊原本用一個粗略的「音檔哪裡有聲音」RMS 門檻估計，28秒的曲子會累積將近0.7秒的誤差，導致後半首歌大量誤判成 `missed`（分數曾經只有42分）。改成用模組裡已有的 onset 偵測去對齊第一個/最後一個音符的時間，才修正回 95分以上。
+2. `synthesize_reference_from_keybank.py` 原本把整首歌的音符全部混進**同一個長 buffer**——但每個 keybank 樣本的自然衰減(常常超過1秒)比大部分歌曲的音符間距(常常0.5-0.6秒)長很多，導致連續聽整首歌會有明顯的殘響堆疊、「一前一後」的黏糊感(耳朵聽得出來，但單一和弦的攻擊時間點本身是對的，物理量測也量不太出明顯差異)。改成**照小節切開、每個小節獨立合成再首尾接起來**(見下方)之後，5首歌整體評分也從399→404對、43→21個basic-pitch的extra，聽感更乾淨。
 
 **沒有被取代的部分**：`transcribe.py`/`pipeline.py`/`preprocess.py`/`postprocess.py` 這些 basic-pitch 模組保留，`validation/roundtrip.py` 等內部驗證工具還在用它們做「合成音檔反向驗證 MIDI 轉譜」這件事，跟「評分學生錄音」是不同用途。`grade_audio.py` 本身也還在，沒有刪除，只是不再是評分學生錄音的預設工具。
 
@@ -126,7 +129,7 @@ basic-pitch 是自由(不受限)的複音轉譜——在整個鋼琴音域裡自
 - **`keybank.py`**：從左到右的音階錄音偵測 onset、依序切割貼上 midi 標籤，同時算每個鍵的泛音能量統計；額外用 pYIN 做一個「診斷用」複核，跟物理順序標籤差超過 0.75 半音就標記 `pyin_octave_or_pitch_disagrees_with_order_label`——但這只是診斷資訊，不影響標籤本身。
 - **`keyboard_profile.py`**：把 keybank 的每鍵泛音統計整理成一份可重複使用的「這台琴聽起來長怎樣」的 profile。
 - **`constrained_verification.py` 的 `keyboard_profile` 參數**：候選音評分時，如果這個候選音在 profile 裡有記錄，會用觀測到的泛音能量分佈跟 profile 模板做 cosine 相似度，加權疊加到原本的 CQT 能量分數上(不是整個切換，是額外加分)。
-- **`synthesize_reference_from_keybank.py`**：直接照參考譜的音高、時間，從 keybank 找對應樣本原音重播混音，不做任何 pitch-shift。
+- **`synthesize_reference_from_keybank.py`**：直接照參考譜的音高、時間，從 keybank 找對應樣本原音重播混音，不做任何 pitch-shift。**預設照 `measure` 欄位切成一個個小節分開合成、再首尾接起來**(沒有 measure 資訊時退回整首歌一次合成)，而不是把整首歌塞進同一個長 buffer——每個小節自己的音符「下一個音在哪」決定自己的尾音要收多短(`--legato-overlap-sec`，預設0.08秒)，小節邊界互不影響，也各自獨立做 peak normalize。`--tail-sec` 只補在最後一個小節結尾。
 
 ### 另一條路：完全不用 basic-pitch 的「音對音」比對(`audio_reference.py` / `reference_constrained.py`)
 

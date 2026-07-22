@@ -4,6 +4,7 @@ import NotationView from "./components/NotationView";
 import FeedbackPanel from "./components/FeedbackPanel";
 import PianoRoll from "./components/PianoRoll";
 import TimingStrip from "./components/TimingStrip";
+import GuideControl from "./components/GuideControl";
 
 export default function App() {
   const [result, setResult] = useState(null);
@@ -66,6 +67,10 @@ export default function App() {
           />
         </label>
       </header>
+
+      <div className="mb-4">
+        <GuideControl />
+      </div>
 
       {error && (
         <div
