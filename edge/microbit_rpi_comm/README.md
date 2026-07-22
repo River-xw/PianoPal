@@ -45,12 +45,16 @@ edge/microbit_rpi_comm/
 1. 用 MakeCode 打开或导入 `microbit/microbit.js`
 2. 按需要把 `START LEFT` 或 `START RIGHT` 指令发给对应手的 micro:bit
 3. 上电后屏幕显示：
-   - BLE UART 服务启动：`✓`
+   - `2`：两颗 MPU6050 都识别到
+   - `1`：只识别到一颗 MPU6050
+   - `0`：两颗 MPU6050 都没识别到
    - 收到 `CONNECT`：心形
    - 收到 `START LEFT` / `START RIGHT`：笑脸
    - 收到 `STOP`：停止发送数据
 
 当前 `microbit.js` 发送 18 字段 CSV 文本行：指尖和手背两颗 MPU6050 都读取加速度 `ax/ay/az` 和陀螺仪 `gx/gy/gz` 原始值；最后三个字段来自安装在手腕处的 micro:bit 自带 `x/y/z` 加速度。默认每 `200ms` 发送一包传感器数据（约 `5Hz`）。
+
+固件默认每 `2000ms` 重新检查一次两颗 MPU6050 的 `WHO_AM_I` 状态；如果某颗短暂掉线，会把该传感器字段清零，并在恢复后自动重新初始化。可在 `microbit.js` 中调 `MPU_REFRESH_INTERVAL_MS`。
 
 若改用 MicroPython 和外接 MPU6050，可以继续基于 `mpu6050.py` 扩展烧录脚本。
 
@@ -169,6 +173,7 @@ BLE 使用 Nordic UART Service：
 | `externally-managed-environment` | 不要直接用系统 pip；先 `python3 -m venv .venv`，再 `source .venv/bin/activate`，然后 `pip install -r requirements.txt` |
 | `No module named 'venv'` | 运行 `sudo apt install python3-venv python3-full` |
 | micro:bit 显示 😞 | 检查 MPU6050 接线；确认模块为 3.3V 供电 |
+| micro:bit 上电显示 `0` 或 `1` | 固件没有通过 `WHO_AM_I` 识别到两颗 MPU6050；先只接 `0x68` 指尖模块测试，再接 `0x69` 手背模块 |
 | 扫描不到 micro:bit | 确认已烧录 BLE UART 固件；运行 `python scan_microbits.py`；靠近 Pi；临时 `sudo rfkill block wlan` |
 | 只能连上一块 | 先运行 `python scan_microbits.py` 确认两个不同 MAC |
 | 指尖/手背 MPU 数据全为 0 | 转动对应 MPU6050 模块验证；检查指尖是否为 `0x68`、手背是否为 `0x69` |
