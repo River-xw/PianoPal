@@ -134,7 +134,14 @@ async def run_session(
                 elif config.mode == "ble":
                     if config.ble_config is None:
                         raise ValueError("--ble-config is required in ble mode")
-                    await BleHandSensorSource(config.ble_config).run(stop_event, handle_packet)
+                    ble_task = asyncio.create_task(
+                        BleHandSensorSource(config.ble_config).run(stop_event, handle_packet)
+                    )
+                    try:
+                        await asyncio.sleep(config.duration_sec)
+                    finally:
+                        stop_event.set()
+                        await ble_task
                 else:
                     raise ValueError(f"unknown runtime mode: {config.mode}")
     finally:

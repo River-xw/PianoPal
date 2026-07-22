@@ -16,6 +16,8 @@ PacketHandler = Callable[[RawHandSensorPacket], Awaitable[None]]
 UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
 UART_TX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 UART_RX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+CONNECT_ATTEMPT_GAP_SECONDS = 2
+RECONNECT_DELAY_SECONDS = 5
 
 
 def load_devices(config_path: Path) -> list[dict[str, str]]:
@@ -37,12 +39,23 @@ class BleHandSensorSource:
             raise RuntimeError("Install bleak on the Raspberry Pi to use BLE mode") from exc
 
         devices = load_devices(self.config_path)
-        tasks = [
-            asyncio.create_task(
-                self._connect_device(BleakClient, device, stop_event, on_packet)
+        connect_lock = asyncio.Lock()
+        tasks = []
+
+        for index, device in enumerate(devices):
+            tasks.append(
+                asyncio.create_task(
+                    self._connect_device(
+                        BleakClient,
+                        device,
+                        stop_event,
+                        on_packet,
+                        connect_lock,
+                        startup_delay_seconds=index * CONNECT_ATTEMPT_GAP_SECONDS,
+                    )
+                )
             )
-            for device in devices
-        ]
+
         await asyncio.gather(*tasks)
 
     async def _connect_device(
@@ -51,10 +64,22 @@ class BleHandSensorSource:
         device: dict[str, str],
         stop_event: asyncio.Event,
         on_packet: PacketHandler,
+        connect_lock: asyncio.Lock,
+        startup_delay_seconds: float = 0,
     ) -> None:
         name = device["name"]
         address = device["address"]
         hand = device["hand"].upper()
+
+        if startup_delay_seconds > 0:
+            try:
+                await asyncio.wait_for(
+                    stop_event.wait(),
+                    timeout=startup_delay_seconds,
+                )
+                return
+            except asyncio.TimeoutError:
+                pass
 
         while not stop_event.is_set():
             receive_buffer = ""
@@ -72,13 +97,29 @@ class BleHandSensorSource:
                         asyncio.create_task(on_packet(packet))
 
             try:
-                print(f"[{name}] connecting to {address}")
-                async with bleak_client_cls(address, timeout=20) as client:
+                print(f"[{name}] waiting for BLE connection slot")
+
+                async with connect_lock:
+                    if stop_event.is_set():
+                        return
+
+                    print(f"[{name}] connecting to {address}")
+                    client = bleak_client_cls(address, timeout=20)
+                    await client.connect()
+
+                try:
+                    if not client.is_connected:
+                        raise ConnectionError("BLE connection was not established")
+
+                    print(f"[{name}] connected to {address}")
+
                     service = client.services.get_service(UART_SERVICE_UUID)
                     if service is None:
-                        raise RuntimeError("micro:bit UART service was not found")
+                        print(f"[{name}] UART service was not listed; trying characteristics directly")
 
                     await client.start_notify(UART_TX_UUID, on_data)
+                    print(f"[{name}] UART notifications enabled")
+
                     await client.write_gatt_char(UART_RX_UUID, b"CONNECT\n", response=False)
                     await asyncio.sleep(0.5)
                     await client.write_gatt_char(
@@ -91,10 +132,22 @@ class BleHandSensorSource:
                         await asyncio.sleep(0.2)
 
                     if client.is_connected:
-                        await client.write_gatt_char(UART_RX_UUID, b"STOP\n", response=False)
-                        await client.stop_notify(UART_TX_UUID)
+                        try:
+                            await client.write_gatt_char(UART_RX_UUID, b"STOP\n", response=False)
+                        finally:
+                            await client.stop_notify(UART_TX_UUID)
+
+                finally:
+                    if client.is_connected:
+                        await client.disconnect()
             except Exception as error:
                 print(f"[{name}] BLE error: {error}")
 
             if not stop_event.is_set():
-                await asyncio.sleep(5)
+                try:
+                    await asyncio.wait_for(
+                        stop_event.wait(),
+                        timeout=RECONNECT_DELAY_SECONDS,
+                    )
+                except asyncio.TimeoutError:
+                    pass

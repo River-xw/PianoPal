@@ -1,6 +1,6 @@
 # micro:bit v2 ↔ Raspberry Pi 5 (BLE)
 
-通过蓝牙同时连接两块 micro:bit v2，将左右手聚合传感器数据传到树莓派 Pi 5。当前 MakeCode 示例读取每只手的指尖 MPU6050、手背 MPU6050，以及安装在手腕处的 micro:bit 内置加速度计；`mpu6050.py` 保留为 MicroPython 实验驱动。
+通过蓝牙同时连接两块 micro:bit v2，将左右手聚合传感器数据传到树莓派 Pi 5。当前 MakeCode 固件读取每只手的指尖 MPU6050、手背 MPU6050，以及安装在手腕处的 micro:bit 内置加速度计；`mpu6050.py` 保留为 MicroPython 实验驱动。
 
 ## 目录结构
 
@@ -48,8 +48,9 @@ edge/microbit_rpi_comm/
    - BLE UART 服务启动：`✓`
    - 收到 `CONNECT`：心形
    - 收到 `START LEFT` / `START RIGHT`：笑脸
+   - 收到 `STOP`：停止发送数据
 
-当前 `microbit.js` 是低内存完整传感器版：仍然发送完整的 18 字段数据包，指尖和手背两颗 MPU6050 都读取加速度 `ax/ay/az` 和陀螺仪 `gx/gy/gz` 原始值；最后三个字段来自安装在手腕处的 micro:bit 自带 `x/y/z` 加速度。默认每 `200ms` 发送一包传感器数据（约 `5Hz`）。如果 micro:bit 不再显示 `020`，再逐步把 `SAMPLE_INTERVAL_MS` 调小，例如 `100` 表示约 `10Hz`。
+当前 `microbit.js` 发送 18 字段 CSV 文本行：指尖和手背两颗 MPU6050 都读取加速度 `ax/ay/az` 和陀螺仪 `gx/gy/gz` 原始值；最后三个字段来自安装在手腕处的 micro:bit 自带 `x/y/z` 加速度。默认每 `200ms` 发送一包传感器数据（约 `5Hz`）。
 
 若改用 MicroPython 和外接 MPU6050，可以继续基于 `mpu6050.py` 扩展烧录脚本。
 
@@ -119,23 +120,26 @@ python ble_sensor_reader.py
 预期输出：
 
 ```
-[left] linked: AA:BB:CC:DD:EE:01
-[left] connected
-[left] hand=L seq=381 t=15230 ms tip_ax=120 tip_gy=-6.1 back_gz=1.2 wrist_az=16310
-[right] linked: AA:BB:CC:DD:EE:02
-[right] connected
-[right] hand=R seq=382 t=15240 ms tip_ax=118 tip_gy=-5.8 back_gz=1.1 wrist_az=16302
+[left_microbit] Connecting to AA:BB:CC:DD:EE:01...
+[left_microbit] Connected to AA:BB:CC:DD:EE:01
+[left_microbit] hand=L seq=381 t=15230 ms tip_ax=120 tip_gy=-6.1 back_gz=1.2 wrist_az=16310
+[right_microbit] Connecting to AA:BB:CC:DD:EE:02...
+[right_microbit] Connected to AA:BB:CC:DD:EE:02
+[right_microbit] hand=R seq=382 t=15240 ms tip_ax=118 tip_gy=-5.8 back_gz=1.1 wrist_az=16302
 ```
 
 ## 通信协议
 
-早期单传感器实验可以用：
+树莓派向 micro:bit 写入：
 
-```text
-R,timestamp,ax,ay,az,gx,gy,gz
+```
+初始化: CONNECT
+开始左手采集: START LEFT
+开始右手采集: START RIGHT
+停止采集: STOP
 ```
 
-但当前手部硬件是一只手一个 micro:bit，汇总指尖 MPU6050、手背 MPU6050、手腕 micro:bit 加速度。因此正式采集建议使用一只手一行的固定长聚合包：
+micro:bit 向树莓派发送固定 18 字段 CSV 文本行：
 
 ```text
 hand,seq,timestamp_ms,
@@ -148,15 +152,6 @@ wrist_ax,wrist_ay,wrist_az
 
 ```text
 R,381,15230,120,-84,16320,3.2,-6.1,1.8,98,-70,16288,2.1,-4.4,1.2,110,-66,16310
-```
-
-后端的规范化存储结构和解析 helper 见 `backend/sensors/`。
-
-```
-树莓派  --CONNECT-->  micro:bit
-树莓派  <--READY---   micro:bit（屏幕显示 ✓）
-树莓派  <--L 聚合传感器包---  左手指尖/手背/手腕数据
-树莓派  <--R 聚合传感器包---  右手指尖/手背/手腕数据
 ```
 
 BLE 使用 Nordic UART Service：
@@ -174,11 +169,11 @@ BLE 使用 Nordic UART Service：
 | `externally-managed-environment` | 不要直接用系统 pip；先 `python3 -m venv .venv`，再 `source .venv/bin/activate`，然后 `pip install -r requirements.txt` |
 | `No module named 'venv'` | 运行 `sudo apt install python3-venv python3-full` |
 | micro:bit 显示 😞 | 检查 MPU6050 接线；确认模块为 3.3V 供电 |
-| 扫描不到 micro:bit | 确认已烧录 `mpu6050.py` + `main_*.py`；板子显示 `L`/`R`；运行 `--scan-all`；靠近 Pi；临时 `sudo rfkill block wlan` |
-| 只能连上一块 | 先 `--scan` 确认两个不同 MAC |
+| 扫描不到 micro:bit | 确认已烧录 BLE UART 固件；运行 `python scan_microbits.py`；靠近 Pi；临时 `sudo rfkill block wlan` |
+| 只能连上一块 | 先运行 `python scan_microbits.py` 确认两个不同 MAC |
 | 指尖/手背 MPU 数据全为 0 | 转动对应 MPU6050 模块验证；检查指尖是否为 `0x68`、手背是否为 `0x69` |
 | 频繁断线 | 减少遮挡；脚本已内置 5 秒自动重连 |
 
 ## 与 score_to_reference 集成
 
-树莓派可订阅左右手聚合传感器包，结合 `score_to_reference` / `scoring` 生成的 JSON 乐谱和实际 onset，用于切出每次按键前后约 0.8 秒的姿势窗口。
+树莓派可订阅左右手 CSV 传感器包，结合 `score_to_reference` / `scoring` 生成的 JSON 乐谱和实际 onset，用于切出每次按键前后约 0.8 秒的姿势窗口。
