@@ -135,3 +135,57 @@ These windows later become posture-classification samples:
   "model_version": "imu_posture_v1"
 }
 ```
+
+## Audio-Triggered IMU Training
+
+Use the backend audio pipeline as the source of truth for note onsets. The
+audio step produces the existing `performance.json` shape:
+
+```json
+[
+  {"pitch": 60, "onset_sec": 0.42, "dur_sec": 0.31, "velocity": 82}
+]
+```
+
+Training then merges notes with near-identical onsets into one physical
+keypress/chord event and cuts IMU windows around those audio onsets. The audio
+does not decide the posture label; it only decides when to cut the window. The
+feature vector uses all available sensor streams:
+
+- left and right hand
+- fingertip MPU6050 accel/gyro
+- hand-back MPU6050 accel/gyro
+- wrist micro:bit accel
+
+Recommended flow when `performance.json` already exists:
+
+```bash
+python3 scripts/train_imu_from_session.py \
+  --session-id sess_20260722_001 \
+  --session-dir data/raw/sessions/sess_20260722_001 \
+  --performance-json data/artifacts/sessions/sess_20260722_001/performance.json \
+  --labels data/artifacts/sessions/sess_20260722_001/imu_labels.json
+```
+
+Or let the script call `backend.audio_to_performance` from `audio.wav`:
+
+```bash
+python3 scripts/train_imu_from_session.py \
+  --session-id sess_20260722_001 \
+  --session-dir data/raw/sessions/sess_20260722_001 \
+  --labels data/artifacts/sessions/sess_20260722_001/imu_labels.json \
+  --save-performance-json data/artifacts/sessions/sess_20260722_001/performance.json
+```
+
+The labels file can be a simple list with one label per audio-triggered event:
+
+```json
+["normal", "finger_collapse", "normal", "wrist_drop"]
+```
+
+Outputs:
+
+```text
+data/artifacts/sessions/<session_id>/imu_keypress_features.jsonl
+models/gesture/<session_id>_hand_imu_model.json
+```
