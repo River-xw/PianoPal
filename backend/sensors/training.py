@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from math import sqrt
 from pathlib import Path
-from statistics import mean, pstdev
+from statistics import mean, median, pstdev
 from typing import Any, Iterable
 import json
 
@@ -33,6 +33,21 @@ def load_performance_json(path: str | Path) -> list[dict[str, Any]]:
     if not isinstance(data, list):
         raise ValueError("performance JSON must be a list of notes or an object with a notes list")
     return data
+
+
+def load_audio_start_unix_ms(path: str | Path) -> int:
+    """Load the recorder start estimate from runtime timing metadata."""
+
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    try:
+        started_at_unix_ms = int(data["audio"]["started_at_unix_ms"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(
+            "timing JSON must contain audio.started_at_unix_ms"
+        ) from exc
+    if started_at_unix_ms <= 0:
+        raise ValueError("audio.started_at_unix_ms must be positive")
+    return started_at_unix_ms
 
 
 def performance_to_onset_events(
@@ -94,9 +109,9 @@ def load_event_labels(path: str | Path, event_count: int) -> list[str]:
     """Load labels from a flexible JSON shape.
 
     Accepted examples:
-    - ["normal", "wrist_drop"]
-    - {"labels": ["normal", "wrist_drop"]}
-    - {"0": "normal", "1": "wrist_drop"}
+    - ["normal", "wrist_collapse"]
+    - {"labels": ["normal", "wrist_collapse"]}
+    - {"0": "normal", "1": "wrist_collapse"}
     - [{"event_index": 0, "label": "normal"}]
     """
 
@@ -142,57 +157,186 @@ def build_feature_rows(
     post_sec: float = 0.3,
     onset_merge_sec: float = 0.03,
     imu_time_offset_sec: float = 0.0,
+    audio_started_at_unix_ms: int | None = None,
+    min_valid_samples_per_hand: int = 3,
+    min_valid_ratio: float = 0.8,
 ) -> list[dict[str, Any]]:
     events = performance_to_onset_events(performance_notes, onset_merge_sec)
     if len(labels) != len(events):
         raise ValueError(f"label count ({len(labels)}) does not match event count ({len(events)})")
 
     streams = {"L": left_packets, "R": right_packets}
-    base_ms = {
-        hand: packets[0].device_timestamp_ms if packets else 0
-        for hand, packets in streams.items()
-    }
+    packet_times_sec: dict[str, list[float]] = {}
+    alignment_by_hand: dict[str, dict[str, Any]] = {}
+    for hand, packets in streams.items():
+        packet_times_sec[hand], alignment_by_hand[hand] = _align_packet_times(
+            packets,
+            audio_started_at_unix_ms=audio_started_at_unix_ms,
+        )
     rows = []
 
     for event, label in zip(events, labels):
-        feature_map: dict[str, float] = {}
-        sample_counts: dict[str, int] = {}
-
         window_start_sec = max(0.0, event.onset_sec - pre_sec)
         window_end_sec = event.onset_sec + post_sec
 
         for hand, packets in streams.items():
-            start_ms = base_ms[hand] + int(round((window_start_sec + imu_time_offset_sec) * 1000.0))
-            end_ms = base_ms[hand] + int(round((window_end_sec + imu_time_offset_sec) * 1000.0))
-            window_packets = [
-                packet for packet in packets
-                if start_ms <= packet.device_timestamp_ms <= end_ms
+            quality_reasons: list[str] = []
+            aligned_start_sec = window_start_sec + imu_time_offset_sec
+            aligned_end_sec = window_end_sec + imu_time_offset_sec
+            raw_window_packets = [
+                packet
+                for packet, packet_time_sec in zip(packets, packet_times_sec[hand])
+                if aligned_start_sec <= packet_time_sec <= aligned_end_sec
             ]
-            sample_counts[hand] = len(window_packets)
-            feature_map.update(extract_window_features(window_packets, prefix=hand))
+            window_packets = [
+                packet for packet in raw_window_packets
+                if _packet_has_required_sensor_data(packet)
+            ]
+            raw_count = len(raw_window_packets)
+            invalid_count = raw_count - len(window_packets)
+            valid_ratio = len(window_packets) / raw_count if raw_count else 0.0
 
-        rows.append(
-            {
-                "schema_version": "imu_keypress_feature_window_v1",
-                "session_id": session_id,
-                "event_index": event.event_index,
-                "onset_sec": round(event.onset_sec, 6),
-                "window_start_sec": round(window_start_sec, 6),
-                "window_end_sec": round(window_end_sec, 6),
-                "pitches": event.pitches,
-                "velocities": event.velocities,
-                "label": label,
-                "sample_counts": sample_counts,
-                "features": feature_map,
-            }
-        )
+            if len(window_packets) < min_valid_samples_per_hand:
+                quality_reasons.append(
+                    f"valid_samples_below_{min_valid_samples_per_hand}"
+                )
+            if valid_ratio < min_valid_ratio:
+                quality_reasons.append(
+                    f"valid_ratio_below_{min_valid_ratio:g}"
+                )
+            rows.append(
+                {
+                    "schema_version": "imu_keypress_hand_feature_window_v2",
+                    "session_id": session_id,
+                    "event_index": event.event_index,
+                    "hand": hand,
+                    "onset_sec": round(event.onset_sec, 6),
+                    "window_start_sec": round(window_start_sec, 6),
+                    "window_end_sec": round(window_end_sec, 6),
+                    "pitches": event.pitches,
+                    "velocities": event.velocities,
+                    "label": label,
+                    "sample_count": len(window_packets),
+                    "raw_sample_count": raw_count,
+                    "invalid_sample_count": invalid_count,
+                    "valid_ratio": round(valid_ratio, 4),
+                    "usable_for_training": not quality_reasons,
+                    "quality_reasons": quality_reasons,
+                    "time_alignment": {
+                        "hand": alignment_by_hand[hand],
+                        "imu_time_offset_sec": imu_time_offset_sec,
+                    },
+                    "features": extract_window_features(window_packets, prefix=""),
+                }
+            )
 
     return rows
 
 
+def _packet_has_required_sensor_data(packet: RawHandSensorPacket) -> bool:
+    return all(
+        not _sensor_reading_is_all_zero(reading)
+        for reading in (packet.fingertip, packet.hand_back, packet.wrist)
+    )
+
+
+def _sensor_reading_is_all_zero(reading: SensorReading) -> bool:
+    vectors = [reading.accel]
+    if reading.gyro is not None:
+        vectors.append(reading.gyro)
+    return all(
+        vector.x == 0.0 and vector.y == 0.0 and vector.z == 0.0
+        for vector in vectors
+    )
+
+
+def _align_packet_times(
+    packets: list[RawHandSensorPacket],
+    *,
+    audio_started_at_unix_ms: int | None,
+) -> tuple[list[float], dict[str, Any]]:
+    if not packets:
+        method = (
+            "median_received_minus_device_timestamp"
+            if audio_started_at_unix_ms is not None
+            else "legacy_first_packet"
+        )
+        return [], {"method": method, "packet_count": 0}
+
+    if audio_started_at_unix_ms is None:
+        first_device_timestamp_ms = packets[0].device_timestamp_ms
+        first_received_at_unix_ms = packets[0].received_at_unix_ms
+        return (
+            [
+                (packet.received_at_unix_ms - first_received_at_unix_ms) / 1000.0
+                for packet in packets
+            ],
+            {
+                "method": "legacy_first_packet",
+                "first_device_timestamp_ms": first_device_timestamp_ms,
+                "first_received_at_unix_ms": first_received_at_unix_ms,
+                "packet_count": len(packets),
+            },
+        )
+
+    packet_times_sec = [0.0] * len(packets)
+    segment_summaries = []
+    for segment_index, (start, end) in enumerate(_packet_segments(packets)):
+        segment_packets = packets[start:end]
+        offsets_ms = [
+            packet.received_at_unix_ms - packet.device_timestamp_ms
+            for packet in segment_packets
+        ]
+        device_to_unix_offset_ms = float(median(offsets_ms))
+        for index in range(start, end):
+            packet = packets[index]
+            packet_times_sec[index] = (
+                packet.device_timestamp_ms
+                + device_to_unix_offset_ms
+                - audio_started_at_unix_ms
+            ) / 1000.0
+        segment_summaries.append(
+            {
+                "segment_index": segment_index,
+                "start_sequence_number": segment_packets[0].sequence_number,
+                "end_sequence_number": segment_packets[-1].sequence_number,
+                "device_to_unix_offset_ms": round(device_to_unix_offset_ms, 3),
+                "packet_count": len(segment_packets),
+            }
+        )
+
+    alignment = {
+        "method": "median_received_minus_device_timestamp",
+        "segment_count": len(segment_summaries),
+        "segments": segment_summaries,
+        "packet_count": len(packets),
+    }
+    if len(segment_summaries) == 1:
+        alignment["device_to_unix_offset_ms"] = segment_summaries[0][
+            "device_to_unix_offset_ms"
+        ]
+    return packet_times_sec, alignment
+
+
+def _packet_segments(
+    packets: list[RawHandSensorPacket],
+) -> list[tuple[int, int]]:
+    starts = [0]
+    for index in range(1, len(packets)):
+        previous = packets[index - 1]
+        current = packets[index]
+        if (
+            current.device_timestamp_ms <= previous.device_timestamp_ms
+            or current.sequence_number <= previous.sequence_number
+        ):
+            starts.append(index)
+    starts.append(len(packets))
+    return list(zip(starts, starts[1:]))
+
+
 def extract_window_features(
     packets: list[RawHandSensorPacket],
-    prefix: str,
+    prefix: str = "",
 ) -> dict[str, float]:
     features: dict[str, float] = {}
     if not packets:
@@ -210,19 +354,36 @@ def extract_window_features(
 
             for axis in AXES:
                 values = [float(getattr(vector, axis)) for vector in vectors]
-                features.update(_series_features(f"{prefix}_{sensor_name}_{reading_name}_{axis}", values))
+                features.update(
+                    _series_features(
+                        _prefixed_name(prefix, f"{sensor_name}_{reading_name}_{axis}"),
+                        values,
+                    )
+                )
 
             magnitudes = [
                 sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z)
                 for vector in vectors
             ]
-            features.update(_series_features(f"{prefix}_{sensor_name}_{reading_name}_mag", magnitudes))
+            features.update(
+                _series_features(
+                    _prefixed_name(prefix, f"{sensor_name}_{reading_name}_mag"),
+                    magnitudes,
+                )
+            )
 
     if len(packets) >= 2:
         duration_sec = (packets[-1].device_timestamp_ms - packets[0].device_timestamp_ms) / 1000.0
-        features[f"{prefix}_window_duration_sec"] = round(max(0.0, duration_sec), 6)
-    features[f"{prefix}_sample_count"] = float(len(packets))
+        features[_prefixed_name(prefix, "window_duration_sec")] = round(
+            max(0.0, duration_sec),
+            6,
+        )
+    features[_prefixed_name(prefix, "sample_count")] = float(len(packets))
     return features
+
+
+def _prefixed_name(prefix: str, name: str) -> str:
+    return f"{prefix}_{name}" if prefix else name
 
 
 def train_nearest_centroid_model(
@@ -233,6 +394,11 @@ def train_nearest_centroid_model(
 ) -> dict[str, Any]:
     if not rows:
         raise ValueError("at least one feature row is required")
+
+    input_row_count = len(rows)
+    rows = [row for row in rows if row.get("usable_for_training", True)]
+    if not rows:
+        raise ValueError("no usable feature rows remain after sensor quality filtering")
 
     feature_names = sorted({
         feature_name
@@ -273,7 +439,9 @@ def train_nearest_centroid_model(
         "priors": priors,
         "feature_fill_value": 0.0,
         "metrics": {
+            "input_samples": input_row_count,
             "training_samples": len(rows),
+            "dropped_samples": input_row_count - len(rows),
             "training_accuracy": round(correct / len(rows), 4),
         },
     }

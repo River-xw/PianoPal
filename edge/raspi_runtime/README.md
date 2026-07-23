@@ -22,6 +22,7 @@ Keep these on the Raspberry Pi first:
 ```text
 data/raw/sessions/<session_id>/imu_left.jsonl
 data/raw/sessions/<session_id>/imu_right.jsonl
+data/raw/sessions/<session_id>/timing.json
 data/artifacts/sessions/<session_id>/imu_predictions.jsonl
 data/raw/sessions/<session_id>/audio.wav
 data/db/pianopal.sqlite3
@@ -69,8 +70,8 @@ Expected output path:
 data/raw/sessions/<session_id>/audio.wav
 ```
 
-The SQLite session status becomes `audio_acquired`, and `artifacts` contains a
-single `raw_audio` path.
+The SQLite session status becomes `audio_acquired`, and `artifacts` contains
+the raw audio and acquisition timing paths.
 
 ## Raspberry Pi BLE Mode
 
@@ -86,14 +87,18 @@ python -m edge.raspi_runtime \
   --piece-title "Motion Test"
 ```
 
-This connects both configured micro:bits, sends `CONNECT` then
-`START LEFT`/`START RIGHT`, records CSV UART packets for `--duration-sec`,
-sends `STOP`, and writes JSONL files under:
+This connects both configured micro:bits and waits up to 45 seconds for an
+initial packet from each hand before playing the start prompt and starting
+audio recording. If a hand is still missing, acquisition continues while BLE
+keeps retrying; `timing.json` records it in `imu.initial_missing_hands`.
+The `--duration-sec` clock therefore covers overlapping audio and IMU
+acquisition. It sends `STOP` at the end and writes files under:
 
 ```text
-edge/data/raw/sessions/<session_id>/imu_left.jsonl
-edge/data/raw/sessions/<session_id>/imu_right.jsonl
-edge/data/artifacts/sessions/<session_id>/imu_predictions.jsonl
+data/raw/sessions/<session_id>/imu_left.jsonl
+data/raw/sessions/<session_id>/imu_right.jsonl
+data/raw/sessions/<session_id>/timing.json
+data/artifacts/sessions/<session_id>/imu_predictions.jsonl
 ```
 
 Add audio recording only when the microphone path is ready:
@@ -110,6 +115,28 @@ python -m edge.raspi_runtime \
   --piece-title "Fur Elise"
 ```
 
+Use the trained posture classifier on the Raspberry Pi by copying the model
+and passing `--posture-model`. If the right-hand data is known to be bad, keep
+raw collection for both hands but run posture detection only on the left hand:
+
+```bash
+python -m edge.raspi_runtime \
+  --mode ble \
+  --ble-config edge/microbit_rpi_comm/raspberry/config.json \
+  --duration-sec 30 \
+  --posture-model models/gesture/left_hand_posture_classifier.joblib \
+  --posture-hands L \
+  --user-id u_local_001 \
+  --piece-id piece_posture_test \
+  --piece-title "Posture Test"
+```
+
+Predictions are written to:
+
+```text
+data/artifacts/sessions/<session_id>/imu_predictions.jsonl
+```
+
 The BLE data packet format is:
 
 ```text
@@ -121,12 +148,23 @@ wrist_ax,wrist_ay,wrist_az
 
 `seq` is per hand device, not shared globally across both hands.
 
+An individual `SENSOR_ERROR` warning does not stop the session. The failed
+sensor's fields are stored as zero while the remaining sensors continue. A BLE
+disconnect is retried every two seconds. Missing or zero-filled windows are
+excluded later by the training quality filter.
+
+`timing.json` records the estimated audio recorder start time on the Raspberry
+Pi clock. During feature extraction, each hand's device timestamps are mapped
+to that clock using the median of
+`received_at_unix_ms - device_timestamp_ms`. This smooths BLE receive jitter
+while preserving the real delay between audio and IMU startup.
+
 ## Backend Interface
 
 The runtime uses `backend.db` to create:
 
 - `practice_sessions`: status starts as `acquiring`, then becomes `acquired`
-- `artifacts`: raw audio, left/right IMU JSONL, IMU predictions JSONL
+- `artifacts`: raw audio, acquisition timing, left/right IMU JSONL, IMU predictions JSONL
 - `model_runs`: real-time IMU posture inference metadata
 
 The posture model adapter lives in `posture.py`. Replace

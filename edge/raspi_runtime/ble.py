@@ -16,8 +16,9 @@ PacketHandler = Callable[[RawHandSensorPacket], Awaitable[None]]
 UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
 UART_TX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 UART_RX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
-CONNECT_ATTEMPT_GAP_SECONDS = 2
-RECONNECT_DELAY_SECONDS = 5
+CONNECT_ATTEMPT_GAP_SECONDS = 1
+CONNECT_TIMEOUT_SECONDS = 12
+RECONNECT_DELAY_SECONDS = 2
 
 
 def load_devices(config_path: Path) -> list[dict[str, str]]:
@@ -81,7 +82,9 @@ class BleHandSensorSource:
             except asyncio.TimeoutError:
                 pass
 
+        attempt = 0
         while not stop_event.is_set():
+            attempt += 1
             receive_buffer = ""
 
             def on_data(_sender, data: bytearray) -> None:
@@ -89,12 +92,26 @@ class BleHandSensorSource:
                 receive_buffer += bytes(data).decode("utf-8", errors="replace")
                 while "\n" in receive_buffer:
                     line, receive_buffer = receive_buffer.split("\n", 1)
+                    line = line.rstrip("\r")
+                    if line.startswith("SENSORS_OK,"):
+                        print(f"[{name}] {line}")
+                        continue
+                    if line.startswith("SENSOR_ERROR,"):
+                        print(f"[{name}] warning: {line}; continuing acquisition")
+                        continue
                     packet = parse_hand_sensor_packet(
-                        line.rstrip("\r"),
+                        line,
                         received_at_unix_ms=time.time_ns() // 1_000_000,
                     )
                     if packet is not None:
                         asyncio.create_task(on_packet(packet))
+                    else:
+                        field_count = len(line.split(","))
+                        preview = line if len(line) <= 180 else line[:177] + "..."
+                        print(
+                            f"[{name}] skipped invalid packet "
+                            f"(fields={field_count}, chars={len(line)}): {preview!r}"
+                        )
 
             try:
                 print(f"[{name}] waiting for BLE connection slot")
@@ -103,8 +120,8 @@ class BleHandSensorSource:
                     if stop_event.is_set():
                         return
 
-                    print(f"[{name}] connecting to {address}")
-                    client = bleak_client_cls(address, timeout=20)
+                    print(f"[{name}] connecting to {address} (attempt {attempt})")
+                    client = bleak_client_cls(address, timeout=CONNECT_TIMEOUT_SECONDS)
                     await client.connect()
 
                 try:
@@ -141,7 +158,7 @@ class BleHandSensorSource:
                     if client.is_connected:
                         await client.disconnect()
             except Exception as error:
-                print(f"[{name}] BLE error: {error}")
+                print(f"[{name}] BLE error: {type(error).__name__}: {error!r}")
 
             if not stop_event.is_set():
                 try:

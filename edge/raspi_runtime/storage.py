@@ -14,6 +14,7 @@ class SessionPaths:
     raw_dir: Path
     artifacts_dir: Path
     audio_path: Path
+    timing_path: Path
     imu_left_path: Path
     imu_right_path: Path
     imu_predictions_path: Path
@@ -51,6 +52,7 @@ def make_session_paths(data_root: Path, session_id: str) -> SessionPaths:
         raw_dir=raw_dir,
         artifacts_dir=artifacts_dir,
         audio_path=raw_dir / "audio.wav",
+        timing_path=raw_dir / "timing.json",
         imu_left_path=raw_dir / "imu_left.jsonl",
         imu_right_path=raw_dir / "imu_right.jsonl",
         imu_predictions_path=artifacts_dir / "imu_predictions.jsonl",

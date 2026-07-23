@@ -1,0 +1,1358 @@
+{
+  "schema_version": "left_hand_posture_cleaning_report_v1",
+  "sessions_root": "/Users/riverxw/Desktop/大三课程/NUS-SoC/PianoPal/data/raw/sessions",
+  "label_source": "session_folder_name",
+  "hand_strategy": "left_hand_only_right_hand_ignored",
+  "known_labels": [
+    "normal",
+    "finger_collapse",
+    "high_lift_tap",
+    "wrist_arch",
+    "wrist_collapse",
+    "wrist_shake"
+  ],
+  "cleaning_rules": {
+    "drop_packet_when_any_required_sensor_is_all_zero": true,
+    "drop_packet_when_external_mpu_value_is_exact_int16_saturation": true,
+    "split_segment_on_timestamp_or_sequence_reset": true,
+    "split_segment_on_gap_ms_over": 3000,
+    "window_ms": 2000,
+    "stride_ms": 500,
+    "min_valid_samples": 4,
+    "min_valid_ratio": 0.8
+  },
+  "summary": {
+    "candidate_sessions": 77,
+    "used_sessions": 61,
+    "usable_windows": 5606,
+    "raw_windows": 6151,
+    "usable_windows_by_label": {
+      "finger_collapse": 997,
+      "high_lift_tap": 779,
+      "normal": 1028,
+      "wrist_arch": 824,
+      "wrist_collapse": 944,
+      "wrist_shake": 1034
+    },
+    "raw_windows_by_label": {
+      "finger_collapse": 1058,
+      "high_lift_tap": 859,
+      "normal": 1183,
+      "wrist_arch": 867,
+      "wrist_collapse": 1067,
+      "wrist_shake": 1117
+    }
+  },
+  "session_labels": [
+    {
+      "session_id": "sess_finger_collapse_001",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_002",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_003",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_004",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_005",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_006",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_007",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_008",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_009",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_01",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_010",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_02",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_high_lift_tap_001",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_002",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_003",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_004",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_005",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_006",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_007",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_008",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_009",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_010",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_03",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_04",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_05",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_normal_001",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_002",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_003",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_004",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_005",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_006",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_007",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_008",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_009",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_01",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_010",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_011",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_02",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_03",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_04",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_wrist_arch_001",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_002",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_003",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_004",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_005",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_006",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_007",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_008",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_009",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_010",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_02",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_collapse_001",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_002",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_003",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_004",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_005",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_006",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_007",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_008",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_009",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_01",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_010",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_02",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_03",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_shake_001",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_002",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_003",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_004",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_005",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_006",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_007",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_008",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_009",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_01",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_010",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_02",
+      "label": "wrist_shake"
+    }
+  ],
+  "sessions": [
+    {
+      "session_id": "sess_finger_collapse_001",
+      "label": "finger_collapse",
+      "used": true,
+      "left_packet_count": 178,
+      "valid_left_packet_count": 178,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 77,
+      "usable_windows": 77,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_finger_collapse_002",
+      "label": "finger_collapse",
+      "used": true,
+      "left_packet_count": 144,
+      "valid_left_packet_count": 144,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 65,
+      "usable_windows": 65,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_finger_collapse_003",
+      "label": "finger_collapse",
+      "used": true,
+      "left_packet_count": 177,
+      "valid_left_packet_count": 177,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 74,
+      "usable_windows": 74,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_finger_collapse_004",
+      "label": "finger_collapse",
+      "used": true,
+      "left_packet_count": 227,
+      "valid_left_packet_count": 227,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 94,
+      "usable_windows": 94,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_finger_collapse_005",
+      "label": "finger_collapse",
+      "used": true,
+      "left_packet_count": 252,
+      "valid_left_packet_count": 252,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 107,
+      "usable_windows": 107,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_finger_collapse_006",
+      "label": "finger_collapse",
+      "used": true,
+      "left_packet_count": 248,
+      "valid_left_packet_count": 248,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 101,
+      "usable_windows": 101,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_finger_collapse_007",
+      "label": "finger_collapse",
+      "used": true,
+      "left_packet_count": 329,
+      "valid_left_packet_count": 329,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 135,
+      "usable_windows": 135,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_finger_collapse_008",
+      "label": "finger_collapse",
+      "used": true,
+      "left_packet_count": 324,
+      "valid_left_packet_count": 324,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 135,
+      "usable_windows": 135,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_finger_collapse_009",
+      "label": "finger_collapse",
+      "used": true,
+      "left_packet_count": 324,
+      "valid_left_packet_count": 324,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 136,
+      "usable_windows": 136,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_finger_collapse_01",
+      "label": "finger_collapse",
+      "used": false,
+      "left_packet_count": 33,
+      "valid_left_packet_count": 33,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 42,
+      "usable_windows": 0,
+      "dropped_windows": 42
+    },
+    {
+      "session_id": "sess_finger_collapse_010",
+      "label": "finger_collapse",
+      "used": true,
+      "left_packet_count": 183,
+      "valid_left_packet_count": 183,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 73,
+      "usable_windows": 73,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_finger_collapse_02",
+      "label": "finger_collapse",
+      "used": false,
+      "left_packet_count": 17,
+      "valid_left_packet_count": 17,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 19,
+      "usable_windows": 0,
+      "dropped_windows": 19
+    },
+    {
+      "session_id": "sess_high_lift_tap_001",
+      "label": "high_lift_tap",
+      "used": true,
+      "left_packet_count": 168,
+      "valid_left_packet_count": 168,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 71,
+      "usable_windows": 71,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_high_lift_tap_002",
+      "label": "high_lift_tap",
+      "used": true,
+      "left_packet_count": 167,
+      "valid_left_packet_count": 167,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 69,
+      "usable_windows": 69,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_high_lift_tap_003",
+      "label": "high_lift_tap",
+      "used": true,
+      "left_packet_count": 154,
+      "valid_left_packet_count": 154,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 62,
+      "usable_windows": 62,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_high_lift_tap_004",
+      "label": "high_lift_tap",
+      "used": true,
+      "left_packet_count": 166,
+      "valid_left_packet_count": 166,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 65,
+      "usable_windows": 65,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_high_lift_tap_005",
+      "label": "high_lift_tap",
+      "used": true,
+      "left_packet_count": 150,
+      "valid_left_packet_count": 150,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 61,
+      "usable_windows": 61,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_high_lift_tap_006",
+      "label": "high_lift_tap",
+      "used": true,
+      "left_packet_count": 262,
+      "valid_left_packet_count": 262,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 108,
+      "usable_windows": 108,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_high_lift_tap_007",
+      "label": "high_lift_tap",
+      "used": true,
+      "left_packet_count": 143,
+      "valid_left_packet_count": 143,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 58,
+      "usable_windows": 58,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_high_lift_tap_008",
+      "label": "high_lift_tap",
+      "used": true,
+      "left_packet_count": 168,
+      "valid_left_packet_count": 168,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 67,
+      "usable_windows": 67,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_high_lift_tap_009",
+      "label": "high_lift_tap",
+      "used": true,
+      "left_packet_count": 338,
+      "valid_left_packet_count": 338,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 140,
+      "usable_windows": 140,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_high_lift_tap_01",
+      "label": "high_lift_tap",
+      "used": false,
+      "reason": "missing_imu_left_jsonl"
+    },
+    {
+      "session_id": "sess_high_lift_tap_010",
+      "label": "high_lift_tap",
+      "used": true,
+      "left_packet_count": 187,
+      "valid_left_packet_count": 187,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 78,
+      "usable_windows": 78,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_high_lift_tap_03",
+      "label": "high_lift_tap",
+      "used": false,
+      "left_packet_count": 31,
+      "valid_left_packet_count": 27,
+      "invalid_left_packet_count": 4,
+      "invalid_packet_reasons": {
+        "hand_back_int16_saturation": 4
+      },
+      "segment_count": 1,
+      "raw_windows": 39,
+      "usable_windows": 0,
+      "dropped_windows": 39
+    },
+    {
+      "session_id": "sess_high_lift_tap_04",
+      "label": "high_lift_tap",
+      "used": false,
+      "left_packet_count": 0,
+      "valid_left_packet_count": 0,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 0,
+      "raw_windows": 0,
+      "usable_windows": 0,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_high_lift_tap_05",
+      "label": "high_lift_tap",
+      "used": false,
+      "left_packet_count": 32,
+      "valid_left_packet_count": 25,
+      "invalid_left_packet_count": 7,
+      "invalid_packet_reasons": {
+        "hand_back_int16_saturation": 7
+      },
+      "segment_count": 1,
+      "raw_windows": 41,
+      "usable_windows": 0,
+      "dropped_windows": 41
+    },
+    {
+      "session_id": "sess_normal_001",
+      "label": "normal",
+      "used": true,
+      "left_packet_count": 262,
+      "valid_left_packet_count": 262,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 100,
+      "usable_windows": 100,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_normal_002",
+      "label": "normal",
+      "used": true,
+      "left_packet_count": 149,
+      "valid_left_packet_count": 149,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 62,
+      "usable_windows": 62,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_normal_003",
+      "label": "normal",
+      "used": true,
+      "left_packet_count": 151,
+      "valid_left_packet_count": 151,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 60,
+      "usable_windows": 60,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_normal_004",
+      "label": "normal",
+      "used": true,
+      "left_packet_count": 150,
+      "valid_left_packet_count": 150,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 59,
+      "usable_windows": 59,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_normal_005",
+      "label": "normal",
+      "used": true,
+      "left_packet_count": 170,
+      "valid_left_packet_count": 170,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 70,
+      "usable_windows": 70,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_normal_006",
+      "label": "normal",
+      "used": true,
+      "left_packet_count": 160,
+      "valid_left_packet_count": 160,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 66,
+      "usable_windows": 66,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_normal_007",
+      "label": "normal",
+      "used": true,
+      "left_packet_count": 349,
+      "valid_left_packet_count": 349,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 131,
+      "usable_windows": 131,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_normal_008",
+      "label": "normal",
+      "used": true,
+      "left_packet_count": 310,
+      "valid_left_packet_count": 310,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 131,
+      "usable_windows": 131,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_normal_009",
+      "label": "normal",
+      "used": true,
+      "left_packet_count": 317,
+      "valid_left_packet_count": 317,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 134,
+      "usable_windows": 134,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_normal_01",
+      "label": "normal",
+      "used": false,
+      "left_packet_count": 30,
+      "valid_left_packet_count": 30,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 39,
+      "usable_windows": 0,
+      "dropped_windows": 39
+    },
+    {
+      "session_id": "sess_normal_010",
+      "label": "normal",
+      "used": true,
+      "left_packet_count": 325,
+      "valid_left_packet_count": 325,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 135,
+      "usable_windows": 135,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_normal_011",
+      "label": "normal",
+      "used": true,
+      "left_packet_count": 195,
+      "valid_left_packet_count": 195,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 80,
+      "usable_windows": 80,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_normal_02",
+      "label": "normal",
+      "used": false,
+      "left_packet_count": 23,
+      "valid_left_packet_count": 23,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 28,
+      "usable_windows": 0,
+      "dropped_windows": 28
+    },
+    {
+      "session_id": "sess_normal_03",
+      "label": "normal",
+      "used": false,
+      "left_packet_count": 33,
+      "valid_left_packet_count": 33,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 43,
+      "usable_windows": 0,
+      "dropped_windows": 43
+    },
+    {
+      "session_id": "sess_normal_04",
+      "label": "normal",
+      "used": false,
+      "left_packet_count": 35,
+      "valid_left_packet_count": 35,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 45,
+      "usable_windows": 0,
+      "dropped_windows": 45
+    },
+    {
+      "session_id": "sess_wrist_arch_001",
+      "label": "wrist_arch",
+      "used": true,
+      "left_packet_count": 151,
+      "valid_left_packet_count": 151,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 61,
+      "usable_windows": 61,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_arch_002",
+      "label": "wrist_arch",
+      "used": true,
+      "left_packet_count": 164,
+      "valid_left_packet_count": 164,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 67,
+      "usable_windows": 67,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_arch_003",
+      "label": "wrist_arch",
+      "used": true,
+      "left_packet_count": 160,
+      "valid_left_packet_count": 160,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 65,
+      "usable_windows": 65,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_arch_004",
+      "label": "wrist_arch",
+      "used": true,
+      "left_packet_count": 149,
+      "valid_left_packet_count": 149,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 60,
+      "usable_windows": 60,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_arch_005",
+      "label": "wrist_arch",
+      "used": true,
+      "left_packet_count": 228,
+      "valid_left_packet_count": 228,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 96,
+      "usable_windows": 96,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_arch_006",
+      "label": "wrist_arch",
+      "used": true,
+      "left_packet_count": 287,
+      "valid_left_packet_count": 287,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 127,
+      "usable_windows": 127,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_arch_007",
+      "label": "wrist_arch",
+      "used": true,
+      "left_packet_count": 213,
+      "valid_left_packet_count": 213,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 91,
+      "usable_windows": 91,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_arch_008",
+      "label": "wrist_arch",
+      "used": true,
+      "left_packet_count": 192,
+      "valid_left_packet_count": 192,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 79,
+      "usable_windows": 79,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_arch_009",
+      "label": "wrist_arch",
+      "used": true,
+      "left_packet_count": 191,
+      "valid_left_packet_count": 191,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 79,
+      "usable_windows": 79,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_arch_010",
+      "label": "wrist_arch",
+      "used": true,
+      "left_packet_count": 239,
+      "valid_left_packet_count": 239,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 99,
+      "usable_windows": 99,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_arch_02",
+      "label": "wrist_arch",
+      "used": false,
+      "left_packet_count": 33,
+      "valid_left_packet_count": 32,
+      "invalid_left_packet_count": 1,
+      "invalid_packet_reasons": {
+        "hand_back_int16_saturation": 1
+      },
+      "segment_count": 1,
+      "raw_windows": 43,
+      "usable_windows": 0,
+      "dropped_windows": 43
+    },
+    {
+      "session_id": "sess_wrist_collapse_001",
+      "label": "wrist_collapse",
+      "used": true,
+      "left_packet_count": 320,
+      "valid_left_packet_count": 320,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 132,
+      "usable_windows": 132,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_collapse_002",
+      "label": "wrist_collapse",
+      "used": true,
+      "left_packet_count": 306,
+      "valid_left_packet_count": 306,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 133,
+      "usable_windows": 133,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_collapse_003",
+      "label": "wrist_collapse",
+      "used": true,
+      "left_packet_count": 162,
+      "valid_left_packet_count": 162,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 70,
+      "usable_windows": 70,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_collapse_004",
+      "label": "wrist_collapse",
+      "used": true,
+      "left_packet_count": 139,
+      "valid_left_packet_count": 139,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 61,
+      "usable_windows": 61,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_collapse_005",
+      "label": "wrist_collapse",
+      "used": true,
+      "left_packet_count": 148,
+      "valid_left_packet_count": 148,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 68,
+      "usable_windows": 68,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_collapse_006",
+      "label": "wrist_collapse",
+      "used": true,
+      "left_packet_count": 168,
+      "valid_left_packet_count": 168,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 70,
+      "usable_windows": 70,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_collapse_007",
+      "label": "wrist_collapse",
+      "used": true,
+      "left_packet_count": 183,
+      "valid_left_packet_count": 183,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 76,
+      "usable_windows": 76,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_collapse_008",
+      "label": "wrist_collapse",
+      "used": true,
+      "left_packet_count": 171,
+      "valid_left_packet_count": 171,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 69,
+      "usable_windows": 69,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_collapse_009",
+      "label": "wrist_collapse",
+      "used": true,
+      "left_packet_count": 318,
+      "valid_left_packet_count": 318,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 131,
+      "usable_windows": 131,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_collapse_01",
+      "label": "wrist_collapse",
+      "used": false,
+      "left_packet_count": 34,
+      "valid_left_packet_count": 33,
+      "invalid_left_packet_count": 1,
+      "invalid_packet_reasons": {
+        "hand_back_int16_saturation": 1
+      },
+      "segment_count": 1,
+      "raw_windows": 43,
+      "usable_windows": 0,
+      "dropped_windows": 43
+    },
+    {
+      "session_id": "sess_wrist_collapse_010",
+      "label": "wrist_collapse",
+      "used": true,
+      "left_packet_count": 312,
+      "valid_left_packet_count": 312,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 134,
+      "usable_windows": 134,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_collapse_02",
+      "label": "wrist_collapse",
+      "used": false,
+      "left_packet_count": 32,
+      "valid_left_packet_count": 31,
+      "invalid_left_packet_count": 1,
+      "invalid_packet_reasons": {
+        "hand_back_int16_saturation": 1
+      },
+      "segment_count": 1,
+      "raw_windows": 41,
+      "usable_windows": 0,
+      "dropped_windows": 41
+    },
+    {
+      "session_id": "sess_wrist_collapse_03",
+      "label": "wrist_collapse",
+      "used": false,
+      "left_packet_count": 31,
+      "valid_left_packet_count": 31,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 39,
+      "usable_windows": 0,
+      "dropped_windows": 39
+    },
+    {
+      "session_id": "sess_wrist_shake_001",
+      "label": "wrist_shake",
+      "used": true,
+      "left_packet_count": 154,
+      "valid_left_packet_count": 154,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 63,
+      "usable_windows": 63,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_shake_002",
+      "label": "wrist_shake",
+      "used": true,
+      "left_packet_count": 163,
+      "valid_left_packet_count": 163,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 69,
+      "usable_windows": 69,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_shake_003",
+      "label": "wrist_shake",
+      "used": true,
+      "left_packet_count": 226,
+      "valid_left_packet_count": 226,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 91,
+      "usable_windows": 91,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_shake_004",
+      "label": "wrist_shake",
+      "used": true,
+      "left_packet_count": 174,
+      "valid_left_packet_count": 174,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 71,
+      "usable_windows": 71,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_shake_005",
+      "label": "wrist_shake",
+      "used": true,
+      "left_packet_count": 153,
+      "valid_left_packet_count": 153,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 61,
+      "usable_windows": 61,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_shake_006",
+      "label": "wrist_shake",
+      "used": true,
+      "left_packet_count": 342,
+      "valid_left_packet_count": 342,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 141,
+      "usable_windows": 141,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_shake_007",
+      "label": "wrist_shake",
+      "used": true,
+      "left_packet_count": 321,
+      "valid_left_packet_count": 321,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 134,
+      "usable_windows": 134,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_shake_008",
+      "label": "wrist_shake",
+      "used": true,
+      "left_packet_count": 309,
+      "valid_left_packet_count": 309,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 132,
+      "usable_windows": 132,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_shake_009",
+      "label": "wrist_shake",
+      "used": true,
+      "left_packet_count": 329,
+      "valid_left_packet_count": 329,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 135,
+      "usable_windows": 135,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_shake_01",
+      "label": "wrist_shake",
+      "used": false,
+      "left_packet_count": 32,
+      "valid_left_packet_count": 32,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 42,
+      "usable_windows": 0,
+      "dropped_windows": 42
+    },
+    {
+      "session_id": "sess_wrist_shake_010",
+      "label": "wrist_shake",
+      "used": true,
+      "left_packet_count": 320,
+      "valid_left_packet_count": 320,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 137,
+      "usable_windows": 137,
+      "dropped_windows": 0
+    },
+    {
+      "session_id": "sess_wrist_shake_02",
+      "label": "wrist_shake",
+      "used": false,
+      "left_packet_count": 32,
+      "valid_left_packet_count": 32,
+      "invalid_left_packet_count": 0,
+      "invalid_packet_reasons": {},
+      "segment_count": 1,
+      "raw_windows": 41,
+      "usable_windows": 0,
+      "dropped_windows": 41
+    }
+  ]
+}

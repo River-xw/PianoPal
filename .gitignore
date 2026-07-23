@@ -35,6 +35,7 @@
 
 # Local hardware configuration
 edge/microbit_rpi_comm/raspberry/config.json
+edge/microbit_rpi_comm/raspberry/config.mac.json
 
 # Scratch / generated audio artifacts from local testing
 *.wav

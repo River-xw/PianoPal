@@ -5,9 +5,12 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import asdict, dataclass
 from math import sqrt
+from pathlib import Path
 from typing import Deque
+import json
 
 from backend.sensors import RawHandSensorPacket
+from backend.sensors.training import extract_window_features
 
 
 @dataclass(frozen=True)
@@ -31,6 +34,7 @@ class PosturePrediction:
 class PostureModel:
     model_name = "imu_posture_classifier"
     model_version = "threshold_baseline_v0"
+    feature_mode = "summary"
 
     def predict(self, features: dict[str, float]) -> tuple[str, float]:
         raise NotImplementedError
@@ -58,6 +62,66 @@ class ThresholdPostureModel(PostureModel):
         return "normal", 0.6
 
 
+class SklearnPostureModel(PostureModel):
+    model_name = "left_hand_posture_classifier"
+    feature_mode = "training_window"
+
+    def __init__(self, model_path: str | Path) -> None:
+        try:
+            import joblib
+        except ImportError as exc:
+            raise RuntimeError(
+                "Install joblib and scikit-learn on the Raspberry Pi to use --posture-model"
+            ) from exc
+
+        self.model_path = Path(model_path)
+        self.model = joblib.load(self.model_path)
+        self.model_version = self.model_path.stem
+
+    def predict(self, features: dict[str, float]) -> tuple[str, float]:
+        predicted_label = str(self.model.predict([features])[0])
+        confidence = 1.0
+        if hasattr(self.model, "predict_proba"):
+            probabilities = self.model.predict_proba([features])[0]
+            class_labels = [str(label) for label in self.model.classes_]
+            confidence = float(probabilities[class_labels.index(predicted_label)])
+        return predicted_label, confidence
+
+
+class PortableRandomForestPostureModel(PostureModel):
+    feature_mode = "training_window"
+
+    def __init__(self, model_path: str | Path) -> None:
+        self.model_path = Path(model_path)
+        data = json.loads(self.model_path.read_text(encoding="utf-8"))
+        if data.get("schema_version") != "portable_random_forest_posture_model_v1":
+            raise ValueError("unsupported portable posture model JSON")
+        self.model_name = str(data.get("model_name", "left_hand_posture_classifier"))
+        self.model_version = str(data.get("model_version", self.model_path.stem))
+        self.feature_names = [str(name) for name in data["feature_names"]]
+        self.classes = [str(label) for label in data["classes"]]
+        self.trees = data["trees"]
+
+    def predict(self, features: dict[str, float]) -> tuple[str, float]:
+        vector = [float(features.get(name, 0.0)) for name in self.feature_names]
+        probabilities = [0.0] * len(self.classes)
+
+        for tree in self.trees:
+            leaf_values = _portable_tree_leaf_values(tree, vector)
+            total = sum(float(value) for value in leaf_values)
+            if total <= 0.0:
+                continue
+            for index, value in enumerate(leaf_values):
+                probabilities[index] += float(value) / total
+
+        if not self.trees:
+            raise ValueError("portable posture model contains no trees")
+
+        probabilities = [value / len(self.trees) for value in probabilities]
+        best_index = max(range(len(probabilities)), key=lambda index: probabilities[index])
+        return self.classes[best_index], probabilities[best_index]
+
+
 class RealtimePosturePipeline:
     def __init__(
         self,
@@ -81,24 +145,81 @@ class RealtimePosturePipeline:
         while buffer and buffer[0].device_timestamp_ms < cutoff:
             buffer.popleft()
 
-        if len(buffer) < self.min_samples:
+        valid_packets = [
+            item
+            for item in buffer
+            if _packet_has_required_sensor_data(item)
+            and not _packet_has_saturated_external_mpu_value(item)
+        ]
+        if len(valid_packets) < self.min_samples:
             return None
 
-        features = extract_features(list(buffer))
+        if self.model.feature_mode == "training_window":
+            features = extract_window_features(list(valid_packets), prefix="")
+        else:
+            features = extract_features(list(valid_packets))
         label, confidence = self.model.predict(features)
         return PosturePrediction(
             schema_version="imu_posture_prediction_v1",
             hand=packet.hand,
             sequence_number=packet.sequence_number,
-            window_start_device_ms=buffer[0].device_timestamp_ms,
+            window_start_device_ms=valid_packets[0].device_timestamp_ms,
             window_end_device_ms=packet.device_timestamp_ms,
-            sample_count=len(buffer),
+            sample_count=len(valid_packets),
             predicted_label=label,
             confidence=round(float(confidence), 4),
             model_name=self.model.model_name,
             model_version=self.model.model_version,
             features=features,
         )
+
+
+def load_posture_model(model_path: str | Path | None) -> PostureModel:
+    if model_path is None:
+        return ThresholdPostureModel()
+    path = Path(model_path)
+    if path.suffix.lower() == ".json":
+        return PortableRandomForestPostureModel(path)
+    return SklearnPostureModel(path)
+
+
+def _portable_tree_leaf_values(tree: dict, vector: list[float]) -> list[float]:
+    node = 0
+    while True:
+        left = int(tree["children_left"][node])
+        right = int(tree["children_right"][node])
+        if left == right or left < 0:
+            return tree["value"][node]
+        feature_index = int(tree["feature"][node])
+        threshold = float(tree["threshold"][node])
+        node = left if vector[feature_index] <= threshold else right
+
+
+def _packet_has_required_sensor_data(packet: RawHandSensorPacket) -> bool:
+    return all(
+        not _reading_is_all_zero(reading)
+        for reading in (packet.fingertip, packet.hand_back, packet.wrist)
+    )
+
+
+def _reading_is_all_zero(reading) -> bool:
+    vectors = [reading.accel]
+    if reading.gyro is not None:
+        vectors.append(reading.gyro)
+    return all(
+        vector.x == 0.0 and vector.y == 0.0 and vector.z == 0.0
+        for vector in vectors
+    )
+
+
+def _packet_has_saturated_external_mpu_value(packet: RawHandSensorPacket) -> bool:
+    return any(
+        abs(float(value)) >= 32760.0
+        for reading in (packet.fingertip, packet.hand_back)
+        for vector in (reading.accel, reading.gyro)
+        if vector is not None
+        for value in (vector.x, vector.y, vector.z)
+    )
 
 
 def _rms(values: list[float]) -> float:

@@ -1,0 +1,308 @@
+{
+  "sessions": [
+    {
+      "session_id": "sess_finger_collapse_001",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_002",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_003",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_004",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_005",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_006",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_007",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_008",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_009",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_01",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_010",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_finger_collapse_02",
+      "label": "finger_collapse"
+    },
+    {
+      "session_id": "sess_high_lift_tap_001",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_002",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_003",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_004",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_005",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_006",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_007",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_008",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_009",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_010",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_03",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_04",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_high_lift_tap_05",
+      "label": "high_lift_tap"
+    },
+    {
+      "session_id": "sess_normal_001",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_002",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_003",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_004",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_005",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_006",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_007",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_008",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_009",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_01",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_010",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_011",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_02",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_03",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_normal_04",
+      "label": "normal"
+    },
+    {
+      "session_id": "sess_wrist_arch_001",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_002",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_003",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_004",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_005",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_006",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_007",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_008",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_009",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_010",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_arch_02",
+      "label": "wrist_arch"
+    },
+    {
+      "session_id": "sess_wrist_collapse_001",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_002",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_003",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_004",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_005",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_006",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_007",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_008",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_009",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_01",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_010",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_02",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_collapse_03",
+      "label": "wrist_collapse"
+    },
+    {
+      "session_id": "sess_wrist_shake_001",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_002",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_003",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_004",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_005",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_006",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_007",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_008",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_009",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_01",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_010",
+      "label": "wrist_shake"
+    },
+    {
+      "session_id": "sess_wrist_shake_02",
+      "label": "wrist_shake"
+    }
+  ]
+}

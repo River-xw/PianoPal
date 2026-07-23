@@ -149,10 +149,12 @@ audio step produces the existing `performance.json` shape:
 
 Training then merges notes with near-identical onsets into one physical
 keypress/chord event and cuts IMU windows around those audio onsets. The audio
-does not decide the posture label; it only decides when to cut the window. The
-feature vector uses all available sensor streams:
+does not decide the posture label; it only decides when to cut the window.
+Each event produces one candidate sample per hand. Both hands use the same
+feature names and label space, so the model does not learn left/right identity.
+The `hand` field remains as metadata for data-quality debugging. Each sample
+uses all sensors on that hand:
 
-- left and right hand
 - fingertip MPU6050 accel/gyro
 - hand-back MPU6050 accel/gyro
 - wrist micro:bit accel
@@ -167,6 +169,33 @@ python3 scripts/train_imu_from_session.py \
   --labels data/artifacts/sessions/sess_20260722_001/imu_labels.json
 ```
 
+New runtime sessions also contain:
+
+```text
+data/raw/sessions/<session_id>/timing.json
+```
+
+When `--session-dir` is provided, the training script loads this file
+automatically. It aligns the micro:bit device clock to the audio recorder's
+wall-clock start using the Raspberry Pi receive timestamps in the IMU JSONL.
+Older sessions without `timing.json` use the legacy first-IMU-packet origin;
+`--imu-time-offset-sec` remains available for manual correction.
+
+Feature extraction retains both hand candidates for every audio event and marks
+each row with `usable_for_training`. Before feature calculation, it removes any
+packet whose fingertip, hand-back, or wrist aggregate reading is all zero. By
+default, a hand sample must retain at least three packets and at least 80% of
+the packets originally present in the window. A bad hand is dropped without
+discarding the other hand from the same event. Rejected rows remain in
+`imu_keypress_features.jsonl` with `quality_reasons`, while model training
+ignores them automatically. Use `--min-valid-samples-per-hand` and
+`--min-valid-ratio` to adjust these thresholds.
+
+If BLE reconnects and the micro:bit sequence number/device timestamp resets,
+the alignment code starts a new clock segment and estimates its wall-clock
+offset independently. Windows inside the disconnected gap naturally fail the
+sample-count quality check.
+
 Or let the script call `backend.audio_to_performance` from `audio.wav`:
 
 ```bash
@@ -180,7 +209,7 @@ python3 scripts/train_imu_from_session.py \
 The labels file can be a simple list with one label per audio-triggered event:
 
 ```json
-["normal", "finger_collapse", "normal", "wrist_drop"]
+["normal", "finger_collapse", "normal", "wrist_collapse"]
 ```
 
 Outputs:

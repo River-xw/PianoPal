@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path:
 
 from backend.sensors.training import (  # noqa: E402
     build_feature_rows,
+    load_audio_start_unix_ms,
     load_event_labels,
     load_hand_packets,
     load_performance_json,
@@ -28,7 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="python3 scripts/train_imu_from_session.py",
         description=(
             "Use backend audio transcription to trigger IMU windows, then train "
-            "a baseline classifier from all hand sensor streams."
+            "a hand-independent baseline classifier from all sensors on each hand."
         ),
     )
     parser.add_argument("--session-id", required=True)
@@ -47,6 +48,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--left-imu", type=Path, default=None)
     parser.add_argument("--right-imu", type=Path, default=None)
+    parser.add_argument(
+        "--timing-json",
+        type=Path,
+        default=None,
+        help=(
+            "Runtime timing.json. With --session-dir, it is detected automatically "
+            "when present."
+        ),
+    )
     parser.add_argument(
         "--labels",
         type=Path,
@@ -69,6 +79,18 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.0,
         help="Add this offset when mapping audio onsets to IMU device timestamps.",
+    )
+    parser.add_argument(
+        "--min-valid-samples-per-hand",
+        type=int,
+        default=3,
+        help="Minimum cleaned IMU packets required for one hand/event sample.",
+    )
+    parser.add_argument(
+        "--min-valid-ratio",
+        type=float,
+        default=0.8,
+        help="Minimum valid-packet fraction required per hand and event.",
     )
     parser.add_argument("--onset-thresh", type=float, default=0.6)
     parser.add_argument("--frame-thresh", type=float, default=0.4)
@@ -103,6 +125,15 @@ def main(argv: list[str] | None = None) -> int:
     labels = load_event_labels(args.labels, event_count=len(events))
     left_packets = load_hand_packets(paths["left_imu"])
     right_packets = load_hand_packets(paths["right_imu"])
+    audio_started_at_unix_ms = (
+        load_audio_start_unix_ms(paths["timing_json"])
+        if paths["timing_json"] is not None
+        else None
+    )
+    if args.min_valid_samples_per_hand < 1:
+        raise SystemExit("--min-valid-samples-per-hand must be at least 1")
+    if not 0.0 <= args.min_valid_ratio <= 1.0:
+        raise SystemExit("--min-valid-ratio must be between 0 and 1")
 
     rows = build_feature_rows(
         session_id=args.session_id,
@@ -114,6 +145,9 @@ def main(argv: list[str] | None = None) -> int:
         post_sec=args.post_sec,
         onset_merge_sec=args.onset_merge_sec,
         imu_time_offset_sec=args.imu_time_offset_sec,
+        audio_started_at_unix_ms=audio_started_at_unix_ms,
+        min_valid_samples_per_hand=args.min_valid_samples_per_hand,
+        min_valid_ratio=args.min_valid_ratio,
     )
     model = train_nearest_centroid_model(rows)
     model["training_config"] = {
@@ -122,7 +156,16 @@ def main(argv: list[str] | None = None) -> int:
         "post_sec": args.post_sec,
         "onset_merge_sec": args.onset_merge_sec,
         "imu_time_offset_sec": args.imu_time_offset_sec,
+        "min_valid_samples_per_hand": args.min_valid_samples_per_hand,
+        "min_valid_ratio": args.min_valid_ratio,
+        "timing_json": str(paths["timing_json"]) if paths["timing_json"] else None,
+        "time_alignment": (
+            "median_received_minus_device_timestamp"
+            if audio_started_at_unix_ms is not None
+            else "legacy_first_packet"
+        ),
         "feature_source": "all_hand_sensors",
+        "hand_strategy": "pooled_independent_samples",
         "audio_source": "backend.audio_to_performance",
     }
 
@@ -130,13 +173,22 @@ def main(argv: list[str] | None = None) -> int:
     write_json(paths["model_output"], model)
 
     label_counts: dict[str, int] = {}
+    hand_counts: dict[str, int] = {}
     for row in rows:
         label_counts[row["label"]] = label_counts.get(row["label"], 0) + 1
+        hand_counts[row["hand"]] = hand_counts.get(row["hand"], 0) + 1
 
     print(f"events: {len(events)}")
-    print(f"feature rows: {len(rows)} -> {paths['features_output']}")
+    print(f"hand samples: {len(rows)} -> {paths['features_output']}")
     print(f"model: {paths['model_output']}")
     print(f"labels: {json.dumps(label_counts, ensure_ascii=False, sort_keys=True)}")
+    print(f"hands: {json.dumps(hand_counts, sort_keys=True)} (metadata only)")
+    print(f"time alignment: {model['training_config']['time_alignment']}")
+    print(
+        "quality filter: "
+        f"{model['metrics']['training_samples']} usable, "
+        f"{model['metrics']['dropped_samples']} dropped"
+    )
     print(f"training accuracy: {model['metrics']['training_accuracy']}")
     return 0
 
@@ -147,11 +199,16 @@ def _resolve_paths(args: argparse.Namespace) -> dict[str, Path | None]:
     performance_json = args.performance_json
     left_imu = args.left_imu
     right_imu = args.right_imu
+    timing_json = args.timing_json
 
     if session_dir is not None:
         audio = audio or session_dir / "audio.wav"
         left_imu = left_imu or session_dir / "imu_left.jsonl"
         right_imu = right_imu or session_dir / "imu_right.jsonl"
+        if timing_json is None:
+            candidate_timing_json = session_dir / "timing.json"
+            if candidate_timing_json.exists():
+                timing_json = candidate_timing_json
 
     if performance_json is None and audio is None:
         raise SystemExit("provide --performance-json, or provide --audio/--session-dir")
@@ -167,6 +224,7 @@ def _resolve_paths(args: argparse.Namespace) -> dict[str, Path | None]:
         "performance_json": performance_json,
         "left_imu": left_imu,
         "right_imu": right_imu,
+        "timing_json": timing_json,
         "features_output": features_output,
         "model_output": model_output,
     }

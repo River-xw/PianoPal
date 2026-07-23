@@ -31,6 +31,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--duration-sec", type=float, default=5.0)
     parser.add_argument("--ble-config", type=Path, default=None)
     parser.add_argument(
+        "--posture-model",
+        type=Path,
+        default=None,
+        help="Trained joblib posture model. If omitted, uses the threshold baseline.",
+    )
+    parser.add_argument(
+        "--posture-hands",
+        nargs="+",
+        choices=["L", "R"],
+        default=None,
+        help='Hands to run posture detection on, e.g. "--posture-hands L".',
+    )
+    parser.add_argument(
         "--audio-command",
         default=None,
         help='External recorder command, e.g. "arecord -f cd -t wav {output}"',
@@ -58,6 +71,8 @@ def main() -> None:
         duration_sec=args.duration_sec,
         target_bpm=args.target_bpm,
         db_path=args.db_path,
+        posture_model_path=args.posture_model,
+        posture_hands=tuple(args.posture_hands) if args.posture_hands else None,
     )
     audio = CommandAudioRecorder(args.audio_command) if args.audio_command else NullAudioRecorder()
     speaker = CommandSpeaker(args.speaker_command) if args.speaker_command else ConsoleSpeaker()

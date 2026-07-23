@@ -11,6 +11,7 @@ from .schemas import (
 )
 from .training import (
     build_feature_rows,
+    load_audio_start_unix_ms,
     load_event_labels,
     load_hand_packets,
     load_performance_json,
@@ -25,6 +26,7 @@ __all__ = [
     "SensorReading",
     "SensorVector",
     "build_feature_rows",
+    "load_audio_start_unix_ms",
     "load_event_labels",
     "load_hand_packets",
     "load_performance_json",

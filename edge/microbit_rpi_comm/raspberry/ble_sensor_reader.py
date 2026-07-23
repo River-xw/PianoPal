@@ -33,10 +33,10 @@ UART_RX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 
 CONFIG_PATH = Path(__file__).resolve().with_name("config.json")
 
-RECONNECT_DELAY_SECONDS = 5
-CONNECT_TIMEOUT_SECONDS = 20
+RECONNECT_DELAY_SECONDS = 2
+CONNECT_TIMEOUT_SECONDS = 12
 COMMAND_DELAY_SECONDS = 0.5
-CONNECT_ATTEMPT_GAP_SECONDS = 2
+CONNECT_ATTEMPT_GAP_SECONDS = 1
 
 
 def parse_message(
@@ -81,6 +81,14 @@ def parse_message(
         print(f"[{device_name}] data streaming stopped")
         return None
 
+    if line.startswith("SENSORS_OK,"):
+        print(f"[{device_name}] {line}")
+        return None
+
+    if line.startswith("SENSOR_ERROR,"):
+        print(f"[{device_name}] warning: {line}; continuing acquisition")
+        return None
+
     received_at_unix_ms = time.time_ns() // 1_000_000
     packet = parse_hand_sensor_packet(
         line,
@@ -88,7 +96,12 @@ def parse_message(
     )
 
     if packet is None:
-        print(f"[{device_name}] Skipped invalid packet")
+        field_count = len(line.split(","))
+        preview = line if len(line) <= 180 else line[:177] + "..."
+        print(
+            f"[{device_name}] Skipped invalid packet "
+            f"(fields={field_count}, chars={len(line)}): {preview!r}"
+        )
 
     return packet
 
@@ -164,7 +177,9 @@ async def connect_microbit(
         except asyncio.TimeoutError:
             pass
 
+    attempt = 0
     while not stop_event.is_set():
+        attempt += 1
         receive_buffer = ""
 
         def on_data(_sender: Any, data: bytearray) -> None:
@@ -209,7 +224,7 @@ async def connect_microbit(
                 if stop_event.is_set():
                     return
 
-                print(f"[{device_name}] Connecting to {address}...")
+                print(f"[{device_name}] Connecting to {address} (attempt {attempt})...")
 
                 client = BleakClient(
                     address,
@@ -293,7 +308,10 @@ async def connect_microbit(
             raise
 
         except Exception as error:
-            print(f"[{device_name}] Connection error: {error}")
+            print(
+                f"[{device_name}] Connection error: "
+                f"{type(error).__name__}: {error!r}"
+            )
 
         if not stop_event.is_set():
             print(

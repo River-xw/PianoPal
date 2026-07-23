@@ -1,0 +1,100 @@
+{
+  "song_name": null,
+  "schema_version": "posture_scoring_result_v1",
+  "source_uri": "data/artifacts/sessions/imu_predictions3.jsonl",
+  "summary": {
+    "score": 10.53,
+    "sub_scores": {
+      "posture": 10.53,
+      "normal_ratio": 11.04,
+      "confidence_weighted_normal_ratio": 10.53,
+      "high_confidence_normal_ratio": 0.0
+    },
+    "counts": {
+      "total_predictions": 308,
+      "normal": 34,
+      "posture_error_predictions": 274,
+      "high_confidence_predictions": 19,
+      "high_confidence_errors": 19,
+      "posture_error_events": 1
+    },
+    "prediction_counts_by_label": {
+      "finger_collapse": 25,
+      "high_lift_tap": 141,
+      "normal": 34,
+      "wrist_arch": 28,
+      "wrist_collapse": 23,
+      "wrist_shake": 57
+    },
+    "high_confidence_counts_by_label": {
+      "finger_collapse": 19
+    },
+    "error_event_counts_by_label": {
+      "finger_collapse": 1
+    },
+    "error_window_counts_by_label": {
+      "finger_collapse": 19
+    },
+    "mean_confidence_by_error_label": {
+      "finger_collapse": 0.8023
+    },
+    "confidence": {
+      "min": 0.2217,
+      "max": 0.9306,
+      "mean": 0.4914,
+      "report_high_confidence_threshold": 0.7,
+      "threshold_method": "standard",
+      "standard_high_confidence_threshold": 0.7,
+      "standard_high_confidence_prediction_count": 19
+    },
+    "time_range_sec": {
+      "start": 0.103,
+      "end": 69.675
+    }
+  },
+  "posture_errors": [
+    {
+      "event_index": 0,
+      "status": "posture_error",
+      "posture_label": "finger_collapse",
+      "start_sec": 30.203,
+      "end_sec": 36.035,
+      "duration_sec": 5.832,
+      "window_count": 19,
+      "mean_confidence": 0.8023,
+      "max_confidence": 0.9306,
+      "start_sequence_number": 146,
+      "end_sequence_number": 164
+    }
+  ],
+  "notes": [
+    {
+      "ref_index": null,
+      "perf_index": 0,
+      "pitch_ref": null,
+      "pitch_perf": null,
+      "name": "finger_collapse",
+      "onset_ref_sec": null,
+      "onset_perf_sec": 30.203,
+      "offset_ms": null,
+      "status": "posture_error",
+      "timing": null,
+      "measure": null,
+      "hand": "L",
+      "dur_beats": null,
+      "end_sec": 36.035,
+      "duration_sec": 5.832,
+      "confidence": 0.8023,
+      "max_confidence": 0.9306,
+      "posture_label": "finger_collapse",
+      "window_count": 19
+    }
+  ],
+  "method": {
+    "hand": "L",
+    "normal_label": "normal",
+    "normal_score_formula": "100 * sum(confidence for normal predictions) / sum(confidence for all predictions)",
+    "error_event_rule": "merge consecutive high-confidence non-normal windows with the same label when gaps are <= 0.75 sec",
+    "right_hand_ignored": true
+  }
+}

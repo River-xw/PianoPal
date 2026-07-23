@@ -1,0 +1,136 @@
+{
+  "song_name": null,
+  "schema_version": "posture_scoring_result_v1",
+  "source_uri": "data/artifacts/sessions/imu_predictions2.jsonl",
+  "summary": {
+    "score": 35.92,
+    "sub_scores": {
+      "posture": 35.92,
+      "normal_ratio": 38.26,
+      "confidence_weighted_normal_ratio": 35.92,
+      "high_confidence_normal_ratio": 0.0
+    },
+    "counts": {
+      "total_predictions": 311,
+      "normal": 119,
+      "posture_error_predictions": 192,
+      "high_confidence_predictions": 26,
+      "high_confidence_errors": 26,
+      "posture_error_events": 2
+    },
+    "prediction_counts_by_label": {
+      "finger_collapse": 48,
+      "high_lift_tap": 73,
+      "normal": 119,
+      "wrist_arch": 71
+    },
+    "high_confidence_counts_by_label": {
+      "high_lift_tap": 13,
+      "wrist_arch": 13
+    },
+    "error_event_counts_by_label": {
+      "high_lift_tap": 1,
+      "wrist_arch": 1
+    },
+    "error_window_counts_by_label": {
+      "high_lift_tap": 13,
+      "wrist_arch": 13
+    },
+    "mean_confidence_by_error_label": {
+      "high_lift_tap": 0.499,
+      "wrist_arch": 0.4683
+    },
+    "confidence": {
+      "min": 0.2437,
+      "max": 0.539,
+      "mean": 0.3632,
+      "report_high_confidence_threshold": 0.45,
+      "threshold_method": "adaptive_85th_percentile_error_confidence",
+      "standard_high_confidence_threshold": 0.7,
+      "standard_high_confidence_prediction_count": 0
+    },
+    "time_range_sec": {
+      "start": 0.011,
+      "end": 69.026
+    }
+  },
+  "posture_errors": [
+    {
+      "event_index": 0,
+      "status": "posture_error",
+      "posture_label": "wrist_arch",
+      "start_sec": 0.011,
+      "end_sec": 4.374,
+      "duration_sec": 4.363,
+      "window_count": 13,
+      "mean_confidence": 0.4683,
+      "max_confidence": 0.5124,
+      "start_sequence_number": 5,
+      "end_sequence_number": 20
+    },
+    {
+      "event_index": 1,
+      "status": "posture_error",
+      "posture_label": "high_lift_tap",
+      "start_sec": 60.718,
+      "end_sec": 67.542,
+      "duration_sec": 6.824,
+      "window_count": 13,
+      "mean_confidence": 0.499,
+      "max_confidence": 0.539,
+      "start_sequence_number": 286,
+      "end_sequence_number": 308
+    }
+  ],
+  "notes": [
+    {
+      "ref_index": null,
+      "perf_index": 0,
+      "pitch_ref": null,
+      "pitch_perf": null,
+      "name": "wrist_arch",
+      "onset_ref_sec": null,
+      "onset_perf_sec": 0.011,
+      "offset_ms": null,
+      "status": "posture_error",
+      "timing": null,
+      "measure": null,
+      "hand": "L",
+      "dur_beats": null,
+      "end_sec": 4.374,
+      "duration_sec": 4.363,
+      "confidence": 0.4683,
+      "max_confidence": 0.5124,
+      "posture_label": "wrist_arch",
+      "window_count": 13
+    },
+    {
+      "ref_index": null,
+      "perf_index": 1,
+      "pitch_ref": null,
+      "pitch_perf": null,
+      "name": "high_lift_tap",
+      "onset_ref_sec": null,
+      "onset_perf_sec": 60.718,
+      "offset_ms": null,
+      "status": "posture_error",
+      "timing": null,
+      "measure": null,
+      "hand": "L",
+      "dur_beats": null,
+      "end_sec": 67.542,
+      "duration_sec": 6.824,
+      "confidence": 0.499,
+      "max_confidence": 0.539,
+      "posture_label": "high_lift_tap",
+      "window_count": 13
+    }
+  ],
+  "method": {
+    "hand": "L",
+    "normal_label": "normal",
+    "normal_score_formula": "100 * sum(confidence for normal predictions) / sum(confidence for all predictions)",
+    "error_event_rule": "merge consecutive high-confidence non-normal windows with the same label when gaps are <= 0.75 sec",
+    "right_hand_ignored": true
+  }
+}
