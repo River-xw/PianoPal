@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "../LanguageContext.jsx";
+import { Metronome } from "../utils/metronome";
 
 const POLL_MS = 500;
 
@@ -16,11 +17,33 @@ async function postControl(path, body) {
 // by that same process on the Pi) while a session is guiding/recording/
 // grading, and calls onDone() once phase becomes "done" so App.jsx can
 // switch to the result view (which auto-loads the freshly-written
-// result.json).
-export default function LiveSession({ songTitle, onDone, onError }) {
+// result.json) -- or, for 分段循環練習 sessions, straight back to setup since
+// there's no result to show (App.jsx decides which, via liveInfo.practiceOnly;
+// this component's own rendering doesn't need to know).
+export default function LiveSession({ mode, songTitle, onDone, onError }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState(null);
+  const [muted, setMuted] = useState(false);
   const doneFired = useRef(false);
+  const metronomeRef = useRef(null);
+  if (!metronomeRef.current) metronomeRef.current = new Metronome();
+
+  // 节拍器: learn-mode only, runs for the whole guided attempt (see product
+  // spec) -- independent Web Audio click, not synced to the Pi's own audio
+  // recording, just to the song's tempo_bpm * current speed.
+  useEffect(() => {
+    const metronome = metronomeRef.current;
+    if (mode === "perform" || status?.phase !== "guiding" || !status?.tempo_bpm) {
+      metronome.stop();
+      return;
+    }
+    metronome.start(status.tempo_bpm * (status.speed || 1));
+    metronome.setBpm(status.tempo_bpm * (status.speed || 1));
+    metronome.setPaused(!!status.paused);
+    metronome.setMuted(muted);
+  }, [mode, status?.phase, status?.tempo_bpm, status?.speed, status?.paused, muted]);
+
+  useEffect(() => () => metronomeRef.current.stop(), []);
 
   const phaseLabel = {
     starting: t("phaseStarting"),
@@ -61,7 +84,10 @@ export default function LiveSession({ songTitle, onDone, onError }) {
   const progress = status?.song_end > 0 ? Math.min(1, (status.song_pos || 0) / status.song_end) : 0;
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border px-6 py-6" style={{ borderColor: "var(--border)" }}>
+    <div
+      className="flex flex-col gap-4 rounded-2xl border px-6 py-6 shadow-sm"
+      style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+    >
       <div>
         <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
           {songTitle}
@@ -73,6 +99,9 @@ export default function LiveSession({ songTitle, onDone, onError }) {
 
       {phase === "guiding" && (
         <>
+          {mode === "perform" && (
+            <div className="text-sm" style={{ color: "var(--status-timing-off)" }}>{t("noGuideNotice")}</div>
+          )}
           <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
             {(status.song_pos || 0).toFixed(1)}s / {status.song_end.toFixed(1)}s
             {status.paused && <span style={{ color: "var(--status-timing-off)" }}> · {t("paused")}</span>}
@@ -84,37 +113,53 @@ export default function LiveSession({ songTitle, onDone, onError }) {
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              className="rounded-lg border px-3 py-1.5 text-sm"
-              style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
-              onClick={() => postControl("/api/session/control", { action: "speed_delta", value: -0.1 })}
-            >
-              {t("slower")}
-            </button>
-            <span className="min-w-[3.5rem] text-center text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-              {(status.speed || 1).toFixed(1)}x
-            </span>
-            <button
-              className="rounded-lg border px-3 py-1.5 text-sm"
-              style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
-              onClick={() => postControl("/api/session/control", { action: "speed_delta", value: 0.1 })}
-            >
-              {t("faster")}
-            </button>
-            <button
-              className="rounded-lg border px-3 py-1.5 text-sm"
-              style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
-              onClick={() => postControl("/api/session/control", { action: "pause_toggle" })}
-            >
-              {status.paused ? t("resume") : t("pause")}
-            </button>
-            <button
-              className="rounded-lg border px-3 py-1.5 text-sm"
-              style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
-              onClick={() => postControl("/api/session/control", { action: "restart" })}
-            >
-              {t("restart")}
-            </button>
+            {mode !== "perform" && (
+              <>
+                <button
+                  className="rounded-lg border px-3 py-1.5 text-sm"
+                  style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+                  onClick={() => postControl("/api/session/control", { action: "speed_delta", value: -0.1 })}
+                >
+                  {t("slower")}
+                </button>
+                <span className="min-w-[3.5rem] text-center text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                  {(status.speed || 1).toFixed(1)}x
+                </span>
+                <button
+                  className="rounded-lg border px-3 py-1.5 text-sm"
+                  style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+                  onClick={() => postControl("/api/session/control", { action: "speed_delta", value: 0.1 })}
+                >
+                  {t("faster")}
+                </button>
+                <button
+                  className="rounded-lg border px-3 py-1.5 text-sm"
+                  style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+                  onClick={() => postControl("/api/session/control", { action: "pause_toggle" })}
+                >
+                  {status.paused ? t("resume") : t("pause")}
+                </button>
+                <button
+                  className="rounded-lg border px-3 py-1.5 text-sm"
+                  style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+                  onClick={() => {
+                    metronomeRef.current.reset();
+                    postControl("/api/session/control", { action: "restart" });
+                  }}
+                >
+                  {t("restart")}
+                </button>
+                {status.tempo_bpm && (
+                  <button
+                    className="rounded-lg border px-3 py-1.5 text-sm"
+                    style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+                    onClick={() => setMuted((m) => !m)}
+                  >
+                    {muted ? t("metronomeUnmute") : t("metronomeMute")}
+                  </button>
+                )}
+              </>
+            )}
             <button
               className="rounded-lg border px-3 py-1.5 text-sm"
               style={{ borderColor: "var(--status-wrong-pitch)", color: "var(--status-wrong-pitch)" }}

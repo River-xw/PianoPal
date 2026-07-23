@@ -14,10 +14,37 @@ const dict = {
   loadResultJson: { zh: "加载 result.json", en: "Load result.json" },
   errorNotAResultFile: { zh: "不是评分结果 result.json（缺少 summary/notes）。", en: "Not a scoring result.json (missing summary/notes)." },
 
+  // --- OnboardingPage.jsx ---
+  onboardingEnter: { zh: "进入", en: "Enter" },
+
+  // --- HomePage.jsx ---
+  appSlogan: { zh: "跟着节奏，弹出自信", en: "Practice with rhythm, play with confidence" },
+  navLearnMode: { zh: "学习模式", en: "Learning Mode" },
+  navLearnModeDesc: { zh: "灯光引导 + 宽松评分，适合练熟一首新歌", en: "LED-guided practice with lenient scoring -- good for learning a new song" },
+  navPerformMode: { zh: "演奏模式", en: "Performance Mode" },
+  navPerformModeDesc: { zh: "无灯光引导 + 严格评分，检验真正学会了没有", en: "No LED guidance, strict scoring -- check whether you've really got it" },
+  navMe: { zh: "我的", en: "Me" },
+  navMeDesc: { zh: "练习记录、画像、趋势与比对", en: "Practice history, profile, trends and comparisons" },
+  backToHome: { zh: "返回首页", en: "Back to home" },
+  currentUserLabel: { zh: "目前使用者：{username}（更换）", en: "Current user: {username} (switch)" },
+  recentSummaryTotal: { zh: "总练习次数 {count} 次", en: "{count} practice sessions total" },
+  recentSummaryAvg: { zh: "近期平均分 {score}", en: "Recent average score {score}" },
+  recentSummaryLast: { zh: "上次练习：{title}（{date}）", en: "Last practiced: {title} ({date})" },
+
+  // --- utils/profile.js ---
+  profileNoHistory: { zh: "还没有练习纪录，开始你的第一次练习吧", en: "No practice history yet -- start your first session" },
+  profileLevelBeginner: { zh: "新手", en: "Beginner" },
+  profileLevelIntermediate: { zh: "进阶", en: "Intermediate" },
+  profileLevelAdvanced: { zh: "熟练", en: "Proficient" },
+  profileLevelLine: { zh: "{level}练习者", en: "{level} player" },
+  profileFavoritePiece: { zh: "常练《{title}》", en: "Often practices “{title}”" },
+  profileRecentAvg: { zh: "近期平均分 {score}", en: "recent average {score}" },
+
   // --- SessionSetup.jsx ---
   connectFailed: { zh: "连不上练习服务器，确认树莓派上的 edge/practice_server.py 有在跑", en: "Can't reach the practice server -- check that edge/practice_server.py is running on the Raspberry Pi." },
   startPractice: { zh: "开始练习", en: "Start practice" },
   startPracticeDescription: { zh: "输入姓名、选一首歌、设定速度，开始后会在琴上点灯引导、同步录音，结束后自动显示评分结果。", en: "Enter your name, pick a song and speed -- the keyboard will light up as a guide while it records, then automatically show your scored result." },
+  startPerformDescription: { zh: "输入姓名、选一首歌、设定目标速度，开始后同步录音但不会点灯引导，结束后自动显示正式评测报告。", en: "Enter your name, pick a song and target speed -- it records without LED guidance, then automatically shows a formal scored report." },
   yourName: { zh: "姓名", en: "Your name" },
   yourNamePlaceholder: { zh: "输入姓名，用来保存你的评分记录", en: "Enter your name to keep your scores separate" },
   yourNameRequired: { zh: "请先输入姓名再开始", en: "Please enter your name before starting" },
@@ -29,9 +56,18 @@ const dict = {
   importing: { zh: "汇入中...", en: "Importing..." },
   importFailed: { zh: "汇入失败", en: "Import failed" },
   speedLabel: { zh: "倍速：{speed}x", en: "Speed: {speed}x" },
+  targetSpeedLabel: { zh: "目标速度：{speed}x", en: "Target speed: {speed}x" },
   starting: { zh: "启动中...", en: "Starting..." },
   cannotStart: { zh: "无法启动", en: "Couldn't start" },
   viewLastResult: { zh: "查看最近评分结果", en: "View last result" },
+  ledConfigLabel: { zh: "灯光参数", en: "LED settings" },
+  brightnessLabel: { zh: "亮度：{pct}%", en: "Brightness: {pct}%" },
+  fullRangeLabel: { zh: "点亮每个琴键的完整灯珠范围（预设只点第一颗）", en: "Light each key's full LED range (default: just the first LED)" },
+  segmentLoopLabel: { zh: "分段循环练习", en: "Segmented loop practice" },
+  segmentLoopHint: { zh: "指定小节范围反复循环引导，不计分、不存入历史纪录", en: "Repeats a measure range indefinitely -- not graded, not saved to history" },
+  segmentLoopStart: { zh: "起始小节", en: "Start measure" },
+  segmentLoopEnd: { zh: "结束小节", en: "End measure" },
+  startSegmentLoop: { zh: "开始分段练习", en: "Start segment practice" },
 
   // --- LiveSession.jsx ---
   phaseStarting: { zh: "启动中...", en: "Starting..." },
@@ -47,6 +83,9 @@ const dict = {
   restart: { zh: "重新开始", en: "Restart" },
   endEarly: { zh: "提前结束", en: "End early" },
   gradingMessage: { zh: "正在把录音抓回来评分，请稍候...", en: "Fetching the recording and grading it, please wait..." },
+  noGuideNotice: { zh: "此模式没有灯光引导，请照记忆完整演奏一次。", en: "No LED guidance in this mode -- play the piece through from memory." },
+  metronomeMute: { zh: "静音节拍器", en: "Mute metronome" },
+  metronomeUnmute: { zh: "取消静音", en: "Unmute metronome" },
 
   // --- SummaryPanel.jsx ---
   overallScore: { zh: "总分", en: "Overall score" },
@@ -54,6 +93,7 @@ const dict = {
   pitchAccuracy: { zh: "音高准确率", en: "Pitch accuracy" },
   rhythmAccuracy: { zh: "节奏准确率", en: "Rhythm accuracy" },
   timingStability: { zh: "节奏稳定度", en: "Timing stability" },
+  handShapeScore: { zh: "手型评分", en: "Hand shape" },
   statCorrect: { zh: "正确", en: "Correct" },
   statTimingOff: { zh: "时间偏差", en: "Timing off" },
   statWrongPitch: { zh: "弹错音", en: "Wrong pitch" },
@@ -101,6 +141,24 @@ const dict = {
   timingAccurate: { zh: "准确", en: "accurate" },
   timingRush: { zh: "抢拍", en: "rush" },
   timingDrag: { zh: "拖拍", en: "drag" },
+
+  // --- MyPage.jsx (formerly HistoryPage.jsx) ---
+  historyFilterMode: { zh: "模式", en: "Mode" },
+  historyFilterAll: { zh: "全部", en: "All" },
+  historyFilterSong: { zh: "曲目", en: "Song" },
+  historyEmpty: { zh: "还没有练习纪录", en: "No practice records yet" },
+  historyLoadFailed: { zh: "无法载入历史纪录", en: "Couldn't load history" },
+  historyDelete: { zh: "删除", en: "Delete" },
+  historyDeleteConfirm: { zh: "确定要删除这笔纪录吗？", en: "Delete this record?" },
+  historyView: { zh: "查看", en: "View" },
+  historyBackToList: { zh: "返回列表", en: "Back to list" },
+  historyScore: { zh: "分数", en: "Score" },
+  historyDate: { zh: "日期", en: "Date" },
+  historyStatusError: { zh: "评分失败", en: "Grading failed" },
+  historyExport: { zh: "汇出", en: "Export" },
+  trendChartTitle: { zh: "分数趋势", en: "Score trend" },
+  compareTitle: { zh: "多笔比对", en: "Comparison" },
+  compareSelectHint: { zh: "勾选 2 笔以上的纪录可以比对子分数", en: "Select 2 or more records to compare their sub-scores" },
 };
 
 export function translate(key, lang, vars) {

@@ -1,6 +1,18 @@
 # viewer
 
-給 [backend.scoring](../../backend/scoring) 模組輸出的 `result.json` 用的網頁檢視器，也是「選歌→燈光引導+錄音→自動評分」整個練習流程的前端。
+給 [backend.scoring](../../backend/scoring) 模組輸出的 `result.json` 用的網頁檢視器，也是整個練習流程的前端：引導頁（姓名輸入 + Slogan）→ 主頁（logo + 近期總結 + 三張導覽卡片）→ 學習模式／演奏模式（各自的選歌→引導/錄音→評分報告）／我的（歷史紀錄 + 畫像 + 趨勢/比對）。
+
+## 頁面架構
+
+不用 `react-router`（維持專案一貫的輕量風格），`App.jsx` 用一個 `page: "onboarding" | "home" | "learn" | "perform" | "me"` 的 state 機做最外層導覽，`learn`/`perform` 內部各自維持 `setup → live → result` 三態子狀態機（兩者共用 `SessionSetup`/`LiveSession`，用 `mode` prop 區分文案跟行為）。姓名存在 localStorage：第一次打開（或姓名被清空）落到 `onboarding`，之後重新整理直接進 `home`；`home` 頁上有個「目前使用者：xxx（更換）」連結可以隨時切回 `onboarding` 換身份。
+
+**學習模式 vs 演奏模式**：都是 `POST /api/session/start` 帶 `mode: "learn"|"perform"`，後端依 mode 選一組 `ScoringConfig` 權重（`edge/practice_server.py`/`scripts/session_server.py` 的 `MODE_SCORE_WEIGHTS`）——學習模式音準/手型權重高、節奏均勻度不計；演奏模式三者較均衡的嚴格評分，而且會多帶 `--no-leds` 給 `ws2812_guide_song.py`（只計時+錄音，不點燈）。**評分引擎本身完全沒有分兩套**，純粹是權重參數不同。手型評分目前是固定的佔位值（`HAND_SHAPE_PLACEHOLDER_SCORE = 100.0`）——隊友那套姿勢辨識（`edge/raspi_runtime/`）還在門檻式佔位模型階段，且沒接到這兩支 orchestrator，等那邊成熟後才會接上真數據。
+
+學習模式另外還有：**燈光參數**（亮度滑桿 + 全鍵位/單鍵位範圍切換，隨 `POST /api/session/start` 的 `brightness`/`full_range` 傳給 `ws2812_guide_song.py` 既有的 `--brightness`/`--full-range`）、**節拍器**（`LiveSession.jsx` 用 `src/utils/metronome.js` 的 Web Audio lookahead scheduler，貫穿整個引導過程持續播放，拍速 = 曲子的 `tempo_bpm × 目前倍速`，跟樹莓派的燈光/錄音時序完全獨立，純瀏覽器端）、**曲目記憶**（`GET /api/songs?username=&mode=` 回傳這個使用者在這個模式下最近彈的 `last_song_id`，選歌下拉預設帶出）、**分段循環練習**（指定小節範圍讓 `ws2812_guide_song.py` 反覆循環引導，見下方獨立說明）。
+
+**分段循環練習**：學習模式選歌畫面上的另一個獨立按鈕（不是「開始練習」，是「開始分段練習」），帶 `loop_start_measure`/`loop_end_measure` 給後端；`ws2812_guide_song.py` 算出這個小節範圍對應的時間區間，讓播放時鐘到達區間終點就自動繞回起點、無限循環，直到使用者按「結束」。這種 session **不計分、不存入歷史紀錄**（`Session.practice_only`）——分段反覆彈奏的錄音對著整曲的參考譜評分沒有意義，純粹是熟練用的練習輔助。
+
+**我的**：每次評分完成，後端會把完整 `result.json` 存一份到 `data/session_scratch/results/<姓名>/<session_id>.json`（每個 session 獨立檔案，不會互相覆蓋），並把摘要寫進 `backend/db/sqlite.py` 管理的 SQLite（`practice_sessions` 表）。前端「我的」頁面打 `GET /api/history?username=&mode=&song_id=` 拿列表（回應同時帶一個 `profile` 區塊：`total_sessions`/`recent_avg_score`/`most_frequent_piece`，`home`頁的「近期總結」卡片跟「我的」頁最上面的畫像卡片共用同一份資料、同一句用 `src/utils/profile.js` 產生的畫像文字）、`GET /api/history/<session_id>` 拿單筆完整報告（直接餵給跟即時結果同一組 `SummaryPanel`/`NotationView`/`FeedbackPanel`/`PianoRoll`/`TimingStrip`）、`DELETE /api/history/<session_id>` 刪除。列表下方還有**分數趨勢圖**（`TrendChart.jsx`，手刻 SVG，同 `PianoRoll`/`TimingStrip` 風格）跟**多筆比對**（勾選 2 筆以上跳出子分數對照表），每筆記錄可以直接**匯出 JSON**（純前端 Blob 下載，沒有額外後端 API）。這套 SQLite schema是隊友原本為了姿勢辨識另外寫的，這次接進來重用，額外加了一個 `mode` 欄位（additive migration，不影響隊友原本的用法）。
 
 ## 執行
 
@@ -49,10 +61,6 @@ cd frontend/viewer && npm install && npm run dev
 
 如果只是想單純看一份既有的 `result.json`（不透過樹莓派、也不跑任何 server），右上角「Load result.json」可以手動選檔案。
 
-## 姓名分開存檔
-
-首頁「開始練習」畫面多了一個姓名輸入框——這個名字會隨著 `POST /api/session/start` 一起送出，後端（`edge/practice_server.py`／`scripts/session_server.py`）評分完成後除了照舊寫一份到共用的 `result.json`（誰最後測都會蓋過去，純粹方便當下直接看），也會另外存一份到 `data/session_scratch/results/<姓名>.json`，之後要看「某人最近一次的評分」就用 `GET /api/results/<姓名>`（前端「查看最近評分結果」按鈕背後就是打這支）——不同人不會互相覆蓋彼此的紀錄。姓名會存在瀏覽器的 localStorage，重新整理頁面也不會忘記你是誰。
-
 ## 語言切換
 
 右上角有個「EN／中文」按鈕，整個介面（含「評語」面板動態產生的建議句子）都有繁簡雙語版本，切換後會存在 localStorage，下次打開記得你上次選的語言。翻譯字典在 `src/i18n.js`（一份不依賴 React 的純資料，`utils/feedback.js` 這種產生動態句子的模組也是直接 import 它來用，不用透過 React context）。
@@ -91,18 +99,25 @@ cd frontend/viewer && npm install && npm run dev
 
 | 檔案 | 作用 |
 | --- | --- |
-| `src/App.jsx` | 最外層：`setup`/`live`/`result` 三態狀態機、檔案選取、姓名狀態(含 localStorage)、把資料分派給各個面板 |
-| `src/i18n.js` | 純資料的翻譯字典 + `translate(key, lang, vars)`，不依賴 React，`utils/feedback.js` 也直接 import |
+| `src/App.jsx` | 最外層：`page`(onboarding/home/learn/perform/me) + `view`(setup/live/result，只在 learn/perform 內有意義) 狀態機、檔案選取、姓名狀態(含 localStorage)、把資料分派給各個面板 |
+| `src/i18n.js` | 純資料的翻譯字典 + `translate(key, lang, vars)`，不依賴 React，`utils/feedback.js`/`utils/profile.js` 也直接 import |
 | `src/LanguageContext.jsx` | 包在 `i18n.js` 外面的 React context/hook(`useTranslation`)，管理目前語言 + localStorage 持久化 |
-| `src/components/SessionSetup.jsx` | 首頁選歌畫面：姓名輸入框、曲庫清單(來自 session server)、自行匯入 MIDI、倍速選擇、開始按鈕、依姓名查詢「查看最近評分結果」 |
-| `src/components/LiveSession.jsx` | 引導中畫面：輪詢 session 狀態、顯示進度條、變速/暫停/重來/提前結束按鈕 |
+| `src/components/OnboardingPage.jsx` | 引導頁：姓名輸入框、Slogan、藍色主色調、「進入」按鈕 |
+| `src/components/HomePage.jsx` | 主頁：logo、近期總結卡片(總練習次數/近期平均分/上次練習/畫像一句話)、學習模式/演奏模式/我的三張導覽卡片、切換使用者連結 |
+| `src/components/MyPage.jsx` | 我的：使用者畫像卡片、分數趨勢圖、練習記錄列表(依模式/曲目篩選、多筆勾選比對)、單筆查看(複用結果視圖)、刪除、匯出 JSON |
+| `src/components/TrendChart.jsx` | 分數趨勢折線圖(手刻 SVG，同 PianoRoll/TimingStrip 風格) |
+| `src/utils/profile.js` | 從 `profile` 聚合資料算出「新手/進階/熟練」等級 + 一句話畫像文字，HomePage/MyPage 共用 |
+| `src/utils/download.js` | 純前端 Blob 下載小工具，匯出功能用 |
+| `src/utils/metronome.js` | Web Audio lookahead-scheduler 節拍器 class，不依賴 React，`LiveSession.jsx` 用它在學習模式引導過程中持續播放拍子 |
+| `src/components/SessionSetup.jsx` | 學習/演奏模式共用的選歌畫面：姓名輸入框、曲庫清單(來自 session server，含曲目記憶預設)、自行匯入 MIDI、倍速/目標速度選擇；學習模式另有燈光參數(亮度/範圍)跟分段循環練習區塊；開始按鈕，用 `mode` prop 切換文案跟送出的權重模式 |
+| `src/components/LiveSession.jsx` | 引導中畫面：輪詢 session 狀態、顯示進度條、跑節拍器；學習模式有變速/暫停/重來/節拍器靜音按鈕，演奏模式只有提前結束(不能中途調速/暫停/重來) |
 | `src/components/SummaryPanel.jsx` | 總分/子分數/計數摘要卡片 |
 | `src/components/NotationView.jsx` | 用 [VexFlow](https://www.vexflow.com/) 畫的五線譜視圖 |
 | `src/components/FeedbackPanel.jsx` | 「評語」文字面板 |
 | `src/utils/feedback.js` | 分析錯誤模式(和弦漏彈/特定音高/小節集中/節奏搶拍拖拍)、產生雙語練習建議的邏輯，不是逐音符列表 |
 | `src/components/PianoRoll.jsx` | 鋼琴捲軸視覺化 |
 | `src/components/TimingStrip.jsx` | 節奏漂移小圖 |
-| `src/index.css` | Tailwind 進入點 + 顏色/介面用的 CSS variables(含深色模式) |
+| `src/index.css` | Tailwind 進入點 + 顏色/介面用的 CSS variables(含深色模式、引導頁用的 `--accent` 品牌藍) |
 
 ## 已知限制
 
@@ -110,3 +125,4 @@ cd frontend/viewer && npm install && npm run dev
 - `extra`（多彈的音）沒有參考小節可以對應，Notation 面板會把它們掛在「時間上最接近的前一個音符」所在的小節，只是視覺上的近似安排
 - Notation 面板的音符一律用升記號拼寫（不會自動改用降記號），如果樂曲調性偏好用降記號，畫出來的音高沒錯，但拼字不是最直覺的那種
 - 目前只支援本機選檔或 `frontend/viewer/public/result.json` 自動載入，沒有做後端 API 串接
+- 分段循環練習跟燈光亮度/範圍參數這兩個功能只在本機做過程式邏輯 dry-run（`--no-leds`），實際樹莓派 LED 硬體效果還沒有實機驗證過

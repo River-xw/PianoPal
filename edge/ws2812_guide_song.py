@@ -40,11 +40,14 @@ Run:
     python3 edge/ws2812_guide_song.py twinkle.json
     python3 edge/ws2812_guide_song.py twinkle.json --http-port 8765   # + frontend control
     python3 edge/ws2812_guide_song.py twinkle.json --record-output take.wav   # + record along
+    python3 edge/ws2812_guide_song.py twinkle.json --no-leds --record-output take.wav   # 演奏模式: no lights, timing+recording only
+    python3 edge/ws2812_guide_song.py twinkle.json --loop-start-measure 5 --loop-end-measure 8   # 分段循環練習: repeat measures 5-8 forever until stopped
     ssh -t pi@... 'cd ~/PianoPal/edge && python3 ws2812_guide_song.py alabama.json'   # interactive
 """
 from __future__ import annotations
 
 import argparse
+import bisect
 import json
 import select
 import subprocess
@@ -90,7 +93,37 @@ def parse_args() -> argparse.Namespace:
                              "or playback is quit/restarted) -- so the recording lines up with the LED timeline.")
     parser.add_argument("--record-device", default="plughw:2,0",
                         help="ALSA capture device for `arecord -D` (see `arecord -l` on the Pi for options).")
+    parser.add_argument(
+        "--no-leds", action="store_true",
+        help="Skip all LED lighting (for 演奏模式/performance mode, which has no visual guidance) -- "
+             "timing, recording, and HTTP status all still work unchanged, just no hardware/SPI access at all.",
+    )
+    parser.add_argument("--loop-start-measure", type=int, default=None,
+                        help="分段循環練習: repeat measures [start, end] indefinitely instead of playing "
+                             "straight through. Must be given together with --loop-end-measure.")
+    parser.add_argument("--loop-end-measure", type=int, default=None,
+                        help="See --loop-start-measure.")
     return parser.parse_args()
+
+
+class _NullStrip:
+    """Same interface as the real SPI-driven strip (num_pixels/
+    set_pixel_color/show/clear), all no-ops -- used for --no-leds so _run()
+    and the lead-in countdown work completely unmodified, and so no-LED runs
+    never touch SPI/hardware at all (e.g. still works if the strip itself
+    has an issue, or there's no keyboard LED mapping file on this machine)."""
+
+    def num_pixels(self) -> int:
+        return 0
+
+    def set_pixel_color(self, *_args, **_kwargs) -> None:
+        pass
+
+    def show(self) -> None:
+        pass
+
+    def clear(self) -> None:
+        pass
 
 
 class AudioRecorder:
@@ -153,7 +186,10 @@ class PlaybackState:
     used interchangeably (or at the same time) without stepping on each
     other."""
 
-    def __init__(self, speed: float, title: str, song_end: float):
+    def __init__(
+        self, speed: float, title: str, song_end: float,
+        loop_start: float | None = None, loop_end: float | None = None,
+    ):
         self._lock = threading.Lock()
         self.speed = speed
         self.paused = False
@@ -162,6 +198,10 @@ class PlaybackState:
         self.song_pos = 0.0
         self.title = title
         self.song_end = song_end
+        # 分段循環練習: when both are set, tick() wraps song_pos back to
+        # loop_start once it reaches loop_end, instead of ever finishing.
+        self.loop_start = loop_start
+        self.loop_end = loop_end
 
     def apply(self, action: str, value=None) -> None:
         with self._lock:
@@ -186,17 +226,23 @@ class PlaybackState:
                 "song_end": round(self.song_end, 2),
             }
 
-    def tick(self, dt: float) -> tuple[float, bool]:
+    def tick(self, dt: float) -> tuple[float, bool, bool]:
         """Advance song_pos by dt*speed (unless paused), and atomically
-        consume any pending restart request. Returns (song_pos, restarted)."""
+        consume any pending restart request. Returns (song_pos, restarted,
+        looped) -- looped is True when a loop is configured and song_pos just
+        wrapped back to loop_start (analogous to restarted, but automatic)."""
         with self._lock:
             restarted = self.restart_requested
             self.restart_requested = False
+            looped = False
             if restarted:
                 self.song_pos = 0.0
             elif not self.paused:
                 self.song_pos += dt * self.speed
-            return self.song_pos, restarted
+                if self.loop_end is not None and self.song_pos >= self.loop_end:
+                    self.song_pos = self.loop_start
+                    looped = True
+            return self.song_pos, restarted, looped
 
 
 def _make_http_handler(state: PlaybackState):
@@ -296,9 +342,13 @@ def _run(strip, events, state: PlaybackState, interactive_hint: bool) -> None:
     with _raw_keyboard() as read_key:
         if interactive_hint:
             print("  controls: +/- speed  space pause  r restart  q quit")
+        looping = state.loop_end is not None
+        loop_start_index = (
+            bisect.bisect_left([e[0] for e in events], state.loop_start) if looping else None
+        )
         i = 0
         last = time.monotonic()
-        while i < len(events):
+        while i < len(events) or looping:
             if state.quit_requested:
                 print("  quit")
                 break
@@ -306,7 +356,7 @@ def _run(strip, events, state: PlaybackState, interactive_hint: bool) -> None:
             now = time.monotonic()
             dt = now - last
             last = now
-            song_pos, restarted = state.tick(dt)
+            song_pos, restarted, looped = state.tick(dt)
 
             if restarted:
                 for led in range(strip.num_pixels()):
@@ -315,6 +365,15 @@ def _run(strip, events, state: PlaybackState, interactive_hint: bool) -> None:
                 i = 0
                 song_pos = 0.0
                 print("  restart")
+                last = time.monotonic()
+                continue
+
+            if looped:
+                for led in range(strip.num_pixels()):
+                    strip.set_pixel_color(led, OFF)
+                strip.show()
+                i = loop_start_index
+                song_pos = state.loop_start
                 last = time.monotonic()
                 continue
 
@@ -341,11 +400,22 @@ def main() -> int:
     notes = song.get("notes", [])
     title = song.get("title", args.song)
 
-    mapping = load_mapping()
-    pitch_leds = pitch_to_leds(mapping)
-    if not args.full_range:
-        pitch_leds = {pitch: leds[:1] for pitch, leds in pitch_leds.items()}
-    strip = make_strip(mapping, brightness=args.brightness)
+    if args.no_leds:
+        strip = _NullStrip()
+        # Timing/recording still need a valid timeline -- map every pitch to
+        # a placeholder LED index (never actually shown, since _NullStrip's
+        # set_pixel_color is a no-op) so no note gets silently dropped the
+        # way a real keyboard's LED mapping would drop black keys/notes
+        # outside its range. Without this, _build_timeline would filter out
+        # every note (no real mapping was loaded), leaving an empty
+        # timeline -- song_end would be 0 and the session would end instantly.
+        pitch_leds = {int(n["pitch"]): [0] for n in notes}
+    else:
+        mapping = load_mapping()
+        pitch_leds = pitch_to_leds(mapping)
+        if not args.full_range:
+            pitch_leds = {pitch: leds[:1] for pitch, leds in pitch_leds.items()}
+        strip = make_strip(mapping, brightness=args.brightness)
 
     events = _build_timeline(notes, pitch_leds)
     playable = sum(1 for n in notes if int(n["pitch"]) in pitch_leds)
@@ -354,7 +424,25 @@ def main() -> int:
     print(f"guiding: {title}  ({playable}/{len(notes)} notes on the keyboard, "
           f"start speed {args.speed}x, hands {hands})")
 
-    state = PlaybackState(speed=args.speed, title=title, song_end=song_end)
+    loop_start_sec = loop_end_sec = None
+    if args.loop_start_measure is not None and args.loop_end_measure is not None:
+        loop_notes = [
+            n for n in notes
+            if args.loop_start_measure <= int(n.get("measure", 0)) <= args.loop_end_measure
+        ]
+        if not loop_notes:
+            raise SystemExit(
+                f"no notes found in measures {args.loop_start_measure}-{args.loop_end_measure}"
+            )
+        loop_start_sec = min(float(n["onset_sec"]) for n in loop_notes)
+        loop_end_sec = max(float(n["onset_sec"]) + float(n.get("dur_sec", 0.2) or 0.2) for n in loop_notes)
+        print(f"  looping measures {args.loop_start_measure}-{args.loop_end_measure} "
+              f"({loop_start_sec:.1f}s-{loop_end_sec:.1f}s) until stopped")
+
+    state = PlaybackState(
+        speed=args.speed, title=title, song_end=song_end,
+        loop_start=loop_start_sec, loop_end=loop_end_sec,
+    )
 
     http_server = None
     if args.http_port is not None:

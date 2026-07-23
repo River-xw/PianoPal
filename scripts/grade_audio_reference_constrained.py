@@ -108,6 +108,19 @@ def parse_args() -> argparse.Namespace:
             "reliable signal."
         ),
     )
+    parser.add_argument(
+        "--score-weight-hand-shape", type=float, default=0.0,
+        help=(
+            "Overall-score weight on hand-shape/posture (0-100, supplied via "
+            "--hand-shape-score). 0 (default) fully disables it -- no posture "
+            "classifier is wired into this script; a caller with a real score "
+            "(e.g. an orchestrator that ran one) can turn it on."
+        ),
+    )
+    parser.add_argument(
+        "--hand-shape-score", type=float, default=100.0,
+        help="Externally-computed hand-shape/posture score (0-100). Only used when --score-weight-hand-shape > 0.",
+    )
     parser.add_argument("-o", "--output", required=True, help="Path to write result.json.")
     parser.add_argument("--debug-output", default=None, help="Optional path to write verifier debug JSON.")
     return parser.parse_args()
@@ -154,8 +167,11 @@ def main() -> int:
         score_weight_pitch=args.score_weight_pitch,
         score_weight_rhythm=args.score_weight_rhythm,
         score_weight_timing_stability=args.score_weight_timing_stability,
+        score_weight_hand_shape=args.score_weight_hand_shape,
     )
-    result = score_performance(reference, performance, scoring_config).to_dict()
+    result = score_performance(
+        reference, performance, scoring_config, hand_shape_score=args.hand_shape_score
+    ).to_dict()
     result.setdefault("pipeline", {})["audio_to_performance"] = f"reference_constrained:{args.mode}"
     result["pipeline"]["reference_constrained_debug"] = {
         key: value for key, value in debug.items() if key not in {"notes", "events"}

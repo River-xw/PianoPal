@@ -4,39 +4,51 @@
 
 :root {
   color-scheme: light;
-  --surface: #fcfcfb;
-  --page: #f9f9f7;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #898781;
-  --gridline: #e1e0d9;
-  --axis: #c3c2b7;
-  --border: rgba(11, 11, 11, 0.1);
+  --surface: #ffffff;
+  --page: #eaf2fd;
+  --text-primary: #0f2947;
+  --text-secondary: #3d5876;
+  --text-muted: #7592b0;
+  --gridline: #dce8f7;
+  --axis: #b6cde7;
+  --border: rgba(29, 78, 149, 0.16);
 
   --status-correct: #0ca30c;
   --status-timing-off: #fab219;
   --status-wrong-pitch: #d03b3b;
-  --status-missed: #898781;
+  --status-missed: #8698b3;
   --status-extra: #4a3aa7;
+
+  /* 淺藍/深藍/白三色主調：surface=白、page=淺藍、text-primary=深藍；
+     accent 是強調用的品牌深藍（CTA、logo、連結），accent-light 是淺藍色塊
+     （選中/hover 底色）。狀態色（correct/timing_off/...）維持不變，跟主色
+     調無關，避免破壞既有的可辨識度。 */
+  --accent: #1d5fd6;
+  --accent-contrast: #ffffff;
+  --accent-light: #dbeafe;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --surface: #1a1a19;
-    --page: #0d0d0d;
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #898781;
-    --gridline: #2c2c2a;
-    --axis: #383835;
-    --border: rgba(255, 255, 255, 0.1);
+    --surface: #10233c;
+    --page: #071426;
+    --text-primary: #f3f8ff;
+    --text-secondary: #a9c7ec;
+    --text-muted: #7996bd;
+    --gridline: #16283f;
+    --axis: #2c4468;
+    --border: rgba(147, 197, 253, 0.18);
 
     --status-correct: #0ca30c;
     --status-timing-off: #fab219;
     --status-wrong-pitch: #d03b3b;
-    --status-missed: #898781;
+    --status-missed: #7c8fac;
     --status-extra: #9085e9;
+
+    --accent: #5b9bf7;
+    --accent-contrast: #071426;
+    --accent-light: #17324f;
   }
 }
 

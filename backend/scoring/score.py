@@ -35,6 +35,7 @@ def score_performance(
     config: Optional[ScoringConfig] = None,
     target_bpm: Optional[int] = None,
     song_name: Optional[str] = None,
+    hand_shape_score: Optional[float] = None,
 ) -> ScoringResult:
     """Score a symbolic performance against a score_to_reference JSON reference.
 
@@ -52,6 +53,11 @@ def score_performance(
 
     `song_name` is stored on the result for display (e.g. in the viewer)
     and defaults to the reference's own `title` field if not given.
+
+    `hand_shape_score` (0-100) is an externally-supplied posture/hand-shape
+    score -- this module has no sensor input of its own. Only used when
+    config.score_weight_hand_shape > 0; otherwise ignored, matching how
+    score_weight_timing_stability=0 fully excludes that sub-score too.
     """
     config = config or ScoringConfig()
     song_name = song_name if song_name is not None else reference.get("title")
@@ -140,7 +146,7 @@ def score_performance(
     if config.suppress_harmonic_extras:
         note_results, harmonic_extras_removed = _suppress_harmonic_extras(note_results, config)
 
-    summary = _summarize(note_results, config, global_tempo_ratio, tol_ms)
+    summary = _summarize(note_results, config, global_tempo_ratio, tol_ms, hand_shape_score)
     summary.harmonic_extras_removed = harmonic_extras_removed
     return ScoringResult(summary=summary, notes=note_results, song_name=song_name)
 
@@ -182,7 +188,10 @@ def _suppress_harmonic_extras(note_results: list, config: ScoringConfig) -> tupl
     return kept, removed
 
 
-def _summarize(note_results: list, config: ScoringConfig, global_tempo_ratio, tol_ms: float) -> ScoringSummary:
+def _summarize(
+    note_results: list, config: ScoringConfig, global_tempo_ratio, tol_ms: float,
+    hand_shape_score: Optional[float] = None,
+) -> ScoringSummary:
     counts = {"correct": 0, "timing_off": 0, "wrong_pitch": 0, "missed": 0, "extra": 0}
     for r in note_results:
         counts[r.status] += 1
@@ -211,10 +220,16 @@ def _summarize(note_results: list, config: ScoringConfig, global_tempo_ratio, to
     else:
         timing_stability = None
 
+    # Same on/off pattern as timing_stability above: weight 0 (the default,
+    # since there's no production posture classifier feeding this yet) means
+    # not computed/shown at all, not silently scored as 0.
+    hand_shape = hand_shape_score if config.score_weight_hand_shape > 0 else None
+
     overall = (
         config.score_weight_pitch * pitch_accuracy
         + config.score_weight_rhythm * rhythm_accuracy
         + (config.score_weight_timing_stability * timing_stability if timing_stability is not None else 0.0)
+        + (config.score_weight_hand_shape * hand_shape if hand_shape is not None else 0.0)
     )
 
     octave_slips = sum(
@@ -229,6 +244,7 @@ def _summarize(note_results: list, config: ScoringConfig, global_tempo_ratio, to
             "pitch": round(pitch_accuracy, 2),
             "rhythm": round(rhythm_accuracy, 2),
             "timing_stability": round(timing_stability, 2) if timing_stability is not None else None,
+            "hand_shape": round(hand_shape, 2) if hand_shape is not None else None,
         },
         global_tempo_ratio=round(global_tempo_ratio, 4) if global_tempo_ratio is not None else None,
         tempo_trend=_tempo_trend(note_results, config),

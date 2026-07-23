@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import SummaryPanel from "./components/SummaryPanel";
 import NotationView from "./components/NotationView";
 import FeedbackPanel from "./components/FeedbackPanel";
@@ -6,33 +6,37 @@ import PianoRoll from "./components/PianoRoll";
 import TimingStrip from "./components/TimingStrip";
 import SessionSetup from "./components/SessionSetup";
 import LiveSession from "./components/LiveSession";
+import OnboardingPage from "./components/OnboardingPage";
+import HomePage from "./components/HomePage";
+import MyPage from "./components/MyPage";
 import { useTranslation } from "./LanguageContext.jsx";
 import { LANGUAGES } from "./i18n";
 
 const USERNAME_STORAGE_KEY = "pianopal_username";
 
-// Home screen is the practice-session flow: enter a name, pick a song +
-// speed (SessionSetup) -> guide+record runs on the Pi (LiveSession) -> the
-// orchestrator grades the recording and writes a per-user result file
-// (data/session_scratch/results/<name>.json), which we then load -- "view"
-// tracks exactly where in that flow we are. Results are scoped by username
-// (GET /api/results/<username>) so two people's scores never overwrite each
-// other; the username itself persists in localStorage so a page reload
-// remembers who you are and re-shows your own last result, not whoever ran
-// the session before you.
+function readStoredUsername() {
+  try {
+    return localStorage.getItem(USERNAME_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+// Top-level page state machine: "onboarding" (name + slogan, first run or
+// switching identity) | "home" (nav hub, logo + recent summary) | "learn" |
+// "perform" (each with its own setup -> live -> result sub-flow, sharing
+// SessionSetup/LiveSession/the result-view component set, parameterized by
+// `mode`) | "me" (past practice_sessions rows + profile, backend.db.sqlite
+// via GET /api/history). Username persists in localStorage; a returning
+// user (non-empty cached name) skips onboarding and boots straight to home.
 export default function App() {
   const { t, lang, setLang } = useTranslation();
-  const [view, setView] = useState("setup"); // setup | live | result
-  const [liveInfo, setLiveInfo] = useState(null); // { songTitle }
+  const [page, setPage] = useState(() => (readStoredUsername() ? "home" : "onboarding"));
+  const [view, setView] = useState("setup"); // setup | live | result -- only meaningful within learn/perform
+  const [liveInfo, setLiveInfo] = useState(null); // { songTitle, sessionId, practiceOnly }
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const [username, setUsername] = useState(() => {
-    try {
-      return localStorage.getItem(USERNAME_STORAGE_KEY) || "";
-    } catch {
-      return "";
-    }
-  });
+  const [username, setUsername] = useState(readStoredUsername);
 
   const handleUsernameChange = (next) => {
     setUsername(next);
@@ -43,14 +47,13 @@ export default function App() {
     }
   };
 
-  const loadResult = useCallback((forUsername) => {
-    const name = (forUsername ?? "").trim();
-    if (!name) return;
+  const loadResult = useCallback((sessionId) => {
+    if (!sessionId) return;
     // No ?t= cache-buster: a query string doesn't match Vite's dev proxy
     // rule (it falls through to the SPA index.html instead of forwarding to
     // the orchestrator), so use cache:"no-store" for freshness instead -- the
     // server also sends Cache-Control: no-cache.
-    fetch(`/api/results/${encodeURIComponent(name)}`, { cache: "no-store" })
+    fetch(`/api/history/${sessionId}`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((parsed) => {
         if (parsed && parsed.summary && parsed.notes) {
@@ -60,12 +63,6 @@ export default function App() {
         }
       })
       .catch(() => {});
-  }, []);
-
-  // Auto-show this (remembered) user's latest graded result on first open.
-  useEffect(() => {
-    if (username) loadResult(username);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFile = (file) => {
@@ -87,8 +84,8 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  const handleStarted = ({ songId, songs }) => {
-    setLiveInfo({ songTitle: songs.find((s) => s.id === songId)?.title || songId });
+  const handleStarted = ({ songId, songs, sessionId, practiceOnly }) => {
+    setLiveInfo({ songTitle: songs.find((s) => s.id === songId)?.title || songId, sessionId, practiceOnly });
     setError(null);
     setView("live");
   };
@@ -96,6 +93,38 @@ export default function App() {
   const handleLiveError = (message) => {
     setError(message);
     setView("setup");
+  };
+
+  const handleLiveDone = () => {
+    // 分段循環練習 (practiceOnly) never gets graded/saved -- there's no
+    // result to show, just go back to picking a song/segment again.
+    if (liveInfo?.practiceOnly) {
+      setView("setup");
+      return;
+    }
+    loadResult(liveInfo?.sessionId);
+  };
+
+  const goHome = () => {
+    setPage("home");
+    setView("setup");
+    setLiveInfo(null);
+    setResult(null);
+    setError(null);
+  };
+
+  const navigate = (nextPage) => {
+    setPage(nextPage);
+    setView("setup");
+    setError(null);
+  };
+
+  const handleOnboardingEnter = () => {
+    setPage("home");
+  };
+
+  const handleSwitchUser = () => {
+    setPage("onboarding");
   };
 
   return (
@@ -112,27 +141,29 @@ export default function App() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {view !== "setup" && (
+          {page !== "onboarding" && (page !== "home" || view === "result") && (
             <button
               className="rounded-lg border px-3 py-1.5 text-sm"
               style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
-              onClick={() => setView("setup")}
+              onClick={goHome}
             >
-              {t("backToSongs")}
+              {t("backToHome")}
             </button>
           )}
-          <label
-            className="cursor-pointer rounded-lg border px-3 py-1.5 text-sm"
-            style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
-          >
-            {t("loadResultJson")}
-            <input
-              type="file"
-              accept=".json,application/json"
-              className="hidden"
-              onChange={(e) => handleFile(e.target.files?.[0])}
-            />
-          </label>
+          {page !== "onboarding" && (
+            <label
+              className="cursor-pointer rounded-lg border px-3 py-1.5 text-sm"
+              style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+            >
+              {t("loadResultJson")}
+              <input
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={(e) => handleFile(e.target.files?.[0])}
+              />
+            </label>
+          )}
           <button
             className="rounded-lg border px-3 py-1.5 text-sm"
             style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
@@ -153,24 +184,11 @@ export default function App() {
         </div>
       )}
 
-      {view === "setup" && (
-        <SessionSetup
-          username={username}
-          onUsernameChange={handleUsernameChange}
-          onStarted={handleStarted}
-          onViewLastResult={() => loadResult(username)}
-        />
-      )}
-
-      {view === "live" && liveInfo && (
-        <LiveSession
-          songTitle={liveInfo.songTitle}
-          onDone={() => loadResult(username)}
-          onError={handleLiveError}
-        />
-      )}
-
-      {view === "result" && result && (
+      {/* A loaded/graded result takes priority over whatever `page` is --
+          "Load result.json" is available from any page (including home),
+          so it must be able to display regardless of which page was active
+          when it was triggered, not just from within learn/perform. */}
+      {view === "result" && result ? (
         <div className="flex flex-col gap-4">
           <SummaryPanel summary={result.summary} />
           <NotationView notes={result.notes} />
@@ -178,7 +196,29 @@ export default function App() {
           <PianoRoll notes={result.notes} />
           <TimingStrip notes={result.notes} />
         </div>
-      )}
+      ) : page === "onboarding" ? (
+        <OnboardingPage username={username} onUsernameChange={handleUsernameChange} onEnter={handleOnboardingEnter} />
+      ) : page === "home" ? (
+        <HomePage username={username} onNavigate={navigate} onSwitchUser={handleSwitchUser} />
+      ) : page === "me" ? (
+        <MyPage username={username} />
+      ) : page === "learn" || page === "perform" ? (
+        view === "live" && liveInfo ? (
+          <LiveSession
+            mode={page}
+            songTitle={liveInfo.songTitle}
+            onDone={handleLiveDone}
+            onError={handleLiveError}
+          />
+        ) : (
+          <SessionSetup
+            mode={page}
+            username={username}
+            onUsernameChange={handleUsernameChange}
+            onStarted={handleStarted}
+          />
+        )
+      ) : null}
     </div>
   );
 }

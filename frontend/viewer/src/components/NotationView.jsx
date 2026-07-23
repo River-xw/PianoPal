@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Renderer, Stave, StaveNote, Formatter, Accidental,
 } from "vexflow";
@@ -31,6 +31,7 @@ const STATUS_LABEL_KEYS = {
 const MEASURE_BASE_WIDTH = 90;
 const PER_NOTE_WIDTH = 26;
 const STAVE_LEFT_PAD = 60; // room for the clef on measure 1
+const STAVE_HEIGHT = 260;
 
 function pitchToVexKey(pitch) {
   const octave = Math.floor(pitch / 12) - 1;
@@ -84,15 +85,17 @@ function groupIntoChords(notes, timeKey) {
 // Only show an accidental the first time a given letter+octave needs one
 // within a measure (standard notation convention) -- `accidentalState` is a
 // Map that the caller resets once per measure per stave.
-function buildStaveNote(chordNotes, clef, accidentalState) {
+function buildStaveNote(chordNotes, clef, accidentalState, preview) {
   const keys = chordNotes.map((n) => pitchToVexKey(n.status === "wrong_pitch" || n.status === "extra" ? n.pitch_perf : n.pitch_ref));
   const duration = quantizeDuration(chordNotes[0].dur_beats);
   const staveNote = new StaveNote({ keys, duration, clef, auto_stem: true });
 
   chordNotes.forEach((n, i) => {
-    const color = cssVar(STATUS_VAR[n.status] ?? "--status-correct");
-    const opacity = n.status === "missed" ? 0.55 : 1;
-    staveNote.setKeyStyle(i, { fillStyle: color, strokeStyle: color, opacity });
+    if (!preview) {
+      const color = cssVar(STATUS_VAR[n.status] ?? "--status-correct");
+      const opacity = n.status === "missed" ? 0.55 : 1;
+      staveNote.setKeyStyle(i, { fillStyle: color, strokeStyle: color, opacity });
+    }
 
     const key = keys[i];
     const [letterPart, octave] = key.split("/");
@@ -112,9 +115,16 @@ function buildStaveNote(chordNotes, clef, accidentalState) {
   return staveNote;
 }
 
-export default function NotationView({ notes }) {
+// preview: true renders plain (no per-note status colors/legend) -- used for
+// the segment-loop measure picker in SessionSetup.jsx, showing the song's
+// reference notation before any performance exists to score.
+// highlightRange: {start, end} (measure numbers, inclusive) draws a tinted
+// band behind those measures so the currently-selected loop range is visible
+// at a glance.
+export default function NotationView({ notes, preview = false, highlightRange = null }) {
   const { t } = useTranslation();
   const containerRef = useRef(null);
+  const [measureLayout, setMeasureLayout] = useState([]);
 
   const measures = useMemo(() => {
     const inferred = inferMeasures(notes);
@@ -134,7 +144,6 @@ export default function NotationView({ notes }) {
 
     const trebleY = 30;
     const bassY = 140;
-    const staveHeight = 260;
 
     const widths = measures.map(([, { R, L }]) => {
       const rChords = groupIntoChords(R, "onset_ref_sec").length;
@@ -144,13 +153,15 @@ export default function NotationView({ notes }) {
     const totalWidth = STAVE_LEFT_PAD + widths.reduce((a, b) => a + b, 0) + 20;
 
     const renderer = new Renderer(container, Renderer.Backends.SVG);
-    renderer.resize(totalWidth, staveHeight);
+    renderer.resize(totalWidth, STAVE_HEIGHT);
     const context = renderer.getContext();
     context.setFont("system-ui", 10);
 
     let x = 10;
+    const layout = [];
     measures.forEach(([measureNum, { R, L }], i) => {
       const width = widths[i] + (i === 0 ? STAVE_LEFT_PAD : 0);
+      layout.push({ measureNum, x, width });
 
       const trebleStave = new Stave(x, trebleY, width);
       const bassStave = new Stave(x, bassY, width);
@@ -165,21 +176,22 @@ export default function NotationView({ notes }) {
 
       const trebleAccidentals = new Map();
       const bassAccidentals = new Map();
-      const rChords = groupIntoChords(R, "onset_ref_sec").map((c) => buildStaveNote(c, "treble", trebleAccidentals));
-      const lChords = groupIntoChords(L, "onset_ref_sec").map((c) => buildStaveNote(c, "bass", bassAccidentals));
+      const rChords = groupIntoChords(R, "onset_ref_sec").map((c) => buildStaveNote(c, "treble", trebleAccidentals, preview));
+      const lChords = groupIntoChords(L, "onset_ref_sec").map((c) => buildStaveNote(c, "bass", bassAccidentals, preview));
 
       if (rChords.length) Formatter.FormatAndDraw(context, trebleStave, rChords);
       if (lChords.length) Formatter.FormatAndDraw(context, bassStave, lChords);
 
       x += width;
     });
-  }, [measures]);
+    setMeasureLayout(layout);
+  }, [measures, preview]);
 
   return (
     <div className="rounded-xl border" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
       <div className="flex items-center gap-4 border-b px-4 py-2 text-sm" style={{ borderColor: "var(--border)" }}>
         <span className="font-medium" style={{ color: "var(--text-primary)" }}>{t("notationTitle")}</span>
-        {Object.entries(STATUS_VAR).map(([status, cssVarName]) => (
+        {!preview && Object.entries(STATUS_VAR).map(([status, cssVarName]) => (
           <span key={status} className="inline-flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
             <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: `var(${cssVarName})` }} />
             {t(STATUS_LABEL_KEYS[status])}
@@ -187,7 +199,18 @@ export default function NotationView({ notes }) {
         ))}
       </div>
       <div className="overflow-x-auto p-2" style={{ maxHeight: 340 }}>
-        <div ref={containerRef} />
+        <div className="relative">
+          {highlightRange && measureLayout
+            .filter((m) => m.measureNum >= highlightRange.start && m.measureNum <= highlightRange.end)
+            .map((m) => (
+              <div
+                key={m.measureNum}
+                className="absolute top-0 rounded"
+                style={{ left: m.x, width: m.width, height: STAVE_HEIGHT, background: "var(--accent-light)", opacity: 0.8 }}
+              />
+            ))}
+          <div ref={containerRef} className="relative" />
+        </div>
       </div>
     </div>
   );

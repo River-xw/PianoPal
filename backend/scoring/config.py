@@ -61,6 +61,14 @@ class ScoringConfig:
     score_weight_pitch: float = 0.4
     score_weight_rhythm: float = 0.4
     score_weight_timing_stability: float = 0.2
+    # Hand-shape/posture score, supplied externally (e.g. from an IMU-based
+    # classifier) via score_performance()'s hand_shape_score param -- there is
+    # no such classifier wired into the production pipeline yet, so this
+    # defaults to 0 (fully excluded, same "not computed/shown" behavior as
+    # score_weight_timing_stability=0) until one is. Keeping the weight slot
+    # here now means callers that DO have a real hand-shape score can turn it
+    # on without any further changes to the scoring formula.
+    score_weight_hand_shape: float = 0.0
 
     # --- tempo trend classification ---
     tempo_trend_min_slope_ms: float = 0.3  # ms/note; smaller than this is called "steady"

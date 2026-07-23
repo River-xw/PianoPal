@@ -24,6 +24,12 @@ CREATE TABLE IF NOT EXISTS practice_sessions (
     score REAL,
     summary_json TEXT,
     status TEXT NOT NULL DEFAULT 'created',
+    -- "learn" (LED-guided, lenient weights) or "perform" (no LED guidance,
+    -- strict weights) -- both share the same scoring engine (backend.scoring),
+    -- just different ScoringConfig weight presets. Nullable/no default so
+    -- older rows written before this column existed (see init_db()'s
+    -- defensive ALTER TABLE) are distinguishable from a genuine mode.
+    mode TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (piece_id) REFERENCES pieces(id)
 );

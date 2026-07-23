@@ -57,10 +57,11 @@ export default function SummaryPanel({ summary }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile label={t("pitchAccuracy")} value={sub_scores.pitch} />
         <StatTile label={t("rhythmAccuracy")} value={sub_scores.rhythm} />
         <StatTile label={t("timingStability")} value={sub_scores.timing_stability} />
+        <StatTile label={t("handShapeScore")} value={sub_scores.hand_shape} />
       </div>
 
       <div className="flex flex-wrap gap-3">
