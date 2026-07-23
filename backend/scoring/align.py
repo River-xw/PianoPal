@@ -255,6 +255,7 @@ def fit_tempo_curve(
         return TempoCurve(anchor_ref, anchor_perf, representative_slope)
 
     anchor_ref_times, anchor_perf_times = [], []
+    first_fit = last_fit = None
     start = 0
     while True:
         end = min(n, start + window)
@@ -263,12 +264,40 @@ def fit_tempo_curve(
         local_slope, local_intercept = _theil_sen_fit(
             window_ref, window_perf, config.robust_fit_max_pairs
         )
+        if first_fit is None:
+            first_fit = (local_slope, local_intercept)
+        last_fit = (local_slope, local_intercept)
         center_ref = float(np.median(window_ref))
         anchor_ref_times.append(center_ref)
         anchor_perf_times.append(local_slope * center_ref + local_intercept)
         if end == n:
             break
         start += step
+
+    # A window's own anchor sits at its MEDIAN ref-time, which for unevenly-
+    # spaced/sparse confident pairs (typical on a real recording, unlike the
+    # evenly-spaced synthetic data in test_tempo_curve.py) can land well
+    # inside the piece even for the very first window -- e.g. observed on a
+    # real recording: first anchor at ref=8.1s despite confident pairs
+    # starting at ref=0.0s. Predicting anything before that first anchor then
+    # EXTRAPOLATES using the slope between the first two anchors (a DIFFERENT
+    # window's fit) rather than using the first window's own fit at the point
+    # that actually needs it, which can systematically misjudge the opening
+    # notes as a large, spurious "rush" (or drag) even when the piece is
+    # locally steady there. Extending the first/last window's own local fit
+    # out to the true first/last confident-pair time closes that gap, so any
+    # ref-time within the confident pairs' actual span is interpolated
+    # between anchors instead of extrapolated from an unrelated window.
+    first_ref = confident_ref[0]
+    if first_ref < anchor_ref_times[0]:
+        slope, intercept = first_fit
+        anchor_ref_times.insert(0, float(first_ref))
+        anchor_perf_times.insert(0, slope * first_ref + intercept)
+    last_ref = confident_ref[-1]
+    if last_ref > anchor_ref_times[-1]:
+        slope, intercept = last_fit
+        anchor_ref_times.append(float(last_ref))
+        anchor_perf_times.append(slope * last_ref + intercept)
 
     return TempoCurve(
         np.array(anchor_ref_times), np.array(anchor_perf_times), representative_slope

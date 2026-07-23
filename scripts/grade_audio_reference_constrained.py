@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -18,11 +19,12 @@ from backend.audio_to_performance.reference_constrained import (  # noqa: E402
     transcribe_onset_first,
     transcribe_reference_guided_onsets,
     transcribe_reference_constrained,
+    transcribe_reference_dtw,
 )
 from backend.audio_to_performance.keybank import WHITE_KEY_MIDIS  # noqa: E402
 from backend.hardware import KEYBOARD_RANGE  # noqa: E402
 from backend.score_to_reference import convert as convert_score  # noqa: E402
-from backend.scoring import score_performance  # noqa: E402
+from backend.scoring import ScoringConfig, score_performance  # noqa: E402
 
 TARGET_SR = 44100
 
@@ -45,19 +47,67 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--white-keys-only", action="store_true")
     parser.add_argument(
         "--mode",
-        choices=["reference-guided-onsets", "onset-first", "reference-grid"],
-        default="reference-grid",
+        choices=["reference-guided-onsets", "onset-first", "reference-grid", "reference-dtw"],
+        default="reference-dtw",
     )
     parser.add_argument("--onset-window-sec", type=float, default=0.16)
     parser.add_argument("--min-winner-confidence", type=float, default=0.18)
     parser.add_argument("--min-ref-score-ratio", type=float, default=0.65)
-    parser.add_argument("--emit-wrong-pitch", action="store_true")
+    parser.add_argument(
+        "--no-emit-wrong-pitch",
+        dest="emit_wrong_pitch",
+        action="store_false",
+        help="Disable wrong-note detection: an unconfirmed expected pitch is reported as missed instead of identifying what was actually played.",
+    )
+    parser.set_defaults(emit_wrong_pitch=True)
     parser.add_argument("--onset-delta", type=float, default=0.18)
     parser.add_argument("--onset-min-confidence", type=float, default=0.12)
     parser.add_argument("--chord-score-ratio", type=float, default=0.55)
     parser.add_argument("--max-pitches-per-onset", type=int, default=1)
     parser.add_argument("--reference-pitch-score-ratio", type=float, default=0.38)
     parser.add_argument("--fallback-top-pitch", action="store_true", help="Emit the strongest estimated pitch when no nearby reference pitch has enough evidence.")
+    parser.add_argument(
+        "--restrict-onset-pitches-to-reference",
+        action="store_true",
+        help=(
+            "For --mode onset-first/reference-guided-onsets: only score candidate "
+            "pitches that appear somewhere in the reference score (e.g. 11 of 22 "
+            "white keys for a typical children's song), instead of the whole "
+            "keyboard range. Cuts confusable candidates without assuming WHEN each "
+            "pitch occurs, so it stays fully tolerant of tempo rubato -- unlike "
+            "reference-grid's time-window narrowing. Trade-off: a genuinely wrong "
+            "key the student pressed that's outside this set can still be detected "
+            "as an extra/wrong note, but its exact pitch may be misidentified."
+        ),
+    )
+    parser.add_argument("--dtw-pitch-cost-weight", type=float, default=1.5, help="For --mode reference-dtw.")
+    parser.add_argument("--dtw-time-weight", type=float, default=0.3, help="For --mode reference-dtw.")
+    parser.add_argument("--dtw-gap-penalty", type=float, default=1.2, help="For --mode reference-dtw.")
+    parser.add_argument(
+        "--score-tol-beat", type=float, default=0.3,
+        help=(
+            "Final scoring's correct-vs-timing_off cutoff, as a fraction of one beat "
+            "(tempo-relative, so it scales with the song's speed) instead of a fixed "
+            "ms value. A real student recording has natural tempo looseness that a "
+            "tight tolerance (the scoring engine's own default is a fixed 50ms) "
+            "punishes even when the right notes were played -- this practice-session "
+            "grading path cares primarily about right-vs-wrong notes, not metronome "
+            "precision, so it defaults to a much more forgiving 0.3 beat."
+        ),
+    )
+    parser.add_argument("--score-weight-pitch", type=float, default=0.75, help="Overall-score weight on pitch accuracy (right notes vs wrong/missed).")
+    parser.add_argument("--score-weight-rhythm", type=float, default=0.25, help="Overall-score weight on rhythm accuracy (coverage-adjusted correct/timing_off ratio).")
+    parser.add_argument(
+        "--score-weight-timing-stability", type=float, default=0.0,
+        help=(
+            "Overall-score weight on timing consistency (std of offset_ms). "
+            "0 (default) fully disables it: not just excluded from the overall "
+            "score, but not computed/shown at all (reports N/A) -- on real mic "
+            "recordings its std-of-offset basis is dominated by transcription/"
+            "alignment noise rather than genuine unsteadiness, so it wasn't a "
+            "reliable signal."
+        ),
+    )
     parser.add_argument("-o", "--output", required=True, help="Path to write result.json.")
     parser.add_argument("--debug-output", default=None, help="Optional path to write verifier debug JSON.")
     return parser.parse_args()
@@ -82,14 +132,30 @@ def main() -> int:
         max_pitches_per_onset=args.max_pitches_per_onset,
         reference_pitch_score_ratio=args.reference_pitch_score_ratio,
         reference_guided_fallback_top_pitch=args.fallback_top_pitch,
+        dtw_pitch_cost_weight=args.dtw_pitch_cost_weight,
+        dtw_time_weight=args.dtw_time_weight,
+        dtw_gap_penalty=args.dtw_gap_penalty,
     )
+    if args.restrict_onset_pitches_to_reference:
+        reference_pitches = {int(n["pitch"]) for n in reference["notes"]}
+        if config.allowed_pitches is not None:
+            reference_pitches &= set(config.allowed_pitches)
+        config = dataclasses.replace(config, allowed_pitches=tuple(sorted(reference_pitches)))
     if args.mode == "reference-guided-onsets":
         performance, debug = transcribe_reference_guided_onsets(reference, audio, sr, config)
     elif args.mode == "onset-first":
         performance, debug = transcribe_onset_first(audio, sr, config)
+    elif args.mode == "reference-dtw":
+        performance, debug = transcribe_reference_dtw(reference, audio, sr, config)
     else:
         performance, debug = transcribe_reference_constrained(reference, audio, sr, config)
-    result = score_performance(reference, performance).to_dict()
+    scoring_config = ScoringConfig(
+        tol_beat=args.score_tol_beat,
+        score_weight_pitch=args.score_weight_pitch,
+        score_weight_rhythm=args.score_weight_rhythm,
+        score_weight_timing_stability=args.score_weight_timing_stability,
+    )
+    result = score_performance(reference, performance, scoring_config).to_dict()
     result.setdefault("pipeline", {})["audio_to_performance"] = f"reference_constrained:{args.mode}"
     result["pipeline"]["reference_constrained_debug"] = {
         key: value for key, value in debug.items() if key not in {"notes", "events"}

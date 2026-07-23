@@ -4,7 +4,7 @@
 
 ## 目前的建議用法：已知曲譜時，評分學生錄音改用 `grade_audio_reference_constrained.py`
 
-**評分「學生錄音 vs 已知曲譜」這個主要場景，現在改用 `scripts/grade_audio_reference_constrained.py --mode reference-grid`（不經過 basic-pitch），不再用 `scripts/grade_audio.py`。**
+**評分「學生錄音 vs 已知曲譜」這個主要場景，現在改用 `scripts/grade_audio_reference_constrained.py --mode reference-dtw`（不經過 basic-pitch），不再用 `scripts/grade_audio.py`。**（`reference-grid` 模式仍在，但已不是 production 預設——見下方「`reference-grid` 換成 `reference-dtw`」一節。）
 
 原因：這台 BF-3738C 電子琴的音色跟 basic-pitch 訓練用的真鋼琴差很多，一直有「多餘音符」(harmonic bleed 誤判成新音符)的問題，就算加了 `suppress_harmonic_extras` 之類的heuristic 也只能減少、不能根除。
 
@@ -22,6 +22,27 @@
 `reference-grid` 每一首歌分數都比 basic-pitch 高，而且**5首歌加總 0 個 extra、0 個 wrong_pitch**——不是單一首歌的偶然結果。basic-pitch 抓到的音符總數略多(漏音較少)，但代價是 21 個 extra + 5 個 wrong_pitch，這就是一直存在的「泛音誤判成新音符」問題；`reference-grid` 完全不會有這個毛病，因為它從頭到尾只在已知候選音高集合裡驗證，不會憑空多冒出音符。
 
 `reference-grid` 模式（`reference_constrained.py` 的 `transcribe_reference_constrained`）完全不猜音高——已知曲譜的每個音符各自在對應時間點的音檔窗口裡驗證「參考音高的證據夠不夠強」，不會像 basic-pitch 那樣把泛音誤判成獨立新音符。漏掉的16個音，一部分是已知的 F3 硬體特性(基頻弱)這類個別鍵的問題，其餘屬於還可以調參數優化的範圍(見下方)，不是新 bug。
+
+## `reference-grid` 換成 `reference-dtw`：真人錄音的節奏浮動(rubato)問題
+
+`reference-grid` 對著上面表格裡**合成音檔**(節奏跟 MIDI 一模一樣、零浮動)表現很好，但拿真人在樹莓派上實際彈奏的錄音測試時，發現分數異常低(30-45分)、`missed` 數量異常高，一度懷疑是門檻(`min_ref_score_ratio`/`min_winner_confidence`)設太嚴——實測掃過整個門檻範圍(0.65 到 0.05)，「彈對」跟「刻意彈錯」兩份錄音的分數差距始終在 ±4.3 分以內，證實**門檻不是問題**。
+
+真正原因：`reference-grid`(`_estimate_time_alignment`) 只用**一條全域線性時間縮放**把參考譜的每個音符投影到音檔時間，再開一個固定 ±0.16 秒的窗口驗證音高。真人彈奏一定有節奏浮動(忽快忽慢)，浮動累積起來很容易讓後面的音符整個投影到音檔裡錯誤的位置，窗口驗證的其實是不相干的音檔片段——這才是漏彈率長期異常偏高的根本原因，不是門檻。
+
+`reference-dtw`(`transcribe_reference_dtw`)的做法：先偵測音檔裡**真實的**起音時間點(不假設格子時間)，再用 DTW 把參考譜的音符事件(和弦視為一個事件)對齊到偵測到的起音——對齊的成本主要看每個起音的音高證據撐不撐得起參考音符期望的音高，時間只當作極弱的「大概同一個相對位置」提示，用來消歧 Twinkle Twinkle 這種大量重複同一音高的曲子，不是像 `reference-grid` 那樣的硬窗口。對齊完之後把結果丟回既有的 `score_performance()`(`backend/scoring/align.py`)，讓它自己的 DTW+分段節奏曲線去做最終的 correct/timing_off 判斷——這部分邏輯不用重寫，本來就是為了處理真人演奏節奏浮動設計的。
+
+實測（4份樹莓派真人錄音，69音符的 Twinkle Twinkle，漏彈數）：
+
+| 錄音 | reference-grid 漏彈 | reference-dtw 漏彈 |
+| --- | --- | --- |
+| normal(正常彈) | 44 | 3 |
+| fast(彈快) | 29 | 6 |
+| mistake(故意彈錯) | 37 | 2-4 |
+| right(只彈右手) | 38 | 17-18(本來就只彈一半，合理) |
+
+`--emit-wrong-pitch`(現在預設開啟，用 `--no-emit-wrong-pitch` 關掉)讓「彈錯的音」不再被吞成籠統的 `missed`，而是明確標出「彈了什麼」——實測對著 mistake 錄音裡明確知道位置的一個彈錯和弦(E3 被彈成 F4)，debug 輸出精準對上：`pitch_ref=52(E3) → pitch_perf=65(F4), status=wrong_pitch`。
+
+代價：對著上面表格那種零浮動的乾淨合成音檔，`reference-dtw` 分數比 `reference-grid` 略低(twinkle_twinkle: 97.1→91.1)，因為 DTW 自己重新擬合的節奏曲線在完全規律的輸入上反而引入一點點雜訊；相對於真人錄音的漏彈率大幅改善，這個取捨是值得的。
 
 **這條路線原本有三個嚴重 bug 已修好**：
 
@@ -145,7 +166,7 @@ basic-pitch 是自由(不受限)的複音轉譜——在整個鋼琴音域裡自
 
 **跟前面 `keyboard_profile` 疊加機制的差別**：前者仍然信任 basic-pitch 的轉譜，只在它猜錯時用泛音相似度去修正；這裡是從根本上不信任 basic-pitch，只在已知候選音高集合裡挑一個最像的。
 
-**目前狀態**：`reference_constrained.py` 裡的 `transcribe_reference_constrained`（對應 `grade_audio_reference_constrained.py --mode reference-grid`）已經是評分「已知曲譜 + 學生錄音」的**預設工具**，見本文開頭——時間對齊的 bug 修好後實測比 basic-pitch 少了全部的 extra 誤判(見開頭比較表)。
+**目前狀態**：`reference_constrained.py` 是評分「已知曲譜 + 學生錄音」的**預設工具**，見本文開頭。合成音檔(零節奏浮動)用 `transcribe_reference_constrained`(`--mode reference-grid`)就已經很準；但真人錄音有節奏浮動，production 預設已改成 `transcribe_reference_dtw`(`--mode reference-dtw`，見上方「`reference-grid` 換成 `reference-dtw`」一節)。
 
 `audio_reference.py` 的 `build_audio_reference()`/`grade_student_against_demo()`（沒有已知 MIDI 曲譜，純粹音檔對音檔）跟 `transcribe_onset_first`/`transcribe_reference_guided_onsets` 這兩個模式，還停留在只跑過自我一致性檢查的階段——這兩個模式受限於 `max_pitches_per_onset`(預設1)，同一個時間點有兩個音同時彈(和弦)時只會保留最強的那個，這在小星星這首歌(69個音符裡有26個時間點是2音同時)已經證實會漏掉大量音符，還沒有調過。
 

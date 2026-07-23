@@ -140,7 +140,7 @@ def score_performance(
     if config.suppress_harmonic_extras:
         note_results, harmonic_extras_removed = _suppress_harmonic_extras(note_results, config)
 
-    summary = _summarize(note_results, config, global_tempo_ratio)
+    summary = _summarize(note_results, config, global_tempo_ratio, tol_ms)
     summary.harmonic_extras_removed = harmonic_extras_removed
     return ScoringResult(summary=summary, notes=note_results, song_name=song_name)
 
@@ -182,7 +182,7 @@ def _suppress_harmonic_extras(note_results: list, config: ScoringConfig) -> tupl
     return kept, removed
 
 
-def _summarize(note_results: list, config: ScoringConfig, global_tempo_ratio) -> ScoringSummary:
+def _summarize(note_results: list, config: ScoringConfig, global_tempo_ratio, tol_ms: float) -> ScoringSummary:
     counts = {"correct": 0, "timing_off": 0, "wrong_pitch": 0, "missed": 0, "extra": 0}
     for r in note_results:
         counts[r.status] += 1
@@ -196,15 +196,25 @@ def _summarize(note_results: list, config: ScoringConfig, global_tempo_ratio) ->
     raw_rhythm_accuracy = 100.0 * counts["correct"] / matched_pitch_ok if matched_pitch_ok else 0.0
     rhythm_accuracy = pitch_accuracy * (raw_rhythm_accuracy / 100.0)
 
-    offsets = [r.offset_ms for r in note_results if r.offset_ms is not None]
-    std_ms = float(np.std(offsets)) if offsets else 0.0
-    raw_timing_stability = 100.0 / (1.0 + std_ms / config.tol_ms)
-    timing_stability = pitch_accuracy * (raw_timing_stability / 100.0)
+    # A weight of 0 fully disables timing_stability -- not just excluded from
+    # `overall`, but not computed/shown at all (None, not 0), since a caller
+    # who set the weight to 0 has decided this sub-score isn't meaningful for
+    # their use case (e.g. real mic recordings, where its std-of-offset_ms
+    # basis is dominated by transcription/alignment noise, not genuine
+    # unsteadiness) and showing a misleadingly-precise number would be worse
+    # than admitting it's not tracked.
+    if config.score_weight_timing_stability > 0:
+        offsets = [r.offset_ms for r in note_results if r.offset_ms is not None]
+        std_ms = float(np.std(offsets)) if offsets else 0.0
+        raw_timing_stability = 100.0 / (1.0 + std_ms / tol_ms)
+        timing_stability = pitch_accuracy * (raw_timing_stability / 100.0)
+    else:
+        timing_stability = None
 
     overall = (
         config.score_weight_pitch * pitch_accuracy
         + config.score_weight_rhythm * rhythm_accuracy
-        + config.score_weight_timing_stability * timing_stability
+        + (config.score_weight_timing_stability * timing_stability if timing_stability is not None else 0.0)
     )
 
     octave_slips = sum(
@@ -218,7 +228,7 @@ def _summarize(note_results: list, config: ScoringConfig, global_tempo_ratio) ->
         sub_scores={
             "pitch": round(pitch_accuracy, 2),
             "rhythm": round(rhythm_accuracy, 2),
-            "timing_stability": round(timing_stability, 2),
+            "timing_stability": round(timing_stability, 2) if timing_stability is not None else None,
         },
         global_tempo_ratio=round(global_tempo_ratio, 4) if global_tempo_ratio is not None else None,
         tempo_trend=_tempo_trend(note_results, config),
