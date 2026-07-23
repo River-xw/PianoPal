@@ -14,15 +14,34 @@ The browser can't SSH/scp to the Raspberry Pi or run the Python grading
 pipeline (only installed on this machine) itself, so this local server is
 the one thing the frontend talks to. It owns exactly one session at a time:
 
-    GET  /api/songs                 -> song library + any imported songs
+    GET  /api/songs?username=&mode=  -> song library + any imported songs + last_song_id (曲目記憶,
+                                        this user's most recent piece in this mode, or null)
     POST /api/songs/import          -> body = raw MIDI bytes, header
                                         X-Song-Title = display name
-    POST /api/session/start         -> {"song_id": "...", "speed": 1.0, "username": "..."}
-    GET  /api/session/status        -> merged Pi status + local phase
+    POST /api/session/start         -> {"song_id", "speed", "username", "mode": "learn"|"perform",
+                                         "brightness"?, "full_range"?,          # learn-mode LED config
+                                         "loop_start_measure"?, "loop_end_measure"?}  # 分段循環練習 (learn only)
+                                        -> {"phase": ..., "session_id": "..."}
+    GET  /api/session/status        -> merged Pi status + local phase (+ session_id/mode/tempo_bpm/practice_only)
     POST /api/session/control       -> {"action": ..., "value": ...}
                                         forwarded to the Pi's guide server
     POST /api/session/stop          -> end the session early
-    GET  /api/results/<username>    -> that specific user's latest grading output
+    GET  /api/history?username=&mode=&song_id=&limit=  -> {"sessions": [...], "profile": {total_sessions,
+                                        recent_avg_score, most_frequent_piece}} (backend.db.sqlite)
+    GET  /api/history/<session_id>  -> that session's full graded result.json
+    DELETE /api/history/<session_id> -> delete a history record + its result file
+
+Segmented-loop practice (`loop_start_measure`/`loop_end_measure` both given, learn mode only) is a
+practice aid, not a graded attempt: the Pi's ws2812_guide_song.py loops the LED guide between those
+two measures indefinitely (until the user stops it), and the session is never scored or written to
+history at all (see Session.practice_only / _finish_session).
+
+learn (LED-guided, lenient weights) vs perform (no LED guidance, strict
+weights, see MODE_SCORE_WEIGHTS) share the same scoring engine
+(backend.scoring.score_performance) -- only the ScoringConfig weight preset
+and whether the Pi's ws2812_guide_song.py is told --no-leds differ. Mirrors
+edge/practice_server.py's mode handling; see that module for the fuller
+rationale comment.
 
 On start: converts the song's MIDI to a guide JSON (edge/ws2812_guide_song.py
 format, with the pitch-threshold hand fallback for single-track MIDI --
@@ -55,6 +74,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -63,6 +83,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from backend.audio_to_performance.keybank import WHITE_KEY_MIDIS  # noqa: E402
+from backend.db import sqlite as db  # noqa: E402
 from backend.score_to_reference.core import convert  # noqa: E402
 
 PI_HOST = "pianopal@192.168.137.87"
@@ -78,7 +99,25 @@ RESULTS_DIR = SCRATCH_DIR / "results"
 SONG_LIBRARY_DIR = REPO_ROOT / "docs/piano_music"
 POLL_INTERVAL_SEC = 1.0
 
+DEFAULT_MODE = "learn"
+# Mirrors edge/practice_server.py's MODE_SCORE_WEIGHTS -- see that module for
+# the fuller rationale comment.
+MODE_SCORE_WEIGHTS = {
+    "learn": {"pitch": 0.6, "rhythm": 0.15, "timing_stability": 0.0, "hand_shape": 0.25},
+    "perform": {"pitch": 0.4, "rhythm": 0.3, "timing_stability": 0.15, "hand_shape": 0.15},
+}
+# edge/practice_server.py now resolves hand_shape from a real BLE IMU posture
+# classifier when one is configured (edge/posture_capture.py), falling back
+# to this placeholder otherwise. This SSH fallback orchestrator hasn't been
+# wired up to that yet -- BLE only exists on the Pi side, so it would need
+# its own fetch-back step -- so it's still always the placeholder here.
+HAND_SHAPE_PLACEHOLDER_SCORE = 100.0
+
 WHITE_KEY_SET = set(WHITE_KEY_MIDIS)
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _is_white_key_only(reference: dict) -> bool:
@@ -204,17 +243,24 @@ class Session:
     """The one active session, if any. Not thread-safe by itself -- callers
     take `LOCK` (module-level) around any read/mutate sequence."""
 
-    def __init__(self, song_id: str, song_path: Path, reference: dict, speed: float, username: str):
+    def __init__(
+        self, session_id: str, song_id: str, song_path: Path, reference: dict,
+        speed: float, username: str, mode: str, practice_only: bool = False,
+    ):
+        self.session_id = session_id
         self.song_id = song_id
         self.song_path = song_path
         self.reference = reference
         self.speed = speed
         self.username = username
+        self.mode = mode
+        self.practice_only = practice_only  # segmented-loop practice: no grading/history, see _finish_session
         self.phase = "starting"  # starting -> guiding -> grading -> done -> error
         self.error = None
         self.pi_recording_path = f"/tmp/session_{uuid.uuid4().hex[:8]}.wav"
         self.remote_guide_json = f"guide_{uuid.uuid4().hex[:8]}.json"
         self.song_end = 0.0
+        self.tempo_bpm = None
         self.white_keys_only = False
 
 
@@ -243,20 +289,37 @@ def _pi_control(action: str, value=None) -> bool:
         return False
 
 
-def _start_session(song_id: str, speed: float, username: str) -> Session:
-    _safe_username(username)  # raises ValueError if missing/unusable -- fail fast, before touching anything
+def _start_session(
+    song_id: str, speed: float, username: str, mode: str,
+    brightness: float = 0.25, full_range: bool = False,
+    loop_start_measure: int | None = None, loop_end_measure: int | None = None,
+) -> Session:
+    safe_name = _safe_username(username)  # raises ValueError if missing/unusable -- fail fast, before touching anything
+    if mode not in MODE_SCORE_WEIGHTS:
+        raise ValueError(f"unknown mode {mode!r}, expected one of {sorted(MODE_SCORE_WEIGHTS)}")
+    # 分段循環練習 only makes sense for the LED-guided learn mode -- perform
+    # mode has no LED guidance to loop, and its whole point is one clean take.
+    practice_only = mode == "learn" and loop_start_measure is not None and loop_end_measure is not None
     song_path = _resolve_song_path(song_id)
     reference = convert(str(song_path))
     reference = _apply_pitch_hand_fallback(reference)
     white_keys_only = _is_white_key_only(reference)
 
-    session = Session(song_id, song_path, reference, speed, username)
+    session_id = uuid.uuid4().hex[:12]
+    session = Session(session_id, song_id, song_path, reference, speed, username, mode, practice_only)
     song_end = max(
         (float(n["onset_sec"]) + float(n.get("dur_sec", 0.2) or 0.2) for n in reference["notes"]),
         default=0.0,
     )
     session.song_end = song_end
     session.white_keys_only = white_keys_only
+    session.tempo_bpm = reference.get("tempo_bpm")
+
+    now = _now_iso()
+    db.create_user(safe_name, username, now)
+    db.create_piece(song_id, reference.get("title", song_id), None, None, now)
+    if not practice_only:
+        db.create_practice_session(session_id, safe_name, song_id, now, mode=mode)
 
     SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
     local_guide_json = SCRATCH_DIR / f"{song_id.replace(':', '_')}_guide.json"
@@ -284,10 +347,18 @@ def _start_session(song_id: str, speed: float, username: str) -> Session:
     # `python3 -u` disables stdout buffering: without it, a killed/crashed
     # process's buffered prints are lost, which is what made the earlier
     # failures look like silent hangs instead of showing a real error.
+    if mode == "perform":
+        extra_flags = " --no-leds"
+    else:
+        extra_flags = f" --brightness {brightness}"
+        if full_range:
+            extra_flags += " --full-range"
+        if practice_only:
+            extra_flags += f" --loop-start-measure {loop_start_measure} --loop-end-measure {loop_end_measure}"
     remote_cmd = (
         f"cd {PI_REMOTE_DIR} && "
         f"setsid python3 -u ws2812_guide_song.py {session.remote_guide_json} "
-        f"--http-port {PI_HTTP_PORT} --speed {speed} --record-output {session.pi_recording_path} "
+        f"--http-port {PI_HTTP_PORT} --speed {speed} --record-output {session.pi_recording_path}{extra_flags} "
         f"< /dev/null > /tmp/guide_session.log 2>&1 & echo started"
     )
     result = _run_with_retries(
@@ -304,19 +375,34 @@ def _start_session(song_id: str, speed: float, username: str) -> Session:
 
 
 def _finish_session(session: Session) -> None:
+    if session.practice_only:
+        # Segmented-loop practice has no single well-defined "performance" to
+        # grade against the full-song reference -- it's a practice aid, not a
+        # graded attempt, so it never fetches the recording or touches
+        # grading/history at all.
+        session.phase = "done"
+        return
+
     session.phase = "grading"
     local_recording = SCRATCH_DIR / f"recording_{uuid.uuid4().hex[:8]}.wav"
     scp_result = _run_with_retries(["scp", f"{PI_HOST}:{session.pi_recording_path}", str(local_recording)], timeout=30)
     if scp_result.returncode != 0 or not local_recording.exists():
         session.phase = "error"
         session.error = f"could not fetch recording from Pi: {scp_result.stderr}"
+        db.finish_practice_session(session.session_id, _now_iso(), None, None, status="error")
         return
 
+    weights = MODE_SCORE_WEIGHTS[session.mode]
     cmd = [
         LOCAL_VENV_PYTHON, str(REPO_ROOT / "scripts/grade_audio_reference_constrained.py"),
         str(session.song_path), str(local_recording),
         "--keyboard-profile", KEYBOARD_PROFILE,
         "--mode", "reference-dtw",
+        "--score-weight-pitch", str(weights["pitch"]),
+        "--score-weight-rhythm", str(weights["rhythm"]),
+        "--score-weight-timing-stability", str(weights["timing_stability"]),
+        "--score-weight-hand-shape", str(weights["hand_shape"]),
+        "--hand-shape-score", str(HAND_SHAPE_PLACEHOLDER_SCORE),
         "-o", str(RESULT_JSON),
         "--debug-output", str(DEBUG_JSON),
     ]
@@ -328,18 +414,23 @@ def _finish_session(session: Session) -> None:
         session.phase = "error"
         combined = (grade_result.stdout or "") + (grade_result.stderr or "")
         session.error = f"grading failed: {combined[-2000:]}"
+        db.finish_practice_session(session.session_id, _now_iso(), None, None, status="error")
         return
 
-    # Also keep a copy under this user's own name, so two people's scores
-    # never overwrite each other -- RESULT_JSON/DEBUG_JSON above stay as a
-    # "whoever was graded most recently" convenience mirror.
-    try:
-        safe_name = _safe_username(session.username)
-        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-        (RESULTS_DIR / f"{safe_name}.json").write_bytes(RESULT_JSON.read_bytes())
-        (RESULTS_DIR / f"{safe_name}_debug.json").write_bytes(DEBUG_JSON.read_bytes())
-    except (ValueError, OSError):
-        pass  # per-user copy is a nice-to-have; don't fail the session over it
+    # Keep a PERMANENT, per-session copy for history (RESULT_JSON/DEBUG_JSON
+    # above get overwritten by the next session regardless of user -- fine
+    # as an internal "whoever was graded most recently" diagnostic, but
+    # useless for history) -- registered as a DB artifact so GET
+    # /api/history/<session_id> can find it later.
+    safe_name = _safe_username(session.username)
+    session_result_path = RESULTS_DIR / safe_name / f"{session.session_id}.json"
+    session_result_path.parent.mkdir(parents=True, exist_ok=True)
+    session_result_path.write_bytes(RESULT_JSON.read_bytes())
+
+    result_payload = json.loads(RESULT_JSON.read_text(encoding="utf-8"))
+    now = _now_iso()
+    db.add_artifact(uuid.uuid4().hex[:12], session.session_id, "result_json", str(session_result_path), now)
+    db.finish_practice_session(session.session_id, now, result_payload["summary"]["score"], result_payload["summary"])
 
     session.phase = "done"
 
@@ -387,28 +478,98 @@ def _make_handler():
         def do_OPTIONS(self):
             self.send_response(204)
             self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Song-Title")
             self.end_headers()
 
         def do_GET(self):
-            if self.path == "/api/songs":
-                self._json({"songs": _list_library_songs() + _list_custom_songs()})
-            elif self.path == "/api/session/status":
+            parsed = urllib.parse.urlsplit(self.path)
+            if parsed.path == "/api/songs":
+                self._songs(urllib.parse.parse_qs(parsed.query))
+            elif parsed.path == "/api/session/status":
                 self._status()
-            elif self.path.startswith("/api/results/"):
-                self._user_result()
+            elif parsed.path == "/api/history":
+                self._history_list(urllib.parse.parse_qs(parsed.query))
+            elif parsed.path.startswith("/api/history/"):
+                self._history_detail(parsed.path[len("/api/history/"):])
+            elif parsed.path.startswith("/api/songs/") and parsed.path.endswith("/reference"):
+                song_id = urllib.parse.unquote(parsed.path[len("/api/songs/"):-len("/reference")])
+                self._song_reference(song_id)
             else:
                 self._json({"error": "not found"}, 404)
 
-        def _user_result(self):
-            raw_name = urllib.parse.unquote(self.path[len("/api/results/"):])
+        def _songs(self, query: dict):
+            songs = _list_library_songs() + _list_custom_songs()
+            username = (query.get("username") or [""])[0]
+            mode = (query.get("mode") or [None])[0]
+            last_song_id = None
+            if username:
+                try:
+                    safe_name = _safe_username(username)
+                except ValueError:
+                    safe_name = None
+                if safe_name is not None:
+                    recent = db.get_recent_sessions(safe_name, limit=1, mode=mode)
+                    last_song_id = recent[0]["piece_id"] if recent else None
+            self._json({"songs": songs, "last_song_id": last_song_id})
+
+        def _song_reference(self, song_id: str):
+            """A song's reference notes (not a performance/result) -- used by
+            the frontend's 分段循環練習 measure picker to show notation before
+            a session starts, so the user can see what they're selecting."""
             try:
-                safe_name = _safe_username(raw_name)
-            except ValueError:
-                self._json({"error": "invalid username"}, 400)
+                song_path = _resolve_song_path(song_id)
+            except FileNotFoundError:
+                self._json({"error": "not found"}, 404)
                 return
-            path = RESULTS_DIR / f"{safe_name}.json"
+            try:
+                reference = _apply_pitch_hand_fallback(convert(str(song_path)))
+            except Exception as exc:
+                self._json({"error": str(exc)}, 400)
+                return
+            notes = [
+                {
+                    "measure": n.get("measure"), "hand": n.get("hand"),
+                    "pitch_ref": n["pitch"], "dur_beats": n.get("dur_beats"),
+                    "onset_ref_sec": n["onset_sec"],
+                }
+                for n in reference["notes"]
+            ]
+            measure_count = max((n["measure"] or 1 for n in notes), default=0)
+            self._json({"notes": notes, "measure_count": measure_count})
+
+        def _history_list(self, query: dict):
+            username = (query.get("username") or [""])[0]
+            try:
+                safe_name = _safe_username(username)
+            except ValueError:
+                self._json({"error": "username is required"}, 400)
+                return
+            mode = (query.get("mode") or [None])[0]
+            song_id = (query.get("song_id") or [None])[0]
+            limit = int((query.get("limit") or ["20"])[0])
+            sessions = db.get_recent_sessions(safe_name, limit=limit, mode=mode, piece_id=song_id)
+            for s in sessions:
+                s["summary"] = json.loads(s["summary_json"]) if s.get("summary_json") else None
+                del s["summary_json"]
+            profile = {
+                "total_sessions": db.count_sessions(safe_name),
+                "recent_avg_score": db.recent_average_score(safe_name),
+                "most_frequent_piece": db.most_frequent_piece(safe_name),
+            }
+            self._json({"sessions": sessions, "profile": profile})
+
+        def _history_detail(self, session_id: str):
+            row = db.get_session(session_id)
+            if row is None:
+                self._json({"error": "not found"}, 404)
+                return
+            artifacts = db.get_session_artifacts(session_id)
+            result_artifact = next((a for a in artifacts if a["artifact_type"] == "result_json"), None)
+            if result_artifact is None:
+                self._json({"error": "no result recorded for this session"}, 404)
+                return
+            path = Path(result_artifact["uri"])
             if not path.is_file():
                 self._json({"error": "not found"}, 404)
                 return
@@ -421,6 +582,24 @@ def _make_handler():
             self.end_headers()
             self.wfile.write(body)
 
+        def _history_delete(self, session_id: str):
+            row = db.get_session(session_id)
+            if row is None:
+                self._json({"error": "not found"}, 404)
+                return
+            for artifact in db.get_session_artifacts(session_id):
+                if artifact["artifact_type"] == "result_json":
+                    Path(artifact["uri"]).unlink(missing_ok=True)
+            db.delete_session(session_id)
+            self._json({"ok": True})
+
+        def do_DELETE(self):
+            parsed = urllib.parse.urlsplit(self.path)
+            if parsed.path.startswith("/api/history/"):
+                self._history_delete(parsed.path[len("/api/history/"):])
+                return
+            self._json({"error": "not found"}, 404)
+
         def _status(self):
             with LOCK:
                 session = CURRENT
@@ -429,8 +608,10 @@ def _make_handler():
                 return
             payload = {
                 "phase": session.phase, "error": session.error,
+                "session_id": session.session_id, "mode": session.mode,
                 "song_id": session.song_id, "song_end": round(session.song_end, 2),
-                "speed": session.speed,
+                "speed": session.speed, "tempo_bpm": session.tempo_bpm,
+                "practice_only": session.practice_only,
             }
             if session.phase == "guiding":
                 pi_status = _pi_status()
@@ -467,13 +648,20 @@ def _make_handler():
                         self._json({"error": "a session is already running"}, 409)
                         return
                     try:
+                        loop_start = payload.get("loop_start_measure")
+                        loop_end = payload.get("loop_end_measure")
                         CURRENT = _start_session(
-                            payload["song_id"], float(payload.get("speed", 1.0)), payload.get("username", "")
+                            payload["song_id"], float(payload.get("speed", 1.0)),
+                            payload.get("username", ""), payload.get("mode", DEFAULT_MODE),
+                            brightness=float(payload.get("brightness", 0.25)),
+                            full_range=bool(payload.get("full_range", False)),
+                            loop_start_measure=int(loop_start) if loop_start is not None else None,
+                            loop_end_measure=int(loop_end) if loop_end is not None else None,
                         )
                     except Exception as exc:
                         self._json({"error": str(exc)}, 400)
                         return
-                self._json({"phase": CURRENT.phase})
+                self._json({"phase": CURRENT.phase, "session_id": CURRENT.session_id})
                 return
 
             if self.path == "/api/session/control":
@@ -506,6 +694,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    db.init_db()
     threading.Thread(target=_monitor_loop, daemon=True).start()
     server = ThreadingHTTPServer(("0.0.0.0", args.port), _make_handler())
     print(f"session server on :{args.port}  (GET /api/songs, POST /api/session/start, ...)")
