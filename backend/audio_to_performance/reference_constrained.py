@@ -33,6 +33,7 @@ class ReferenceConstrainedConfig:
     onset_window_sec: float = 0.16
     min_winner_confidence: float = 0.18
     min_ref_score_ratio: float = 0.65
+    min_energy_above_floor_ratio: float = 4.0
     emit_wrong_pitch: bool = False
     frame_length: int = 4096
     hop_length: int = 512
@@ -117,6 +118,61 @@ def _compute_cqt_frame(audio_window: np.ndarray, sr: int, config: ReferenceConst
     return CQTFrame(np.abs(cqt).mean(axis=1), config.cqt_fmin_hz, config.cqt_bins_per_octave)
 
 
+def _estimate_energy_floor(
+    audio: np.ndarray, sr: int, config: ReferenceConstrainedConfig,
+    active_start: float = 0.0, active_end: Optional[float] = None,
+) -> float:
+    """What does "nothing was played here, just room noise" look like in
+    THIS specific recording (device/gain/room vary, so this can't be a
+    fixed constant)?
+
+    This exists because the per-note "confidence" (a candidate pitch's
+    share of the total scored energy among ~9 candidates) has no way to
+    reject "no signal at all" on its own -- pure noise still has a highest-
+    scoring candidate purely from random fluctuation among a handful of
+    options, and confirmed on a genuinely silent recording: every "winning"
+    candidate's confidence landed at 0.22-0.38, comfortably above
+    min_winner_confidence=0.18, even though nothing was played anywhere in
+    it. An absolute floor on the raw energy is the only way to catch that.
+
+    Prefer the audio strictly AFTER the reference's estimated last note
+    (genuine trailing silence -- present both in a real recording's natural
+    pause after finishing, and in synthesized test audio's --tail-sec
+    padding) as the calibration source: a first attempt that instead
+    sampled windows spread across the WHOLE recording and took a low (40th)
+    percentile massively over-estimated the floor for a continuously-busy
+    piece with no real gaps between notes -- most sampled windows landed on
+    or beside an actual note, so even a low percentile was still measuring
+    "quiet part of a real note", not silence, and rejected genuine
+    detections as noise. Falls back to a low (10th) percentile of the whole
+    recording only when there isn't enough trailing audio to sample.
+    """
+    n = len(audio)
+    window = int(config.onset_window_sec * 2 * sr)
+    if n == 0 or window <= 0:
+        return 0.0
+
+    tail_start_sample = int((active_end or 0.0) * sr)
+    tail = audio[tail_start_sample:] if 0 < tail_start_sample < n else audio[0:0]
+    if len(tail) >= window * 2:
+        step = max(window // 2, 1)
+        totals = [
+            float(np.sum(_compute_cqt_frame(tail[start:start + window], sr, config).magnitudes))
+            for start in range(0, len(tail) - window, step)
+        ]
+        if totals:
+            return float(np.percentile(totals, 60))
+
+    if window >= n:
+        return 0.0
+    step = max(window, n // 40)
+    totals = [
+        float(np.sum(_compute_cqt_frame(audio[start:start + window], sr, config).magnitudes))
+        for start in range(0, n - window, step)
+    ]
+    return float(np.percentile(totals, 10)) if totals else 0.0
+
+
 def _verification_config(config: ReferenceConstrainedConfig) -> ConstrainedVerificationConfig:
     return ConstrainedVerificationConfig(
         keyboard_range=config.keyboard_range,
@@ -188,6 +244,7 @@ def transcribe_reference_constrained(
 
     time_scale = (active_end - active_start) / ref_duration
     verifier_config = _verification_config(config)
+    energy_floor = _estimate_energy_floor(audio, sr, config, active_start=active_start, active_end=active_end)
     performance = []
     debug_notes = []
 
@@ -201,6 +258,22 @@ def transcribe_reference_constrained(
         start_sample = max(0, int((expected_onset - config.onset_window_sec) * sr))
         end_sample = min(len(audio), int((expected_onset + config.onset_window_sec) * sr))
         frame = _compute_cqt_frame(audio[start_sample:end_sample], sr, config)
+        frame_energy = float(np.sum(frame.magnitudes))
+
+        # The relative confidence/ratio checks below compare candidates only
+        # against EACH OTHER -- pure noise still has a highest-scoring
+        # candidate from random fluctuation among a handful of options, so
+        # they can't by themselves tell "a note was played" from "nothing
+        # was played here at all". Gate on absolute energy first.
+        if frame_energy < energy_floor * config.min_energy_above_floor_ratio:
+            debug_notes.append({
+                "ref_index": idx, "pitch": ref_pitch,
+                "expected_onset_sec": round(expected_onset, 4),
+                "frame_energy": round(frame_energy, 6), "energy_floor": round(energy_floor, 6),
+                "decision": "below_noise_floor",
+            })
+            continue
+
         candidates = [
             pitch
             for pitch in get_candidates(ref_pitch, config.keyboard_range, verifier_config)
