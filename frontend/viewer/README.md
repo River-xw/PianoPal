@@ -49,9 +49,17 @@ cd frontend/viewer && npm install && npm run dev
 
 如果只是想單純看一份既有的 `result.json`（不透過樹莓派、也不跑任何 server），右上角「Load result.json」可以手動選檔案。
 
+## 姓名分開存檔
+
+首頁「開始練習」畫面多了一個姓名輸入框——這個名字會隨著 `POST /api/session/start` 一起送出，後端（`edge/practice_server.py`／`scripts/session_server.py`）評分完成後除了照舊寫一份到共用的 `result.json`（誰最後測都會蓋過去，純粹方便當下直接看），也會另外存一份到 `data/session_scratch/results/<姓名>.json`，之後要看「某人最近一次的評分」就用 `GET /api/results/<姓名>`（前端「查看最近評分結果」按鈕背後就是打這支）——不同人不會互相覆蓋彼此的紀錄。姓名會存在瀏覽器的 localStorage，重新整理頁面也不會忘記你是誰。
+
+## 語言切換
+
+右上角有個「EN／中文」按鈕，整個介面（含「評語」面板動態產生的建議句子）都有繁簡雙語版本，切換後會存在 localStorage，下次打開記得你上次選的語言。翻譯字典在 `src/i18n.js`（一份不依賴 React 的純資料，`utils/feedback.js` 這種產生動態句子的模組也是直接 import 它來用，不用透過 React context）。
+
 ## 畫面看到什麼
 
-**上方摘要卡片**：總分、三個子分數（音高準確率／節奏準確率／節奏穩定度）、全域速度比例（`global_tempo_ratio`）、越彈越快/越彈越慢的趨勢，以及各分類（正確/時間偏差/彈錯音/漏彈/多彈）各幾個。
+**上方摘要卡片**：總分、三個子分數（音高準確率／節奏準確率／節奏穩定度，節奏穩定度目前預設關閉顯示 N/A——見 `backend/scoring/README`／後端說明：這個指標在真人錄音上雜訊太大，不可靠）、全域速度比例（`global_tempo_ratio`），以及各分類（正確/時間偏差/彈錯音/漏彈/多彈）各幾個。
 
 **Notation（五線譜）**：對彈奏者來說比 MIDI 風格的方格圖直觀很多——用真正的高音/低音譜表（右手→高音譜號、左手→低音譜號）畫出每個音符，依小節分行、依評分結果著色（顏色規則跟下面 Piano roll 一致）。音符時值是從 `dur_beats` 量化成最接近的標準音符（四分、八分…），所以節奏複雜的段落畫出來會略為簡化，不是逐拍精確的原始記譜。
 
@@ -83,13 +91,15 @@ cd frontend/viewer && npm install && npm run dev
 
 | 檔案 | 作用 |
 | --- | --- |
-| `src/App.jsx` | 最外層：`setup`/`live`/`result` 三態狀態機、檔案選取、把資料分派給各個面板 |
-| `src/components/SessionSetup.jsx` | 首頁選歌畫面：曲庫清單(來自 session server)、自行匯入 MIDI、倍速選擇、開始按鈕 |
+| `src/App.jsx` | 最外層：`setup`/`live`/`result` 三態狀態機、檔案選取、姓名狀態(含 localStorage)、把資料分派給各個面板 |
+| `src/i18n.js` | 純資料的翻譯字典 + `translate(key, lang, vars)`，不依賴 React，`utils/feedback.js` 也直接 import |
+| `src/LanguageContext.jsx` | 包在 `i18n.js` 外面的 React context/hook(`useTranslation`)，管理目前語言 + localStorage 持久化 |
+| `src/components/SessionSetup.jsx` | 首頁選歌畫面：姓名輸入框、曲庫清單(來自 session server)、自行匯入 MIDI、倍速選擇、開始按鈕、依姓名查詢「查看最近評分結果」 |
 | `src/components/LiveSession.jsx` | 引導中畫面：輪詢 session 狀態、顯示進度條、變速/暫停/重來/提前結束按鈕 |
 | `src/components/SummaryPanel.jsx` | 總分/子分數/計數摘要卡片 |
 | `src/components/NotationView.jsx` | 用 [VexFlow](https://www.vexflow.com/) 畫的五線譜視圖 |
 | `src/components/FeedbackPanel.jsx` | 「評語」文字面板 |
-| `src/utils/feedback.js` | 把錯誤音符分組、合併小節範圍、產生中文評語的邏輯 |
+| `src/utils/feedback.js` | 分析錯誤模式(和弦漏彈/特定音高/小節集中/節奏搶拍拖拍)、產生雙語練習建議的邏輯，不是逐音符列表 |
 | `src/components/PianoRoll.jsx` | 鋼琴捲軸視覺化 |
 | `src/components/TimingStrip.jsx` | 節奏漂移小圖 |
 | `src/index.css` | Tailwind 進入點 + 顏色/介面用的 CSS variables(含深色模式) |

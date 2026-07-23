@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "../LanguageContext.jsx";
 
 const HEIGHT = 160;
 const MARGIN = { top: 10, right: 16, bottom: 24, left: 44 };
@@ -11,7 +12,14 @@ const STATUS_VAR = {
   wrong_pitch: "--status-wrong-pitch",
 };
 
+const TIMING_LABEL_KEYS = {
+  accurate: "timingAccurate",
+  rush: "timingRush",
+  drag: "timingDrag",
+};
+
 export default function TimingStrip({ notes }) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(null);
 
   // `seq` is this point's position *within the filtered list* -- the x-axis
@@ -37,7 +45,7 @@ export default function TimingStrip({ notes }) {
   return (
     <div className="rounded-xl border p-4" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
       <div className="mb-2 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-        Timing drift over time
+        {t("timingStripTitle")}
       </div>
       <div className="relative overflow-x-auto">
         <svg width={width} height={HEIGHT} style={{ display: "block" }}>
@@ -81,7 +89,9 @@ export default function TimingStrip({ notes }) {
               style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--text-primary)" }}
             >
               <div className="font-medium">{p.note.name ?? "?"}</div>
-              <div style={{ color: "var(--text-secondary)" }}>offset: {p.offset.toFixed(1)}ms ({p.note.timing})</div>
+              <div style={{ color: "var(--text-secondary)" }}>
+                {t("tooltipOffset", { ms: p.offset.toFixed(1), timing: t(TIMING_LABEL_KEYS[p.note.timing] ?? p.note.timing) })}
+              </div>
             </div>
           );
         })()}

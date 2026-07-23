@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { generateFeedback } from "../utils/feedback";
+import { useTranslation } from "../LanguageContext.jsx";
 
 const STATUS_VAR = {
   timing_off: "--status-timing-off",
@@ -9,12 +10,13 @@ const STATUS_VAR = {
 };
 
 export default function FeedbackPanel({ notes, summary }) {
-  const feedback = useMemo(() => generateFeedback(notes, summary), [notes, summary]);
+  const { t, lang } = useTranslation();
+  const feedback = useMemo(() => generateFeedback(notes, summary, lang), [notes, summary, lang]);
 
   return (
     <div className="rounded-xl border p-4" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
       <div className="mb-3 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-        評語
+        {t("feedbackTitle")}
       </div>
 
       {feedback.overall && (

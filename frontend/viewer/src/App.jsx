@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import SummaryPanel from "./components/SummaryPanel";
 import NotationView from "./components/NotationView";
 import FeedbackPanel from "./components/FeedbackPanel";
@@ -6,21 +6,51 @@ import PianoRoll from "./components/PianoRoll";
 import TimingStrip from "./components/TimingStrip";
 import SessionSetup from "./components/SessionSetup";
 import LiveSession from "./components/LiveSession";
+import { useTranslation } from "./LanguageContext.jsx";
+import { LANGUAGES } from "./i18n";
 
-// Home screen is the practice-session flow: pick a song + speed
-// (SessionSetup) -> guide+record runs on the Pi (LiveSession) -> the
-// orchestrator (scripts/session_server.py) grades the recording and writes
-// result.json, which we then load automatically -- "view" tracks exactly
-// where in that flow we are. Manually loading a past result.json (the
-// header button) jumps straight to "result" regardless of session state.
+const USERNAME_STORAGE_KEY = "pianopal_username";
+
+// Home screen is the practice-session flow: enter a name, pick a song +
+// speed (SessionSetup) -> guide+record runs on the Pi (LiveSession) -> the
+// orchestrator grades the recording and writes a per-user result file
+// (data/session_scratch/results/<name>.json), which we then load -- "view"
+// tracks exactly where in that flow we are. Results are scoped by username
+// (GET /api/results/<username>) so two people's scores never overwrite each
+// other; the username itself persists in localStorage so a page reload
+// remembers who you are and re-shows your own last result, not whoever ran
+// the session before you.
 export default function App() {
+  const { t, lang, setLang } = useTranslation();
   const [view, setView] = useState("setup"); // setup | live | result
   const [liveInfo, setLiveInfo] = useState(null); // { songTitle }
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [username, setUsername] = useState(() => {
+    try {
+      return localStorage.getItem(USERNAME_STORAGE_KEY) || "";
+    } catch {
+      return "";
+    }
+  });
 
-  const loadResult = useCallback(() => {
-    fetch(`/result.json?t=${Date.now()}`)
+  const handleUsernameChange = (next) => {
+    setUsername(next);
+    try {
+      localStorage.setItem(USERNAME_STORAGE_KEY, next);
+    } catch {
+      // localStorage unavailable -- username just won't persist across reloads
+    }
+  };
+
+  const loadResult = useCallback((forUsername) => {
+    const name = (forUsername ?? "").trim();
+    if (!name) return;
+    // No ?t= cache-buster: a query string doesn't match Vite's dev proxy
+    // rule (it falls through to the SPA index.html instead of forwarding to
+    // the orchestrator), so use cache:"no-store" for freshness instead -- the
+    // server also sends Cache-Control: no-cache.
+    fetch(`/api/results/${encodeURIComponent(name)}`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((parsed) => {
         if (parsed && parsed.summary && parsed.notes) {
@@ -32,6 +62,12 @@ export default function App() {
       .catch(() => {});
   }, []);
 
+  // Auto-show this (remembered) user's latest graded result on first open.
+  useEffect(() => {
+    if (username) loadResult(username);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleFile = (file) => {
     if (!file) return;
     const reader = new FileReader();
@@ -39,7 +75,7 @@ export default function App() {
       try {
         const parsed = JSON.parse(reader.result);
         if (!parsed.summary || !parsed.notes) {
-          throw new Error("Not a scoring result.json (missing summary/notes).");
+          throw new Error(t("errorNotAResultFile"));
         }
         setResult(parsed);
         setError(null);
@@ -67,7 +103,7 @@ export default function App() {
       <header className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
-            PianoPal
+            {t("appTitle")}
           </h1>
           {result?.song_name && view === "result" && (
             <div className="text-sm" style={{ color: "var(--text-muted)" }}>
@@ -82,14 +118,14 @@ export default function App() {
               style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
               onClick={() => setView("setup")}
             >
-              回到選歌
+              {t("backToSongs")}
             </button>
           )}
           <label
             className="cursor-pointer rounded-lg border px-3 py-1.5 text-sm"
             style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
           >
-            Load result.json
+            {t("loadResultJson")}
             <input
               type="file"
               accept=".json,application/json"
@@ -97,6 +133,14 @@ export default function App() {
               onChange={(e) => handleFile(e.target.files?.[0])}
             />
           </label>
+          <button
+            className="rounded-lg border px-3 py-1.5 text-sm"
+            style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+            onClick={() => setLang(lang === LANGUAGES.ZH ? LANGUAGES.EN : LANGUAGES.ZH)}
+            title="简体中文 / English"
+          >
+            {lang === LANGUAGES.ZH ? "EN" : "中文"}
+          </button>
         </div>
       </header>
 
@@ -109,12 +153,19 @@ export default function App() {
         </div>
       )}
 
-      {view === "setup" && <SessionSetup onStarted={handleStarted} />}
+      {view === "setup" && (
+        <SessionSetup
+          username={username}
+          onUsernameChange={handleUsernameChange}
+          onStarted={handleStarted}
+          onViewLastResult={() => loadResult(username)}
+        />
+      )}
 
       {view === "live" && liveInfo && (
         <LiveSession
           songTitle={liveInfo.songTitle}
-          onDone={loadResult}
+          onDone={() => loadResult(username)}
           onError={handleLiveError}
         />
       )}

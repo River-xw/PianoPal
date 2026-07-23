@@ -17,11 +17,12 @@ the one thing the frontend talks to. It owns exactly one session at a time:
     GET  /api/songs                 -> song library + any imported songs
     POST /api/songs/import          -> body = raw MIDI bytes, header
                                         X-Song-Title = display name
-    POST /api/session/start         -> {"song_id": "...", "speed": 1.0}
+    POST /api/session/start         -> {"song_id": "...", "speed": 1.0, "username": "..."}
     GET  /api/session/status        -> merged Pi status + local phase
     POST /api/session/control       -> {"action": ..., "value": ...}
                                         forwarded to the Pi's guide server
     POST /api/session/stop          -> end the session early
+    GET  /api/results/<username>    -> that specific user's latest grading output
 
 On start: converts the song's MIDI to a guide JSON (edge/ws2812_guide_song.py
 format, with the pitch-threshold hand fallback for single-track MIDI --
@@ -33,7 +34,7 @@ started by the same command and stay in sync.
 A background thread polls the Pi's /status; once that connection starts
 failing (the Pi's script's main() returned -- song finished, or was quit),
 it scp's the recording back, runs grade_audio_reference_constrained.py
---mode reference-grid against the same song, and writes the result to
+--mode reference-dtw against the same song, and writes the result to
 frontend/viewer/public/result.json -- which the viewer already auto-loads
 on load, so the frontend just needs to poll /api/session/status and swap to
 the result view once phase == "done".
@@ -45,11 +46,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -71,6 +74,7 @@ RESULT_JSON = REPO_ROOT / "frontend/viewer/public/result.json"
 DEBUG_JSON = REPO_ROOT / "frontend/viewer/public/last_debug.json"
 CUSTOM_SONGS_DIR = REPO_ROOT / "data/custom_songs"
 SCRATCH_DIR = REPO_ROOT / "data/session_scratch"
+RESULTS_DIR = SCRATCH_DIR / "results"
 SONG_LIBRARY_DIR = REPO_ROOT / "docs/piano_music"
 POLL_INTERVAL_SEC = 1.0
 
@@ -79,6 +83,22 @@ WHITE_KEY_SET = set(WHITE_KEY_MIDIS)
 
 def _is_white_key_only(reference: dict) -> bool:
     return all(int(n["pitch"]) in WHITE_KEY_SET for n in reference.get("notes", []))
+
+
+def _safe_username(name: str) -> str:
+    """A display name -> a filesystem-safe stem, so entering it can never
+    escape RESULTS_DIR (path traversal via '..'/'/') or collide via an
+    unrelated file. Keeps letters (including CJK -- \\w is unicode-aware in
+    Python 3), digits, underscore, and hyphen; everything else collapses to
+    '_'. Mirrors edge/practice_server.py's helper of the same name.
+    """
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("username is required")
+    safe = re.sub(r"[^\w\-]+", "_", name).strip("_")[:64]
+    if not safe:
+        raise ValueError("username has no valid characters")
+    return safe
 
 
 def _apply_pitch_hand_fallback(reference: dict, threshold: int = 60) -> dict:
@@ -184,11 +204,12 @@ class Session:
     """The one active session, if any. Not thread-safe by itself -- callers
     take `LOCK` (module-level) around any read/mutate sequence."""
 
-    def __init__(self, song_id: str, song_path: Path, reference: dict, speed: float):
+    def __init__(self, song_id: str, song_path: Path, reference: dict, speed: float, username: str):
         self.song_id = song_id
         self.song_path = song_path
         self.reference = reference
         self.speed = speed
+        self.username = username
         self.phase = "starting"  # starting -> guiding -> grading -> done -> error
         self.error = None
         self.pi_recording_path = f"/tmp/session_{uuid.uuid4().hex[:8]}.wav"
@@ -222,13 +243,14 @@ def _pi_control(action: str, value=None) -> bool:
         return False
 
 
-def _start_session(song_id: str, speed: float) -> Session:
+def _start_session(song_id: str, speed: float, username: str) -> Session:
+    _safe_username(username)  # raises ValueError if missing/unusable -- fail fast, before touching anything
     song_path = _resolve_song_path(song_id)
     reference = convert(str(song_path))
     reference = _apply_pitch_hand_fallback(reference)
     white_keys_only = _is_white_key_only(reference)
 
-    session = Session(song_id, song_path, reference, speed)
+    session = Session(song_id, song_path, reference, speed, username)
     song_end = max(
         (float(n["onset_sec"]) + float(n.get("dur_sec", 0.2) or 0.2) for n in reference["notes"]),
         default=0.0,
@@ -294,7 +316,7 @@ def _finish_session(session: Session) -> None:
         LOCAL_VENV_PYTHON, str(REPO_ROOT / "scripts/grade_audio_reference_constrained.py"),
         str(session.song_path), str(local_recording),
         "--keyboard-profile", KEYBOARD_PROFILE,
-        "--mode", "reference-grid",
+        "--mode", "reference-dtw",
         "-o", str(RESULT_JSON),
         "--debug-output", str(DEBUG_JSON),
     ]
@@ -307,6 +329,17 @@ def _finish_session(session: Session) -> None:
         combined = (grade_result.stdout or "") + (grade_result.stderr or "")
         session.error = f"grading failed: {combined[-2000:]}"
         return
+
+    # Also keep a copy under this user's own name, so two people's scores
+    # never overwrite each other -- RESULT_JSON/DEBUG_JSON above stay as a
+    # "whoever was graded most recently" convenience mirror.
+    try:
+        safe_name = _safe_username(session.username)
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        (RESULTS_DIR / f"{safe_name}.json").write_bytes(RESULT_JSON.read_bytes())
+        (RESULTS_DIR / f"{safe_name}_debug.json").write_bytes(DEBUG_JSON.read_bytes())
+    except (ValueError, OSError):
+        pass  # per-user copy is a nice-to-have; don't fail the session over it
 
     session.phase = "done"
 
@@ -363,8 +396,30 @@ def _make_handler():
                 self._json({"songs": _list_library_songs() + _list_custom_songs()})
             elif self.path == "/api/session/status":
                 self._status()
+            elif self.path.startswith("/api/results/"):
+                self._user_result()
             else:
                 self._json({"error": "not found"}, 404)
+
+        def _user_result(self):
+            raw_name = urllib.parse.unquote(self.path[len("/api/results/"):])
+            try:
+                safe_name = _safe_username(raw_name)
+            except ValueError:
+                self._json({"error": "invalid username"}, 400)
+                return
+            path = RESULTS_DIR / f"{safe_name}.json"
+            if not path.is_file():
+                self._json({"error": "not found"}, 404)
+                return
+            body = path.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
 
         def _status(self):
             with LOCK:
@@ -412,7 +467,9 @@ def _make_handler():
                         self._json({"error": "a session is already running"}, 409)
                         return
                     try:
-                        CURRENT = _start_session(payload["song_id"], float(payload.get("speed", 1.0)))
+                        CURRENT = _start_session(
+                            payload["song_id"], float(payload.get("speed", 1.0)), payload.get("username", "")
+                        )
                     except Exception as exc:
                         self._json({"error": str(exc)}, 400)
                         return

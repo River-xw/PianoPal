@@ -1,14 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "../LanguageContext.jsx";
 
 const POLL_MS = 500;
-
-const PHASE_LABEL = {
-  starting: "啟動中...",
-  guiding: "引導中",
-  grading: "評分中...",
-  done: "完成",
-  error: "發生錯誤",
-};
 
 async function postControl(path, body) {
   const res = await fetch(path, {
@@ -25,8 +18,17 @@ async function postControl(path, body) {
 // switch to the result view (which auto-loads the freshly-written
 // result.json).
 export default function LiveSession({ songTitle, onDone, onError }) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState(null);
   const doneFired = useRef(false);
+
+  const phaseLabel = {
+    starting: t("phaseStarting"),
+    guiding: t("phaseGuiding"),
+    grading: t("phaseGrading"),
+    done: t("phaseDone"),
+    error: t("phaseError"),
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -65,7 +67,7 @@ export default function LiveSession({ songTitle, onDone, onError }) {
           {songTitle}
         </h2>
         <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-          {PHASE_LABEL[phase] || phase}
+          {phaseLabel[phase] || phase}
         </span>
       </div>
 
@@ -73,7 +75,7 @@ export default function LiveSession({ songTitle, onDone, onError }) {
         <>
           <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
             {(status.song_pos || 0).toFixed(1)}s / {status.song_end.toFixed(1)}s
-            {status.paused && <span style={{ color: "var(--status-timing-off)" }}> · 已暫停</span>}
+            {status.paused && <span style={{ color: "var(--status-timing-off)" }}> · {t("paused")}</span>}
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--border)" }}>
             <div
@@ -87,7 +89,7 @@ export default function LiveSession({ songTitle, onDone, onError }) {
               style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
               onClick={() => postControl("/api/session/control", { action: "speed_delta", value: -0.1 })}
             >
-              − 慢一點
+              {t("slower")}
             </button>
             <span className="min-w-[3.5rem] text-center text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
               {(status.speed || 1).toFixed(1)}x
@@ -97,28 +99,28 @@ export default function LiveSession({ songTitle, onDone, onError }) {
               style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
               onClick={() => postControl("/api/session/control", { action: "speed_delta", value: 0.1 })}
             >
-              + 快一點
+              {t("faster")}
             </button>
             <button
               className="rounded-lg border px-3 py-1.5 text-sm"
               style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
               onClick={() => postControl("/api/session/control", { action: "pause_toggle" })}
             >
-              {status.paused ? "繼續" : "暫停"}
+              {status.paused ? t("resume") : t("pause")}
             </button>
             <button
               className="rounded-lg border px-3 py-1.5 text-sm"
               style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
               onClick={() => postControl("/api/session/control", { action: "restart" })}
             >
-              重新開始
+              {t("restart")}
             </button>
             <button
               className="rounded-lg border px-3 py-1.5 text-sm"
               style={{ borderColor: "var(--status-wrong-pitch)", color: "var(--status-wrong-pitch)" }}
               onClick={() => postControl("/api/session/stop", {})}
             >
-              提前結束
+              {t("endEarly")}
             </button>
           </div>
         </>
@@ -126,7 +128,7 @@ export default function LiveSession({ songTitle, onDone, onError }) {
 
       {phase === "grading" && (
         <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-          正在把錄音抓回來評分，請稍候...
+          {t("gradingMessage")}
         </span>
       )}
     </div>

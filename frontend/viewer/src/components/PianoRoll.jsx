@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "../LanguageContext.jsx";
 
 const PX_PER_SEC = 90;
 const PX_PER_SEMITONE = 9;
@@ -11,6 +12,20 @@ const STATUS_VAR = {
   wrong_pitch: "--status-wrong-pitch",
   missed: "--status-missed",
   extra: "--status-extra",
+};
+
+const STATUS_LABEL_KEYS = {
+  correct: "statusLabelCorrect",
+  timing_off: "statusLabelTimingOff",
+  wrong_pitch: "statusLabelWrongPitch",
+  missed: "statusLabelMissed",
+  extra: "statusLabelExtra",
+};
+
+const TIMING_LABEL_KEYS = {
+  accurate: "timingAccurate",
+  rush: "timingRush",
+  drag: "timingDrag",
 };
 
 function noteTime(note) {
@@ -26,6 +41,7 @@ function notePitch(note) {
 }
 
 export default function PianoRoll({ notes }) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(null);
 
   const { minPitch, maxPitch, maxTime, measureMarks } = useMemo(() => {
@@ -60,11 +76,11 @@ export default function PianoRoll({ notes }) {
   return (
     <div className="rounded-xl border" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
       <div className="flex items-center gap-4 border-b px-4 py-2 text-sm" style={{ borderColor: "var(--border)" }}>
-        <span className="font-medium" style={{ color: "var(--text-primary)" }}>Piano roll</span>
+        <span className="font-medium" style={{ color: "var(--text-primary)" }}>{t("pianoRollTitle")}</span>
         {Object.entries(STATUS_VAR).map(([status, cssVar]) => (
           <span key={status} className="inline-flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
             <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: `var(${cssVar})` }} />
-            {status.replace("_", " ")}
+            {t(STATUS_LABEL_KEYS[status])}
           </span>
         ))}
       </div>
@@ -177,16 +193,33 @@ export default function PianoRoll({ notes }) {
 }
 
 function NoteTooltip({ note }) {
+  const { t } = useTranslation();
   return (
     <div
       className="pointer-events-none absolute left-3 top-3 rounded-lg border px-3 py-2 text-xs shadow-lg"
       style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--text-primary)" }}
     >
-      <div className="font-medium">{note.name ?? "?"} — {note.status.replace("_", " ")}</div>
-      {note.pitch_ref != null && <div style={{ color: "var(--text-secondary)" }}>expected pitch: {note.pitch_ref} @ {note.onset_ref_sec?.toFixed(3)}s</div>}
-      {note.pitch_perf != null && <div style={{ color: "var(--text-secondary)" }}>played pitch: {note.pitch_perf} @ {note.onset_perf_sec?.toFixed(3)}s</div>}
-      {note.offset_ms != null && <div style={{ color: "var(--text-secondary)" }}>offset: {note.offset_ms.toFixed(1)}ms ({note.timing})</div>}
-      {note.measure != null && <div style={{ color: "var(--text-muted)" }}>measure {note.measure}{note.hand ? ` · ${note.hand} hand` : ""}</div>}
+      <div className="font-medium">{note.name ?? "?"} — {t(STATUS_LABEL_KEYS[note.status] ?? "statusLabelCorrect")}</div>
+      {note.pitch_ref != null && (
+        <div style={{ color: "var(--text-secondary)" }}>
+          {t("tooltipExpectedPitch", { pitch: note.pitch_ref, time: note.onset_ref_sec?.toFixed(3) })}
+        </div>
+      )}
+      {note.pitch_perf != null && (
+        <div style={{ color: "var(--text-secondary)" }}>
+          {t("tooltipPlayedPitch", { pitch: note.pitch_perf, time: note.onset_perf_sec?.toFixed(3) })}
+        </div>
+      )}
+      {note.offset_ms != null && (
+        <div style={{ color: "var(--text-secondary)" }}>
+          {t("tooltipOffset", { ms: note.offset_ms.toFixed(1), timing: t(TIMING_LABEL_KEYS[note.timing] ?? note.timing) })}
+        </div>
+      )}
+      {note.measure != null && (
+        <div style={{ color: "var(--text-muted)" }}>
+          {t("tooltipMeasure", { measure: note.measure, hand: note.hand ? t("tooltipHandSuffix", { hand: note.hand }) : "" })}
+        </div>
+      )}
     </div>
   );
 }

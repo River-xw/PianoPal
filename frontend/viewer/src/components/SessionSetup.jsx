@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "../LanguageContext.jsx";
 
 // Talks to edge/practice_server.py, running ON the Raspberry Pi -- this
 // page is served BY that same server, so all API calls are same-origin
 // relative paths (no host/CORS configuration needed).
 
-export default function SessionSetup({ onStarted }) {
+export default function SessionSetup({ username, onUsernameChange, onStarted, onViewLastResult }) {
+  const { t } = useTranslation();
   const [songs, setSongs] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [speed, setSpeed] = useState(1.0);
   const [importing, setImporting] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState(null);
+  const [hasLastResult, setHasLastResult] = useState(false);
   const fileInputRef = useRef(null);
 
   const loadSongs = () => {
@@ -21,10 +24,32 @@ export default function SessionSetup({ onStarted }) {
         setError(null);
         setSelectedId((prev) => prev || data.songs?.[0]?.id || "");
       })
-      .catch(() => setError("連不上練習伺服器，確認樹莓派上的 edge/practice_server.py 有在跑"));
+      .catch(() => setError(t("connectFailed")));
   };
 
   useEffect(loadSongs, []);
+
+  // Is there an already-graded result for THIS username? Re-checked whenever
+  // the name changes, so switching users updates the shortcut accordingly.
+  useEffect(() => {
+    const name = username.trim();
+    if (!name) {
+      setHasLastResult(false);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/results/${encodeURIComponent(name)}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((r) => {
+        if (!cancelled) setHasLastResult(!!(r && r.summary && r.notes));
+      })
+      .catch(() => {
+        if (!cancelled) setHasLastResult(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [username]);
 
   const handleImport = async (file) => {
     if (!file) return;
@@ -38,7 +63,7 @@ export default function SessionSetup({ onStarted }) {
         body: bytes,
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "匯入失敗");
+      if (!res.ok) throw new Error(data.error || t("importFailed"));
       loadSongs();
       setSelectedId(data.id);
     } catch (e) {
@@ -51,16 +76,20 @@ export default function SessionSetup({ onStarted }) {
 
   const handleStart = async () => {
     if (!selectedId) return;
+    if (!username.trim()) {
+      setError(t("yourNameRequired"));
+      return;
+    }
     setStarting(true);
     setError(null);
     try {
       const res = await fetch("/api/session/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ song_id: selectedId, speed }),
+        body: JSON.stringify({ song_id: selectedId, speed, username: username.trim() }),
       });
       const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || "無法啟動");
+      if (!res.ok || data.error) throw new Error(data.error || t("cannotStart"));
       onStarted({ songId: selectedId, songs });
     } catch (e) {
       setError(e.message);
@@ -74,10 +103,10 @@ export default function SessionSetup({ onStarted }) {
     <div className="flex flex-col gap-5 rounded-xl border px-6 py-6" style={{ borderColor: "var(--border)" }}>
       <div>
         <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-          開始練習
+          {t("startPractice")}
         </h2>
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-          選一首歌、設定速度，開始後會在琴上點燈引導、同步錄音，結束後自動顯示評分結果。
+          {t("startPracticeDescription")}
         </p>
       </div>
 
@@ -89,7 +118,21 @@ export default function SessionSetup({ onStarted }) {
 
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-          曲目
+          {t("yourName")}
+        </span>
+        <input
+          type="text"
+          className="rounded-lg border px-3 py-2 text-sm"
+          style={{ borderColor: "var(--border)", color: "var(--text-primary)", background: "transparent" }}
+          value={username}
+          onChange={(e) => onUsernameChange(e.target.value)}
+          placeholder={t("yourNamePlaceholder")}
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+          {t("song")}
         </span>
         <select
           className="rounded-lg border px-3 py-2 text-sm"
@@ -99,13 +142,13 @@ export default function SessionSetup({ onStarted }) {
         >
           {songs.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.title} ({s.notes} 音{s.white_keys_only ? "" : "，含黑鍵/超出範圍"})
+              {s.title} ({s.notes} {t("songNotesSuffix")}{s.white_keys_only ? "" : t("songHasBlackKeysSuffix")})
             </option>
           ))}
         </select>
         {selected && !selected.white_keys_only && (
           <span className="text-xs" style={{ color: "var(--status-timing-off)" }}>
-            這首歌用到黑鍵或超出22白鍵範圍，燈光引導跟評分準確度會受影響。
+            {t("blackKeyWarning")}
           </span>
         )}
 
@@ -113,7 +156,7 @@ export default function SessionSetup({ onStarted }) {
           className="cursor-pointer self-start rounded-lg border px-3 py-1.5 text-xs"
           style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
         >
-          {importing ? "匯入中..." : "自行匯入曲目 (MIDI)"}
+          {importing ? t("importing") : t("importSong")}
           <input
             ref={fileInputRef}
             type="file"
@@ -126,7 +169,7 @@ export default function SessionSetup({ onStarted }) {
 
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-          倍速：{speed.toFixed(2)}x
+          {t("speedLabel", { speed: speed.toFixed(2) })}
         </span>
         <input
           type="range"
@@ -138,14 +181,25 @@ export default function SessionSetup({ onStarted }) {
         />
       </div>
 
-      <button
-        className="self-start rounded-lg border px-4 py-2 text-sm font-medium disabled:opacity-50"
-        style={{ borderColor: "var(--status-correct)", color: "var(--status-correct)" }}
-        disabled={!selectedId || starting}
-        onClick={handleStart}
-      >
-        {starting ? "啟動中..." : "開始練習"}
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          className="rounded-lg border px-4 py-2 text-sm font-medium disabled:opacity-50"
+          style={{ borderColor: "var(--status-correct)", color: "var(--status-correct)" }}
+          disabled={!selectedId || starting}
+          onClick={handleStart}
+        >
+          {starting ? t("starting") : t("startPractice")}
+        </button>
+        {hasLastResult && (
+          <button
+            className="rounded-lg border px-4 py-2 text-sm"
+            style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+            onClick={onViewLastResult}
+          >
+            {t("viewLastResult")}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

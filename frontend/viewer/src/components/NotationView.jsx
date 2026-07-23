@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import {
   Renderer, Stave, StaveNote, Formatter, Accidental,
 } from "vexflow";
+import { useTranslation } from "../LanguageContext.jsx";
 
 const NOTE_LETTERS = ["c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"];
 
@@ -17,6 +18,14 @@ const STATUS_VAR = {
   wrong_pitch: "--status-wrong-pitch",
   missed: "--status-missed",
   extra: "--status-extra",
+};
+
+const STATUS_LABEL_KEYS = {
+  correct: "statusLabelCorrect",
+  timing_off: "statusLabelTimingOff",
+  wrong_pitch: "statusLabelWrongPitch",
+  missed: "statusLabelMissed",
+  extra: "statusLabelExtra",
 };
 
 const MEASURE_BASE_WIDTH = 90;
@@ -104,6 +113,7 @@ function buildStaveNote(chordNotes, clef, accidentalState) {
 }
 
 export default function NotationView({ notes }) {
+  const { t } = useTranslation();
   const containerRef = useRef(null);
 
   const measures = useMemo(() => {
@@ -168,11 +178,11 @@ export default function NotationView({ notes }) {
   return (
     <div className="rounded-xl border" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
       <div className="flex items-center gap-4 border-b px-4 py-2 text-sm" style={{ borderColor: "var(--border)" }}>
-        <span className="font-medium" style={{ color: "var(--text-primary)" }}>Notation</span>
+        <span className="font-medium" style={{ color: "var(--text-primary)" }}>{t("notationTitle")}</span>
         {Object.entries(STATUS_VAR).map(([status, cssVarName]) => (
           <span key={status} className="inline-flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
             <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: `var(${cssVarName})` }} />
-            {status.replace("_", " ")}
+            {t(STATUS_LABEL_KEYS[status])}
           </span>
         ))}
       </div>

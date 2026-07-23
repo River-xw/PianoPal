@@ -14,11 +14,12 @@ SSH-based orchestrator had to work around.
     GET  /                           -> the built frontend (edge/frontend_dist/)
     GET  /api/songs                  -> song library + any imported songs
     POST /api/songs/import           -> body = raw MIDI bytes, header X-Song-Title
-    POST /api/session/start          -> {"song_id": "...", "speed": 1.0}
+    POST /api/session/start          -> {"song_id": "...", "speed": 1.0, "username": "..."}
     GET  /api/session/status         -> merged guide status + local phase
     POST /api/session/control        -> {"action": ..., "value": ...}
     POST /api/session/stop           -> end the session early
-    GET  /result.json, /last_debug.json  -> latest grading output
+    GET  /result.json, /last_debug.json  -> latest grading output (whoever it was)
+    GET  /api/results/<username>     -> that specific user's latest grading output
 
 Run (on the Pi):
     python3 edge/practice_server.py
@@ -28,11 +29,13 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import re
 import subprocess
 import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -53,6 +56,7 @@ SCRATCH_DIR = REPO_ROOT / "data/session_scratch"
 FRONTEND_DIST_DIR = Path(__file__).resolve().parent / "frontend_dist"
 RESULT_JSON = SCRATCH_DIR / "result.json"
 DEBUG_JSON = SCRATCH_DIR / "last_debug.json"
+RESULTS_DIR = SCRATCH_DIR / "results"
 RECORD_DEVICE = "plughw:2,0"
 POLL_INTERVAL_SEC = 1.0
 CONSECUTIVE_MISSES_TO_FINISH = 4
@@ -62,6 +66,22 @@ WHITE_KEY_SET = set(WHITE_KEY_MIDIS)
 
 def _is_white_key_only(reference: dict) -> bool:
     return all(int(n["pitch"]) in WHITE_KEY_SET for n in reference.get("notes", []))
+
+
+def _safe_username(name: str) -> str:
+    """A display name -> a filesystem-safe stem, so entering it can never
+    escape RESULTS_DIR (path traversal via '..'/'/') or collide with an
+    unrelated file. Keeps letters (including CJK -- \\w is unicode-aware in
+    Python 3), digits, underscore, and hyphen; everything else (spaces,
+    slashes, dots, ...) collapses to '_'.
+    """
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("username is required")
+    safe = re.sub(r"[^\w\-]+", "_", name).strip("_")[:64]
+    if not safe:
+        raise ValueError("username has no valid characters")
+    return safe
 
 
 def _apply_pitch_hand_fallback(reference: dict, threshold: int = 60) -> dict:
@@ -103,11 +123,12 @@ def _resolve_song_path(song_id: str) -> Path:
 
 
 class Session:
-    def __init__(self, song_id: str, song_path: Path, reference: dict, speed: float):
+    def __init__(self, song_id: str, song_path: Path, reference: dict, speed: float, username: str):
         self.song_id = song_id
         self.song_path = song_path
         self.reference = reference
         self.speed = speed
+        self.username = username
         self.phase = "starting"  # starting -> guiding -> grading -> done -> error
         self.error = None
         self.recording_path = SCRATCH_DIR / f"recording_{uuid.uuid4().hex[:8]}.wav"
@@ -142,10 +163,11 @@ def _guide_control(action: str, value=None) -> bool:
         return False
 
 
-def _start_session(song_id: str, speed: float) -> Session:
+def _start_session(song_id: str, speed: float, username: str) -> Session:
+    _safe_username(username)  # raises ValueError if missing/unusable -- fail fast, before touching anything
     song_path = _resolve_song_path(song_id)
     reference = _apply_pitch_hand_fallback(convert(str(song_path)))
-    session = Session(song_id, song_path, reference, speed)
+    session = Session(song_id, song_path, reference, speed, username)
     session.song_end = max(
         (float(n["onset_sec"]) + float(n.get("dur_sec", 0.2) or 0.2) for n in reference["notes"]),
         default=0.0,
@@ -190,7 +212,7 @@ def _finish_session(session: Session) -> None:
         "python3", str(REPO_ROOT / "scripts/grade_audio_reference_constrained.py"),
         str(session.song_path), str(session.recording_path),
         "--keyboard-profile", KEYBOARD_PROFILE,
-        "--mode", "reference-grid",
+        "--mode", "reference-dtw",
         "-o", str(RESULT_JSON),
         "--debug-output", str(DEBUG_JSON),
     ]
@@ -202,6 +224,18 @@ def _finish_session(session: Session) -> None:
         session.phase = "error"
         session.error = f"grading failed: {(result.stdout + result.stderr)[-2000:]}"
         return
+
+    # Also keep a copy under this user's own name, so two people's scores
+    # never overwrite each other -- RESULT_JSON/DEBUG_JSON above stay as a
+    # "whoever was graded most recently" convenience mirror.
+    try:
+        safe_name = _safe_username(session.username)
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        (RESULTS_DIR / f"{safe_name}.json").write_bytes(RESULT_JSON.read_bytes())
+        (RESULTS_DIR / f"{safe_name}_debug.json").write_bytes(DEBUG_JSON.read_bytes())
+    except (ValueError, OSError):
+        pass  # per-user copy is a nice-to-have; don't fail the session over it
+
     session.phase = "done"
 
 
@@ -268,6 +302,14 @@ def _make_handler():
                 self._status()
             elif self.path in ("/result.json", "/last_debug.json"):
                 self._serve_file(SCRATCH_DIR / self.path.lstrip("/"))
+            elif self.path.startswith("/api/results/"):
+                raw_name = urllib.parse.unquote(self.path[len("/api/results/"):])
+                try:
+                    safe_name = _safe_username(raw_name)
+                except ValueError:
+                    self._json({"error": "invalid username"}, 400)
+                    return
+                self._serve_file(RESULTS_DIR / f"{safe_name}.json")
             elif self.path == "/" or self.path == "":
                 self._serve_file(FRONTEND_DIST_DIR / "index.html")
             else:
@@ -323,7 +365,9 @@ def _make_handler():
                         self._json({"error": "a session is already running"}, 409)
                         return
                     try:
-                        CURRENT = _start_session(payload["song_id"], float(payload.get("speed", 1.0)))
+                        CURRENT = _start_session(
+                            payload["song_id"], float(payload.get("speed", 1.0)), payload.get("username", "")
+                        )
                     except Exception as exc:
                         self._json({"error": str(exc)}, 400)
                         return
