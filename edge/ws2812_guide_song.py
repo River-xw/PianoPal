@@ -32,9 +32,14 @@ pitch / onset_sec / dur_sec / hand). Produce one on the dev machine with:
 
 then copy it next to edge/led_key_mapping.json on the Pi.
 
+Optionally records audio (arecord on the Pi's own mic) for exactly the
+guided session's duration, so the recording lines up with the LED timeline
+-- see --record-output/--record-device.
+
 Run:
     python3 edge/ws2812_guide_song.py twinkle.json
     python3 edge/ws2812_guide_song.py twinkle.json --http-port 8765   # + frontend control
+    python3 edge/ws2812_guide_song.py twinkle.json --record-output take.wav   # + record along
     ssh -t pi@... 'cd ~/PianoPal/edge && python3 ws2812_guide_song.py alabama.json'   # interactive
 """
 from __future__ import annotations
@@ -42,6 +47,7 @@ from __future__ import annotations
 import argparse
 import json
 import select
+import subprocess
 import sys
 import termios
 import threading
@@ -78,7 +84,44 @@ def parse_args() -> argparse.Namespace:
                         help="Light each key's full 2-3 LED range instead of just its first LED (single-LED is now the default).")
     parser.add_argument("--http-port", type=int, default=None,
                         help="Serve GET /status and POST /control on this port for remote (e.g. frontend) control.")
+    parser.add_argument("--record-output", default=None,
+                        help="If given, record audio from --record-device to this WAV path for exactly the "
+                             "guided session's duration (starts when the lead-in ends, stops when the song ends "
+                             "or playback is quit/restarted) -- so the recording lines up with the LED timeline.")
+    parser.add_argument("--record-device", default="plughw:2,0",
+                        help="ALSA capture device for `arecord -D` (see `arecord -l` on the Pi for options).")
     return parser.parse_args()
+
+
+class AudioRecorder:
+    """Thin arecord wrapper -- records for as long as start()..stop() spans.
+    Self-contained (no import from edge/raspi_runtime) so this script keeps
+    its "no backend deps" property; the command matches that module's
+    CommandAudioRecorder pattern."""
+
+    def __init__(self, device: str, output_path: str):
+        self.device = device
+        self.output_path = output_path
+        self.process: subprocess.Popen | None = None
+
+    def start(self) -> None:
+        Path(self.output_path).parent.mkdir(parents=True, exist_ok=True)
+        self.process = subprocess.Popen(
+            ["arecord", "-D", self.device, "-f", "cd", "-t", "wav", self.output_path],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+
+    def stop(self) -> None:
+        if self.process is None:
+            return
+        if self.process.poll() is None:
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait()
+        self.process = None
 
 
 def _build_timeline(notes: list, pitch_leds: dict[int, list[int]]):
@@ -328,12 +371,21 @@ def main() -> int:
         strip.clear()
         time.sleep(0.85)
 
+    recorder = None
+    if args.record_output:
+        recorder = AudioRecorder(args.record_device, args.record_output)
+        recorder.start()
+        print(f"  recording to {args.record_output} (device {args.record_device})")
+
     try:
         _run(strip, events, state, interactive_hint=sys.stdin.isatty())
     except KeyboardInterrupt:
         pass
     finally:
         strip.clear()
+        if recorder is not None:
+            recorder.stop()
+            print(f"  recording stopped: {args.record_output}")
         if http_server is not None:
             http_server.shutdown()
         print("done")

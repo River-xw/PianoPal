@@ -1,16 +1,53 @@
 # viewer
 
-給 [backend.scoring](../../backend/scoring) 模組輸出的 `result.json` 用的網頁檢視器。純前端、不需要後端——把檔案讀進瀏覽器記憶體就直接畫圖，沒有任何資料離開你的電腦。
+給 [backend.scoring](../../backend/scoring) 模組輸出的 `result.json` 用的網頁檢視器，也是「選歌→燈光引導+錄音→自動評分」整個練習流程的前端。
 
 ## 執行
 
+### 方式 A（推薦）：整套跑在樹莓派上，本機純看畫面
+
+前端 build 成靜態檔、跟後端一起由樹莓派上的 `edge/practice_server.py` 一個程序 serve，本機（或任何同網段裝置）只要開瀏覽器，什麼都不用裝。
+
+前置（樹莓派上要有 backend/ 跟評分依賴，一次性）：
+
 ```bash
-cd frontend/viewer
-npm install
-npm run dev
+# 樹莓派上
+sudo pip3 install librosa scipy soundfile pretty_midi mido music21 --break-system-packages
 ```
 
-打開 `http://localhost:5173`。如果 `frontend/viewer/public/result.json` 已經存在（例如用 [`../../scripts/grade.py`](../../scripts/grade.py) 跑過），會自動載入顯示；不然點右上角「Load result.json」手動選一份 `python -m backend.scoring ... -o result.json` 產生的檔案。
+在本機 build 前端、連同後端一起同步到樹莓派（樹莓派沒有 Node，所以在有 Node 的機器 build 好再送過去；`edge/frontend_dist/` 是 build 產物，不進 git）：
+
+```bash
+cd frontend/viewer && npm install && npm run build
+rsync -av frontend/viewer/dist/ pi@<樹莓派IP>:~/PianoPal/edge/frontend_dist/
+rsync -av --exclude='.venv' --exclude='__pycache__' backend/ pi@<樹莓派IP>:~/PianoPal/backend/
+rsync -av --exclude='*.wav' data/bf3738c_keybank docs/piano_music pi@<樹莓派IP>:~/PianoPal/data/ 2>/dev/null
+```
+
+樹莓派上啟動一個程序：
+
+```bash
+cd ~/PianoPal && python3 edge/practice_server.py
+```
+
+本機瀏覽器打開 `http://<樹莓派IP>:8900/` 就是選歌畫面。整個練習流程（引導/錄音/評分）都在樹莓派本地跑，本機跟樹莓派之間的網路抖動不影響流程，只影響你看不看得到畫面。
+
+### 方式 B（備案）：dev 機器透過 SSH 遙控樹莓派
+
+樹莓派沒裝評分依賴時用這個——轉譜跟評分在 dev 機器上跑，透過 SSH 啟動樹莓派的燈光引導+錄音、再把錄音抓回來評分：
+
+```bash
+# 1. dev 機器上：SSH-based orchestrator（預設連 :8900）
+./backend/audio_to_performance/.venv/bin/python3 scripts/session_server.py
+# 2. dev 機器上：前端 dev server（vite 會把 /api 等請求 proxy 到 :8900）
+cd frontend/viewer && npm install && npm run dev
+```
+
+打開 `http://localhost:5173`。前端用同源相對路徑呼叫後端，dev 模式下由 `vite.config.js` 的 proxy 轉發到 session server；如果 session server 不在 `localhost:8900`，用 `SESSION_SERVER=host:port npm run dev` 指定。
+
+### 只看既有結果
+
+如果只是想單純看一份既有的 `result.json`（不透過樹莓派、也不跑任何 server），右上角「Load result.json」可以手動選檔案。
 
 ## 畫面看到什麼
 
@@ -46,7 +83,9 @@ npm run dev
 
 | 檔案 | 作用 |
 | --- | --- |
-| `src/App.jsx` | 最外層：檔案選取、自動載入 `/result.json`、把資料分派給各個面板 |
+| `src/App.jsx` | 最外層：`setup`/`live`/`result` 三態狀態機、檔案選取、把資料分派給各個面板 |
+| `src/components/SessionSetup.jsx` | 首頁選歌畫面：曲庫清單(來自 session server)、自行匯入 MIDI、倍速選擇、開始按鈕 |
+| `src/components/LiveSession.jsx` | 引導中畫面：輪詢 session 狀態、顯示進度條、變速/暫停/重來/提前結束按鈕 |
 | `src/components/SummaryPanel.jsx` | 總分/子分數/計數摘要卡片 |
 | `src/components/NotationView.jsx` | 用 [VexFlow](https://www.vexflow.com/) 畫的五線譜視圖 |
 | `src/components/FeedbackPanel.jsx` | 「評語」文字面板 |

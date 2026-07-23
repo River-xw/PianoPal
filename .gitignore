@@ -46,3 +46,10 @@ data/db/
 data/chroma/
 data/raw/sessions/
 data/artifacts/sessions/
+
+# Runtime session artifacts (practice_server/session_server write per-run
+# guide JSONs, recordings, and grading output here) and the viewer's live
+# debug dump -- all regenerated on demand, none belong in git
+data/session_scratch/
+data/custom_songs/
+frontend/viewer/public/last_debug.json
