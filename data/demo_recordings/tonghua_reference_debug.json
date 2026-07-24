@@ -1,0 +1,1593 @@
+{
+  "mode": "onset_first",
+  "detected_onsets": 48,
+  "emitted_notes": 48,
+  "events": [
+    {
+      "onset_sec": 0.754649,
+      "selected_pitches": [
+        79
+      ],
+      "top_candidates": [
+        {
+          "pitch": 79,
+          "score": 2.066345
+        },
+        {
+          "pitch": 67,
+          "score": 1.490377
+        },
+        {
+          "pitch": 57,
+          "score": 0.228216
+        },
+        {
+          "pitch": 59,
+          "score": 0.185153
+        },
+        {
+          "pitch": 53,
+          "score": 0.176838
+        },
+        {
+          "pitch": 65,
+          "score": 0.167763
+        }
+      ],
+      "confidence": 0.3818
+    },
+    {
+      "onset_sec": 1.265488,
+      "selected_pitches": [
+        79
+      ],
+      "top_candidates": [
+        {
+          "pitch": 79,
+          "score": 1.302541
+        },
+        {
+          "pitch": 67,
+          "score": 0.542208
+        },
+        {
+          "pitch": 57,
+          "score": 0.130644
+        },
+        {
+          "pitch": 59,
+          "score": 0.092381
+        },
+        {
+          "pitch": 81,
+          "score": 0.087837
+        },
+        {
+          "pitch": 52,
+          "score": 0.068161
+        }
+      ],
+      "confidence": 0.4617
+    },
+    {
+      "onset_sec": 1.776327,
+      "selected_pitches": [
+        77
+      ],
+      "top_candidates": [
+        {
+          "pitch": 77,
+          "score": 1.601948
+        },
+        {
+          "pitch": 79,
+          "score": 0.318308
+        },
+        {
+          "pitch": 55,
+          "score": 0.144593
+        },
+        {
+          "pitch": 57,
+          "score": 0.090815
+        },
+        {
+          "pitch": 72,
+          "score": 0.079757
+        },
+        {
+          "pitch": 74,
+          "score": 0.072492
+        }
+      ],
+      "confidence": 0.5582
+    },
+    {
+      "onset_sec": 2.275556,
+      "selected_pitches": [
+        76
+      ],
+      "top_candidates": [
+        {
+          "pitch": 76,
+          "score": 4.078344
+        },
+        {
+          "pitch": 77,
+          "score": 0.327485
+        },
+        {
+          "pitch": 53,
+          "score": 0.292593
+        },
+        {
+          "pitch": 57,
+          "score": 0.238166
+        },
+        {
+          "pitch": 74,
+          "score": 0.192473
+        },
+        {
+          "pitch": 55,
+          "score": 0.152945
+        }
+      ],
+      "confidence": 0.6493
+    },
+    {
+      "onset_sec": 3.239184,
+      "selected_pitches": [
+        76
+      ],
+      "top_candidates": [
+        {
+          "pitch": 76,
+          "score": 4.384061
+        },
+        {
+          "pitch": 53,
+          "score": 0.323422
+        },
+        {
+          "pitch": 57,
+          "score": 0.258187
+        },
+        {
+          "pitch": 77,
+          "score": 0.213315
+        },
+        {
+          "pitch": 74,
+          "score": 0.199276
+        },
+        {
+          "pitch": 55,
+          "score": 0.196119
+        }
+      ],
+      "confidence": 0.6613
+    },
+    {
+      "onset_sec": 3.726803,
+      "selected_pitches": [
+        77
+      ],
+      "top_candidates": [
+        {
+          "pitch": 77,
+          "score": 1.513586
+        },
+        {
+          "pitch": 76,
+          "score": 0.581335
+        },
+        {
+          "pitch": 55,
+          "score": 0.250748
+        },
+        {
+          "pitch": 53,
+          "score": 0.118877
+        },
+        {
+          "pitch": 57,
+          "score": 0.104935
+        },
+        {
+          "pitch": 79,
+          "score": 0.093247
+        }
+      ],
+      "confidence": 0.472
+    },
+    {
+      "onset_sec": 3.970612,
+      "selected_pitches": [
+        76
+      ],
+      "top_candidates": [
+        {
+          "pitch": 76,
+          "score": 3.665218
+        },
+        {
+          "pitch": 77,
+          "score": 0.869845
+        },
+        {
+          "pitch": 53,
+          "score": 0.306062
+        },
+        {
+          "pitch": 57,
+          "score": 0.278354
+        },
+        {
+          "pitch": 74,
+          "score": 0.219096
+        },
+        {
+          "pitch": 55,
+          "score": 0.217612
+        }
+      ],
+      "confidence": 0.5538
+    },
+    {
+      "onset_sec": 5.07356,
+      "selected_pitches": [
+        76
+      ],
+      "top_candidates": [
+        {
+          "pitch": 76,
+          "score": 4.34244
+        },
+        {
+          "pitch": 53,
+          "score": 0.28727
+        },
+        {
+          "pitch": 57,
+          "score": 0.270287
+        },
+        {
+          "pitch": 77,
+          "score": 0.209803
+        },
+        {
+          "pitch": 55,
+          "score": 0.203908
+        },
+        {
+          "pitch": 74,
+          "score": 0.198357
+        }
+      ],
+      "confidence": 0.6611
+    },
+    {
+      "onset_sec": 5.561179,
+      "selected_pitches": [
+        77
+      ],
+      "top_candidates": [
+        {
+          "pitch": 77,
+          "score": 0.754388
+        },
+        {
+          "pitch": 76,
+          "score": 0.589367
+        },
+        {
+          "pitch": 55,
+          "score": 0.08837
+        },
+        {
+          "pitch": 72,
+          "score": 0.059576
+        },
+        {
+          "pitch": 79,
+          "score": 0.058769
+        },
+        {
+          "pitch": 74,
+          "score": 0.058005
+        }
+      ],
+      "confidence": 0.3795
+    },
+    {
+      "onset_sec": 6.048798,
+      "selected_pitches": [
+        76
+      ],
+      "top_candidates": [
+        {
+          "pitch": 76,
+          "score": 4.771713
+        },
+        {
+          "pitch": 77,
+          "score": 0.311979
+        },
+        {
+          "pitch": 53,
+          "score": 0.310277
+        },
+        {
+          "pitch": 57,
+          "score": 0.268273
+        },
+        {
+          "pitch": 74,
+          "score": 0.217833
+        },
+        {
+          "pitch": 55,
+          "score": 0.179445
+        }
+      ],
+      "confidence": 0.6669
+    },
+    {
+      "onset_sec": 6.524807,
+      "selected_pitches": [
+        77
+      ],
+      "top_candidates": [
+        {
+          "pitch": 77,
+          "score": 1.793147
+        },
+        {
+          "pitch": 76,
+          "score": 0.652644
+        },
+        {
+          "pitch": 55,
+          "score": 0.192129
+        },
+        {
+          "pitch": 79,
+          "score": 0.140291
+        },
+        {
+          "pitch": 57,
+          "score": 0.1378
+        },
+        {
+          "pitch": 72,
+          "score": 0.10764
+        }
+      ],
+      "confidence": 0.4783
+    },
+    {
+      "onset_sec": 7.000816,
+      "selected_pitches": [
+        76
+      ],
+      "top_candidates": [
+        {
+          "pitch": 76,
+          "score": 2.814184
+        },
+        {
+          "pitch": 77,
+          "score": 0.582923
+        },
+        {
+          "pitch": 57,
+          "score": 0.227359
+        },
+        {
+          "pitch": 53,
+          "score": 0.213782
+        },
+        {
+          "pitch": 74,
+          "score": 0.171672
+        },
+        {
+          "pitch": 55,
+          "score": 0.147369
+        }
+      ],
+      "confidence": 0.5554
+    },
+    {
+      "onset_sec": 7.488435,
+      "selected_pitches": [
+        74
+      ],
+      "top_candidates": [
+        {
+          "pitch": 74,
+          "score": 1.64224
+        },
+        {
+          "pitch": 76,
+          "score": 0.428847
+        },
+        {
+          "pitch": 55,
+          "score": 0.13596
+        },
+        {
+          "pitch": 72,
+          "score": 0.089536
+        },
+        {
+          "pitch": 53,
+          "score": 0.081107
+        },
+        {
+          "pitch": 59,
+          "score": 0.0561
+        }
+      ],
+      "confidence": 0.5826
+    },
+    {
+      "onset_sec": 7.743855,
+      "selected_pitches": [
+        72
+      ],
+      "top_candidates": [
+        {
+          "pitch": 72,
+          "score": 3.042584
+        },
+        {
+          "pitch": 74,
+          "score": 0.332176
+        },
+        {
+          "pitch": 71,
+          "score": 0.269299
+        },
+        {
+          "pitch": 55,
+          "score": 0.162053
+        },
+        {
+          "pitch": 50,
+          "score": 0.156939
+        },
+        {
+          "pitch": 53,
+          "score": 0.154491
+        }
+      ],
+      "confidence": 0.592
+    },
+    {
+      "onset_sec": 8.579773,
+      "selected_pitches": [
+        72
+      ],
+      "top_candidates": [
+        {
+          "pitch": 72,
+          "score": 3.253076
+        },
+        {
+          "pitch": 71,
+          "score": 0.237303
+        },
+        {
+          "pitch": 53,
+          "score": 0.158865
+        },
+        {
+          "pitch": 55,
+          "score": 0.154685
+        },
+        {
+          "pitch": 52,
+          "score": 0.143571
+        },
+        {
+          "pitch": 50,
+          "score": 0.132708
+        }
+      ],
+      "confidence": 0.6497
+    },
+    {
+      "onset_sec": 9.079002,
+      "selected_pitches": [
+        76
+      ],
+      "top_candidates": [
+        {
+          "pitch": 76,
+          "score": 3.377841
+        },
+        {
+          "pitch": 72,
+          "score": 0.368528
+        },
+        {
+          "pitch": 53,
+          "score": 0.265173
+        },
+        {
+          "pitch": 57,
+          "score": 0.232661
+        },
+        {
+          "pitch": 55,
+          "score": 0.18409
+        },
+        {
+          "pitch": 74,
+          "score": 0.183576
+        }
+      ],
+      "confidence": 0.6002
+    },
+    {
+      "onset_sec": 9.578231,
+      "selected_pitches": [
+        79
+      ],
+      "top_candidates": [
+        {
+          "pitch": 79,
+          "score": 1.781092
+        },
+        {
+          "pitch": 76,
+          "score": 0.426981
+        },
+        {
+          "pitch": 57,
+          "score": 0.170125
+        },
+        {
+          "pitch": 59,
+          "score": 0.112704
+        },
+        {
+          "pitch": 81,
+          "score": 0.112086
+        },
+        {
+          "pitch": 74,
+          "score": 0.092841
+        }
+      ],
+      "confidence": 0.5186
+    },
+    {
+      "onset_sec": 10.05424,
+      "selected_pitches": [
+        81
+      ],
+      "top_candidates": [
+        {
+          "pitch": 81,
+          "score": 6.365237
+        },
+        {
+          "pitch": 79,
+          "score": 0.420372
+        },
+        {
+          "pitch": 57,
+          "score": 0.109995
+        },
+        {
+          "pitch": 83,
+          "score": 0.092491
+        },
+        {
+          "pitch": 55,
+          "score": 0.090825
+        },
+        {
+          "pitch": 74,
+          "score": 0.085496
+        }
+      ],
+      "confidence": 0.8206
+    },
+    {
+      "onset_sec": 11.099138,
+      "selected_pitches": [
+        81
+      ],
+      "top_candidates": [
+        {
+          "pitch": 81,
+          "score": 5.318108
+        },
+        {
+          "pitch": 79,
+          "score": 0.151559
+        },
+        {
+          "pitch": 55,
+          "score": 0.106177
+        },
+        {
+          "pitch": 74,
+          "score": 0.097901
+        },
+        {
+          "pitch": 83,
+          "score": 0.09697
+        },
+        {
+          "pitch": 57,
+          "score": 0.096624
+        }
+      ],
+      "confidence": 0.8192
+    },
+    {
+      "onset_sec": 11.575147,
+      "selected_pitches": [
+        81
+      ],
+      "top_candidates": [
+        {
+          "pitch": 81,
+          "score": 1.998966
+        },
+        {
+          "pitch": 79,
+          "score": 0.051954
+        },
+        {
+          "pitch": 74,
+          "score": 0.030896
+        },
+        {
+          "pitch": 59,
+          "score": 0.03072
+        },
+        {
+          "pitch": 83,
+          "score": 0.023648
+        },
+        {
+          "pitch": 72,
+          "score": 0.02143
+        }
+      ],
+      "confidence": 0.8401
+    },
+    {
+      "onset_sec": 11.853787,
+      "selected_pitches": [
+        79
+      ],
+      "top_candidates": [
+        {
+          "pitch": 79,
+          "score": 2.589817
+        },
+        {
+          "pitch": 57,
+          "score": 0.231419
+        },
+        {
+          "pitch": 81,
+          "score": 0.213015
+        },
+        {
+          "pitch": 59,
+          "score": 0.157325
+        },
+        {
+          "pitch": 74,
+          "score": 0.129092
+        },
+        {
+          "pitch": 76,
+          "score": 0.12395
+        }
+      ],
+      "confidence": 0.5855
+    },
+    {
+      "onset_sec": 12.527166,
+      "selected_pitches": [
+        74
+      ],
+      "top_candidates": [
+        {
+          "pitch": 74,
+          "score": 3.691574
+        },
+        {
+          "pitch": 79,
+          "score": 0.481778
+        },
+        {
+          "pitch": 55,
+          "score": 0.30968
+        },
+        {
+          "pitch": 72,
+          "score": 0.225378
+        },
+        {
+          "pitch": 53,
+          "score": 0.175702
+        },
+        {
+          "pitch": 48,
+          "score": 0.166421
+        }
+      ],
+      "confidence": 0.5956
+    },
+    {
+      "onset_sec": 13.026395,
+      "selected_pitches": [
+        74
+      ],
+      "top_candidates": [
+        {
+          "pitch": 74,
+          "score": 4.774991
+        },
+        {
+          "pitch": 55,
+          "score": 0.304417
+        },
+        {
+          "pitch": 72,
+          "score": 0.250877
+        },
+        {
+          "pitch": 53,
+          "score": 0.206972
+        },
+        {
+          "pitch": 57,
+          "score": 0.171936
+        },
+        {
+          "pitch": 48,
+          "score": 0.147138
+        }
+      ],
+      "confidence": 0.6881
+    },
+    {
+      "onset_sec": 13.502404,
+      "selected_pitches": [
+        77
+      ],
+      "top_candidates": [
+        {
+          "pitch": 77,
+          "score": 2.238574
+        },
+        {
+          "pitch": 74,
+          "score": 0.499647
+        },
+        {
+          "pitch": 55,
+          "score": 0.25849
+        },
+        {
+          "pitch": 57,
+          "score": 0.189493
+        },
+        {
+          "pitch": 79,
+          "score": 0.171292
+        },
+        {
+          "pitch": 72,
+          "score": 0.144036
+        }
+      ],
+      "confidence": 0.5079
+    },
+    {
+      "onset_sec": 13.769433,
+      "selected_pitches": [
+        76
+      ],
+      "top_candidates": [
+        {
+          "pitch": 76,
+          "score": 4.254498
+        },
+        {
+          "pitch": 77,
+          "score": 1.020727
+        },
+        {
+          "pitch": 53,
+          "score": 0.329357
+        },
+        {
+          "pitch": 57,
+          "score": 0.276862
+        },
+        {
+          "pitch": 74,
+          "score": 0.23742
+        },
+        {
+          "pitch": 55,
+          "score": 0.182649
+        }
+      ],
+      "confidence": 0.5723
+    },
+    {
+      "onset_sec": 16.126259,
+      "selected_pitches": [
+        72
+      ],
+      "top_candidates": [
+        {
+          "pitch": 72,
+          "score": 3.052324
+        },
+        {
+          "pitch": 71,
+          "score": 0.225511
+        },
+        {
+          "pitch": 55,
+          "score": 0.153181
+        },
+        {
+          "pitch": 53,
+          "score": 0.148912
+        },
+        {
+          "pitch": 52,
+          "score": 0.123206
+        },
+        {
+          "pitch": 48,
+          "score": 0.113181
+        }
+      ],
+      "confidence": 0.6531
+    },
+    {
+      "onset_sec": 16.613878,
+      "selected_pitches": [
+        76
+      ],
+      "top_candidates": [
+        {
+          "pitch": 76,
+          "score": 4.687184
+        },
+        {
+          "pitch": 72,
+          "score": 0.462584
+        },
+        {
+          "pitch": 53,
+          "score": 0.312135
+        },
+        {
+          "pitch": 57,
+          "score": 0.231995
+        },
+        {
+          "pitch": 74,
+          "score": 0.210644
+        },
+        {
+          "pitch": 77,
+          "score": 0.206103
+        }
+      ],
+      "confidence": 0.6546
+    },
+    {
+      "onset_sec": 17.078277,
+      "selected_pitches": [
+        79
+      ],
+      "top_candidates": [
+        {
+          "pitch": 79,
+          "score": 2.033929
+        },
+        {
+          "pitch": 76,
+          "score": 0.544281
+        },
+        {
+          "pitch": 57,
+          "score": 0.154651
+        },
+        {
+          "pitch": 59,
+          "score": 0.107835
+        },
+        {
+          "pitch": 81,
+          "score": 0.106409
+        },
+        {
+          "pitch": 53,
+          "score": 0.101914
+        }
+      ],
+      "confidence": 0.5346
+    },
+    {
+      "onset_sec": 17.531066,
+      "selected_pitches": [
+        81
+      ],
+      "top_candidates": [
+        {
+          "pitch": 81,
+          "score": 6.053647
+        },
+        {
+          "pitch": 79,
+          "score": 0.500858
+        },
+        {
+          "pitch": 57,
+          "score": 0.10659
+        },
+        {
+          "pitch": 83,
+          "score": 0.099109
+        },
+        {
+          "pitch": 74,
+          "score": 0.098202
+        },
+        {
+          "pitch": 55,
+          "score": 0.098113
+        }
+      ],
+      "confidence": 0.8012
+    },
+    {
+      "onset_sec": 18.541134,
+      "selected_pitches": [
+        81
+      ],
+      "top_candidates": [
+        {
+          "pitch": 81,
+          "score": 6.416574
+        },
+        {
+          "pitch": 79,
+          "score": 0.143227
+        },
+        {
+          "pitch": 57,
+          "score": 0.100287
+        },
+        {
+          "pitch": 55,
+          "score": 0.090792
+        },
+        {
+          "pitch": 74,
+          "score": 0.09029
+        },
+        {
+          "pitch": 83,
+          "score": 0.085804
+        }
+      ],
+      "confidence": 0.8527
+    },
+    {
+      "onset_sec": 18.959093,
+      "selected_pitches": [
+        81
+      ],
+      "top_candidates": [
+        {
+          "pitch": 81,
+          "score": 5.634791
+        },
+        {
+          "pitch": 79,
+          "score": 0.156531
+        },
+        {
+          "pitch": 55,
+          "score": 0.102857
+        },
+        {
+          "pitch": 57,
+          "score": 0.097592
+        },
+        {
+          "pitch": 83,
+          "score": 0.095856
+        },
+        {
+          "pitch": 74,
+          "score": 0.087391
+        }
+      ],
+      "confidence": 0.8294
+    },
+    {
+      "onset_sec": 19.249342,
+      "selected_pitches": [
+        83
+      ],
+      "top_candidates": [
+        {
+          "pitch": 83,
+          "score": 1.85712
+        },
+        {
+          "pitch": 81,
+          "score": 0.41653
+        },
+        {
+          "pitch": 84,
+          "score": 0.200795
+        },
+        {
+          "pitch": 55,
+          "score": 0.179303
+        },
+        {
+          "pitch": 79,
+          "score": 0.117158
+        },
+        {
+          "pitch": 57,
+          "score": 0.115731
+        }
+      ],
+      "confidence": 0.5006
+    },
+    {
+      "onset_sec": 19.922721,
+      "selected_pitches": [
+        81
+      ],
+      "top_candidates": [
+        {
+          "pitch": 81,
+          "score": 6.368052
+        },
+        {
+          "pitch": 79,
+          "score": 0.151393
+        },
+        {
+          "pitch": 83,
+          "score": 0.145596
+        },
+        {
+          "pitch": 57,
+          "score": 0.114238
+        },
+        {
+          "pitch": 74,
+          "score": 0.096795
+        },
+        {
+          "pitch": 55,
+          "score": 0.093674
+        }
+      ],
+      "confidence": 0.8402
+    },
+    {
+      "onset_sec": 20.37551,
+      "selected_pitches": [
+        79
+      ],
+      "top_candidates": [
+        {
+          "pitch": 79,
+          "score": 2.711698
+        },
+        {
+          "pitch": 81,
+          "score": 0.50461
+        },
+        {
+          "pitch": 57,
+          "score": 0.223875
+        },
+        {
+          "pitch": 59,
+          "score": 0.153959
+        },
+        {
+          "pitch": 74,
+          "score": 0.136906
+        },
+        {
+          "pitch": 76,
+          "score": 0.128944
+        }
+      ],
+      "confidence": 0.5594
+    },
+    {
+      "onset_sec": 20.839909,
+      "selected_pitches": [
+        77
+      ],
+      "top_candidates": [
+        {
+          "pitch": 77,
+          "score": 2.688965
+        },
+        {
+          "pitch": 55,
+          "score": 0.244579
+        },
+        {
+          "pitch": 79,
+          "score": 0.179381
+        },
+        {
+          "pitch": 57,
+          "score": 0.167005
+        },
+        {
+          "pitch": 72,
+          "score": 0.143223
+        },
+        {
+          "pitch": 74,
+          "score": 0.142343
+        }
+      ],
+      "confidence": 0.5878
+    },
+    {
+      "onset_sec": 21.327528,
+      "selected_pitches": [
+        76
+      ],
+      "top_candidates": [
+        {
+          "pitch": 76,
+          "score": 4.560284
+        },
+        {
+          "pitch": 53,
+          "score": 0.304514
+        },
+        {
+          "pitch": 57,
+          "score": 0.269599
+        },
+        {
+          "pitch": 74,
+          "score": 0.224453
+        },
+        {
+          "pitch": 77,
+          "score": 0.214739
+        },
+        {
+          "pitch": 55,
+          "score": 0.199577
+        }
+      ],
+      "confidence": 0.6635
+    },
+    {
+      "onset_sec": 21.791927,
+      "selected_pitches": [
+        77
+      ],
+      "top_candidates": [
+        {
+          "pitch": 77,
+          "score": 2.893841
+        },
+        {
+          "pitch": 76,
+          "score": 0.664316
+        },
+        {
+          "pitch": 55,
+          "score": 0.269641
+        },
+        {
+          "pitch": 79,
+          "score": 0.187491
+        },
+        {
+          "pitch": 57,
+          "score": 0.167657
+        },
+        {
+          "pitch": 74,
+          "score": 0.144272
+        }
+      ],
+      "confidence": 0.5414
+    },
+    {
+      "onset_sec": 22.209887,
+      "selected_pitches": [
+        76
+      ],
+      "top_candidates": [
+        {
+          "pitch": 76,
+          "score": 3.986947
+        },
+        {
+          "pitch": 77,
+          "score": 0.854546
+        },
+        {
+          "pitch": 53,
+          "score": 0.297632
+        },
+        {
+          "pitch": 57,
+          "score": 0.289254
+        },
+        {
+          "pitch": 74,
+          "score": 0.209453
+        },
+        {
+          "pitch": 55,
+          "score": 0.199591
+        }
+      ],
+      "confidence": 0.5695
+    },
+    {
+      "onset_sec": 22.662676,
+      "selected_pitches": [
+        74
+      ],
+      "top_candidates": [
+        {
+          "pitch": 74,
+          "score": 4.277688
+        },
+        {
+          "pitch": 76,
+          "score": 0.403083
+        },
+        {
+          "pitch": 55,
+          "score": 0.344549
+        },
+        {
+          "pitch": 72,
+          "score": 0.251671
+        },
+        {
+          "pitch": 48,
+          "score": 0.200243
+        },
+        {
+          "pitch": 53,
+          "score": 0.196449
+        }
+      ],
+      "confidence": 0.6251
+    },
+    {
+      "onset_sec": 22.860045,
+      "selected_pitches": [
+        74
+      ],
+      "top_candidates": [
+        {
+          "pitch": 74,
+          "score": 2.886325
+        },
+        {
+          "pitch": 72,
+          "score": 2.103688
+        },
+        {
+          "pitch": 71,
+          "score": 0.295171
+        },
+        {
+          "pitch": 76,
+          "score": 0.177385
+        },
+        {
+          "pitch": 52,
+          "score": 0.17327
+        },
+        {
+          "pitch": 55,
+          "score": 0.148605
+        }
+      ],
+      "confidence": 0.4133
+    },
+    {
+      "onset_sec": 23.928163,
+      "selected_pitches": [
+        74
+      ],
+      "top_candidates": [
+        {
+          "pitch": 74,
+          "score": 3.772182
+        },
+        {
+          "pitch": 55,
+          "score": 0.277535
+        },
+        {
+          "pitch": 72,
+          "score": 0.200846
+        },
+        {
+          "pitch": 53,
+          "score": 0.183194
+        },
+        {
+          "pitch": 48,
+          "score": 0.145923
+        },
+        {
+          "pitch": 57,
+          "score": 0.136669
+        }
+      ],
+      "confidence": 0.6647
+    },
+    {
+      "onset_sec": 24.369342,
+      "selected_pitches": [
+        76
+      ],
+      "top_candidates": [
+        {
+          "pitch": 76,
+          "score": 3.030527
+        },
+        {
+          "pitch": 74,
+          "score": 0.464048
+        },
+        {
+          "pitch": 57,
+          "score": 0.283278
+        },
+        {
+          "pitch": 53,
+          "score": 0.256289
+        },
+        {
+          "pitch": 55,
+          "score": 0.210378
+        },
+        {
+          "pitch": 77,
+          "score": 0.203277
+        }
+      ],
+      "confidence": 0.5409
+    },
+    {
+      "onset_sec": 24.891791,
+      "selected_pitches": [
+        69
+      ],
+      "top_candidates": [
+        {
+          "pitch": 69,
+          "score": 2.334248
+        },
+        {
+          "pitch": 81,
+          "score": 2.061026
+        },
+        {
+          "pitch": 76,
+          "score": 0.461042
+        },
+        {
+          "pitch": 53,
+          "score": 0.451016
+        },
+        {
+          "pitch": 55,
+          "score": 0.436523
+        },
+        {
+          "pitch": 52,
+          "score": 0.301346
+        }
+      ],
+      "confidence": 0.3003
+    },
+    {
+      "onset_sec": 25.84381,
+      "selected_pitches": [
+        69
+      ],
+      "top_candidates": [
+        {
+          "pitch": 69,
+          "score": 1.971063
+        },
+        {
+          "pitch": 81,
+          "score": 1.872538
+        },
+        {
+          "pitch": 55,
+          "score": 0.483019
+        },
+        {
+          "pitch": 53,
+          "score": 0.482037
+        },
+        {
+          "pitch": 52,
+          "score": 0.331007
+        },
+        {
+          "pitch": 50,
+          "score": 0.312309
+        }
+      ],
+      "confidence": 0.2888
+    },
+    {
+      "onset_sec": 26.354649,
+      "selected_pitches": [
+        72
+      ],
+      "top_candidates": [
+        {
+          "pitch": 72,
+          "score": 2.458665
+        },
+        {
+          "pitch": 69,
+          "score": 1.086418
+        },
+        {
+          "pitch": 81,
+          "score": 0.656035
+        },
+        {
+          "pitch": 71,
+          "score": 0.185744
+        },
+        {
+          "pitch": 53,
+          "score": 0.129725
+        },
+        {
+          "pitch": 55,
+          "score": 0.119665
+        }
+      ],
+      "confidence": 0.4432
+    },
+    {
+      "onset_sec": 26.842268,
+      "selected_pitches": [
+        72
+      ],
+      "top_candidates": [
+        {
+          "pitch": 72,
+          "score": 3.462933
+        },
+        {
+          "pitch": 71,
+          "score": 0.254724
+        },
+        {
+          "pitch": 55,
+          "score": 0.182855
+        },
+        {
+          "pitch": 53,
+          "score": 0.173144
+        },
+        {
+          "pitch": 52,
+          "score": 0.134904
+        },
+        {
+          "pitch": 48,
+          "score": 0.13067
+        }
+      ],
+      "confidence": 0.6463
+    },
+    {
+      "onset_sec": 27.805896,
+      "selected_pitches": [
+        71
+      ],
+      "top_candidates": [
+        {
+          "pitch": 71,
+          "score": 3.069862
+        },
+        {
+          "pitch": 72,
+          "score": 0.6971
+        },
+        {
+          "pitch": 55,
+          "score": 0.265008
+        },
+        {
+          "pitch": 50,
+          "score": 0.180094
+        },
+        {
+          "pitch": 52,
+          "score": 0.179847
+        },
+        {
+          "pitch": 53,
+          "score": 0.149173
+        }
+      ],
+      "confidence": 0.5253
+    },
+    {
+      "onset_sec": 28.827574,
+      "selected_pitches": [
+        72
+      ],
+      "top_candidates": [
+        {
+          "pitch": 72,
+          "score": 3.559798
+        },
+        {
+          "pitch": 71,
+          "score": 0.292656
+        },
+        {
+          "pitch": 55,
+          "score": 0.177722
+        },
+        {
+          "pitch": 53,
+          "score": 0.16474
+        },
+        {
+          "pitch": 52,
+          "score": 0.132872
+        },
+        {
+          "pitch": 48,
+          "score": 0.126087
+        }
+      ],
+      "confidence": 0.6592
+    }
+  ],
+  "audio_path": "data/demo_recordings/tonghua_right_hand_transposed.wav",
+  "reference_notes": 48
+}

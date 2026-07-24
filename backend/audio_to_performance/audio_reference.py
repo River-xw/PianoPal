@@ -255,7 +255,7 @@ def compare_candidate_event_sequences(
     note_results, duplicate_extras_removed = _suppress_duplicate_extras(
         note_results, student_events, duplicate_extra_window_sec
     )
-    summary = _summarize(note_results, config, tempo_ratio)
+    summary = _summarize(note_results, config, tempo_ratio, tol_ms)
     return {
         "song_name": title,
         "summary": {

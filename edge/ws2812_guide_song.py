@@ -3,9 +3,16 @@
 player can follow which key to press next, in time.
 
 "Follow" mode -- the song advances on its own clock at the reference tempo (or
-slower/faster, adjustable live). At each note's onset the corresponding key's
-LEDs light up; they turn off just before the note ends so a repeated note on
-the same key visibly re-triggers. Left/right hand get different colors.
+slower/faster, adjustable live). Each note fades in (starting slightly before
+its own onset, so it reaches full brightness exactly on the beat), holds, then
+fades out; the fade-out finishes just before the note ends so a repeated note
+on the same key visibly re-triggers. Left/right hand get different colors.
+
+Visual bookends: a rainbow chase plays before the countdown (on start) and
+after a genuinely-finished song (not on quit/early-stop -- see _run's return
+value), and the countdown itself is a full-white pulse per remaining second
+rather than a dim blink. Pausing fades the strip to black instead of freezing
+it mid-note; resuming fades back up to the same (frozen) position.
 
 Two ways to control playback live, both backed by the same shared state so
 either (or both) can be used in the same run:
@@ -48,6 +55,7 @@ from __future__ import annotations
 
 import argparse
 import bisect
+import colorsys
 import json
 import math
 import os
@@ -80,6 +88,36 @@ SPEED_STEP = 0.1
 MIN_SPEED = 0.1
 MAX_SPEED = 3.0
 OFF = Color(0, 0, 0)
+
+# Per-note brightness envelope: a note starts ramping up ATTACK_SEC before its
+# own onset (so it reaches full brightness exactly ON the beat, giving a
+# visual heads-up rather than a late "surprise" light), holds at full through
+# its duration, then ramps down over RELEASE_SEC once it ends. Deliberately a
+# single ease curve rather than distinct attack/release shapes -- looks
+# effectively the same at this LED-strip scale for a lot less code.
+ATTACK_SEC = 0.09
+RELEASE_SEC = 0.16
+
+# Countdown ("3.. 2.. 1..") flash: one full white pulse per remaining second,
+# ending exactly when the last pulse's release finishes (no extra gap before
+# practice starts).
+COUNTDOWN_ATTACK_SEC = 0.12
+COUNTDOWN_HOLD_SEC = 0.2
+COUNTDOWN_RELEASE_SEC = 0.18
+
+# Bookend rainbow chase: forward on start (before the countdown), reverse on
+# a natural finish (never on quit/early-exit -- that would read as "the song
+# finished" when it didn't).
+RAINBOW_START_SEC = 1.2
+RAINBOW_END_SEC = 2.0
+RAINBOW_SPEED_DEG_PER_SEC = 240.0
+RAINBOW_VALUE = 0.6
+RAINBOW_FPS = 45
+
+# Pausing fades the strip to black instead of freezing it mid-note (less
+# jarring, and unambiguous that playback is stopped); resuming fades back up
+# to wherever the frozen song-time position says the notes should be.
+PAUSE_FADE_SEC = 0.18
 
 
 def parse_args() -> argparse.Namespace:
@@ -232,9 +270,15 @@ class AlsaMetronome:
 
 def _build_timeline(notes: list, pitch_leds: dict[int, list[int]]):
     """Flatten notes into sorted (song_time_sec, kind, led, color) events;
-    kind 0 = on (sorts first), 1 = off. song_time is in the score's own
-    seconds -- the playback loop maps it to wall-clock at the current speed,
-    so speed can change live. Skips pitches with no LED mapping (black keys)."""
+    kind 0 = attack-start (sorts first), 1 = release-start. song_time is in
+    the score's own seconds -- the playback loop maps it to wall-clock at the
+    current speed, so speed can change live. Skips pitches with no LED
+    mapping (black keys).
+
+    The attack-start event fires ATTACK_SEC *before* the note's actual onset,
+    so the fade-in reaches full brightness exactly on the beat instead of
+    starting late; the render loop (see _run) turns these two markers into a
+    continuous attack/hold/release brightness envelope per LED."""
     events = []
     for note in notes:
         pitch = int(note["pitch"])
@@ -245,11 +289,117 @@ def _build_timeline(notes: list, pitch_leds: dict[int, list[int]]):
         onset = float(note["onset_sec"])
         dur = float(note.get("dur_sec", 0.3) or 0.3)
         off_at = onset + max(0.08, dur - OFF_GAP_SEC)
+        attack_start = max(0.0, onset - ATTACK_SEC)
         for led in leds:
-            events.append((onset, 0, led, color))
+            events.append((attack_start, 0, led, color))
             events.append((off_at, 1, led, None))
     events.sort(key=lambda e: (e[0], e[1]))
     return events
+
+
+def _ease_out(x: float) -> float:
+    x = min(1.0, max(0.0, x))
+    return 1.0 - (1.0 - x) ** 2
+
+
+def _ease_in(x: float) -> float:
+    x = min(1.0, max(0.0, x))
+    return x ** 2
+
+
+def _scale_color(color, frac: float):
+    frac = min(1.0, max(0.0, frac))
+    return Color(int(color.r * frac), int(color.g * frac), int(color.b * frac))
+
+
+def _led_frac(phase: dict, song_pos: float) -> float:
+    """Current brightness fraction (0-1) for one LED's attack/release phase
+    entry (see _run's led_phase dict), given the current song-time position."""
+    elapsed = song_pos - phase["start"]
+    if phase["state"] == "attack":
+        return _ease_out(elapsed / ATTACK_SEC) if ATTACK_SEC > 0 else 1.0
+    if phase["state"] == "release":
+        if RELEASE_SEC <= 0:
+            return 0.0
+        return 1.0 - _ease_in(elapsed / RELEASE_SEC)
+    return 0.0
+
+
+def _rainbow_chase(strip, duration_sec: float, reverse: bool = False) -> None:
+    """Bookend flourish: a rainbow hue sweep across the whole strip, forward
+    for the start animation, reverse for the end one. No-op on --no-leds
+    (num_pixels()==0) or when told not to run (duration<=0)."""
+    n = strip.num_pixels()
+    if n == 0 or duration_sec <= 0:
+        return
+    hue_step = 360.0 / n
+    direction = -1.0 if reverse else 1.0
+    frame_dt = 1.0 / RAINBOW_FPS
+    start = time.monotonic()
+    while time.monotonic() - start < duration_sec:
+        elapsed = time.monotonic() - start
+        for i in range(n):
+            hue = (i * hue_step + direction * elapsed * RAINBOW_SPEED_DEG_PER_SEC) % 360.0
+            r, g, b = colorsys.hsv_to_rgb(hue / 360.0, 1.0, RAINBOW_VALUE)
+            strip.set_pixel_color(i, Color(int(r * 255), int(g * 255), int(b * 255)))
+        strip.show()
+        time.sleep(frame_dt)
+    strip.clear()
+    strip.show()
+
+
+def _countdown_flash(strip, count: int, per_flash_sec: float = 1.0) -> None:
+    """`count` full-white pulses, one per remaining second, each with its own
+    attack/hold/release -- runs (and takes real wall-clock time) even under
+    --no-leds, since the count-in itself is still needed to prepare the
+    player; only the pixel writes are no-ops there."""
+    n = strip.num_pixels()
+    gap = max(0.0, per_flash_sec - COUNTDOWN_ATTACK_SEC - COUNTDOWN_HOLD_SEC - COUNTDOWN_RELEASE_SEC)
+    frame_dt = 1.0 / RAINBOW_FPS
+
+    def _paint(frac: float) -> None:
+        level = int(255 * frac)
+        for i in range(n):
+            strip.set_pixel_color(i, Color(level, level, level))
+        strip.show()
+
+    for remaining in range(count, 0, -1):
+        print(f"  starting in {remaining}...")
+        start = time.monotonic()
+        while (t := time.monotonic() - start) < COUNTDOWN_ATTACK_SEC:
+            _paint(_ease_out(t / COUNTDOWN_ATTACK_SEC))
+            time.sleep(frame_dt)
+        _paint(1.0)
+        time.sleep(COUNTDOWN_HOLD_SEC)
+        start = time.monotonic()
+        while (t := time.monotonic() - start) < COUNTDOWN_RELEASE_SEC:
+            _paint(1.0 - _ease_in(t / COUNTDOWN_RELEASE_SEC))
+            time.sleep(frame_dt)
+        strip.clear()
+        strip.show()
+        if remaining > 1:
+            time.sleep(gap)
+
+
+def _fade_strip(strip, targets: dict[int, tuple], duration_sec: float, fade_in: bool) -> None:
+    """Blocking fade of exactly the LEDs in `targets` (led -> Color) between
+    black and their target color -- used for the pause (fade_in=False) /
+    resume (fade_in=True) transition. No-op on --no-leds."""
+    if strip.num_pixels() == 0 or not targets or duration_sec <= 0:
+        return
+    frame_dt = 1.0 / RAINBOW_FPS
+    start = time.monotonic()
+    while (t := time.monotonic() - start) < duration_sec:
+        frac = t / duration_sec
+        if not fade_in:
+            frac = 1.0 - frac
+        for led, color in targets.items():
+            strip.set_pixel_color(led, _scale_color(color, frac))
+        strip.show()
+        time.sleep(frame_dt)
+    for led, color in targets.items():
+        strip.set_pixel_color(led, color if fade_in else OFF)
+    strip.show()
 
 
 class PlaybackState:
@@ -428,6 +578,17 @@ def _apply_key(state: PlaybackState, key: str) -> None:
         state.apply("quit")
 
 
+def _current_targets(led_phase: dict, song_pos: float) -> dict:
+    """Each active LED's color at its current attack/release fraction --
+    what's actually lit right now, used both by the per-frame render and to
+    snapshot a fade-out/fade-in target when pausing/resuming."""
+    return {
+        led: _scale_color(phase["color"], _led_frac(phase, song_pos))
+        for led, phase in led_phase.items()
+        if phase["state"] != "off"
+    }
+
+
 def _run(
     strip,
     events,
@@ -435,10 +596,18 @@ def _run(
     interactive_hint: bool,
     metronome: AlsaMetronome | None = None,
     tempo_bpm: float | None = None,
-) -> None:
+) -> bool:
     """Sampled playback: advance a song-time cursor by dt*speed each tick,
     firing events as it passes them, so speed changes (from either control
-    path) take effect live."""
+    path) take effect live. Each LED's brightness is a continuous
+    attack/hold/release envelope (led_phase), recomputed every render frame
+    rather than a hard on/off -- see _build_timeline/_led_frac.
+
+    Returns True if this ended because the song genuinely finished (so
+    main() can play the end-of-song rainbow flourish), False if it was quit
+    early (segmented-loop practice always ends this way, since it has no
+    natural end) -- an early exit shouldn't look like "you finished the
+    piece"."""
     with _raw_keyboard() as read_key:
         if interactive_hint:
             print("  controls: +/- speed  space pause  r restart  q quit")
@@ -447,13 +616,17 @@ def _run(
             bisect.bisect_left([e[0] for e in events], state.loop_start) if looping else None
         )
         i = 0
+        led_phase: dict[int, dict] = {}
+        was_paused = False
         beat_sec = 60.0 / tempo_bpm if tempo_bpm and tempo_bpm > 0 else None
         next_beat_time = 0.0
+        next_render_time = 0.0
+        render_dt = 1.0 / RAINBOW_FPS
         last = time.monotonic()
         while i < len(events) or looping:
             if state.quit_requested:
                 print("  quit")
-                break
+                return False
 
             now = time.monotonic()
             dt = now - last
@@ -465,8 +638,10 @@ def _run(
                     strip.set_pixel_color(led, OFF)
                 strip.show()
                 i = 0
+                led_phase.clear()
                 song_pos = 0.0
                 next_beat_time = 0.0
+                was_paused = False
                 print("  restart")
                 last = time.monotonic()
                 continue
@@ -476,6 +651,7 @@ def _run(
                     strip.set_pixel_color(led, OFF)
                 strip.show()
                 i = loop_start_index
+                led_phase.clear()
                 song_pos = state.loop_start
                 if beat_sec is not None:
                     next_beat_time = math.ceil(
@@ -484,23 +660,49 @@ def _run(
                 last = time.monotonic()
                 continue
 
-            if metronome is not None and beat_sec is not None:
-                if song_pos + 1e-6 >= next_beat_time:
-                    if not state.snapshot()["metronome_muted"]:
-                        metronome.play_click()
-                    # Advance the beat grid even when muted or after a slow
-                    # scheduling iteration, so clicks never queue up late.
-                    while next_beat_time <= song_pos + 1e-6:
-                        next_beat_time += beat_sec
+            snap = state.snapshot()
+            paused_now = snap["paused"]
+            if paused_now != was_paused:
+                # Just crossed the pause/resume boundary: fade the strip
+                # between black and whatever the frozen song_pos says should
+                # be lit, instead of an abrupt freeze/jump.
+                _fade_strip(strip, _current_targets(led_phase, song_pos), PAUSE_FADE_SEC, fade_in=was_paused)
+                was_paused = paused_now
 
-            dirty = False
-            while i < len(events) and events[i][0] <= song_pos:
-                _, kind, led, color = events[i]
-                strip.set_pixel_color(led, color if kind == 0 else OFF)
-                dirty = True
-                i += 1
-            if dirty:
-                strip.show()
+            if not paused_now:
+                if metronome is not None and beat_sec is not None:
+                    if song_pos + 1e-6 >= next_beat_time:
+                        if not snap["metronome_muted"]:
+                            metronome.play_click()
+                        # Advance the beat grid even when muted or after a
+                        # slow scheduling iteration, so clicks never queue up.
+                        while next_beat_time <= song_pos + 1e-6:
+                            next_beat_time += beat_sec
+
+                while i < len(events) and events[i][0] <= song_pos:
+                    event_time, kind, led, color = events[i]
+                    if kind == 0:
+                        led_phase[led] = {"state": "attack", "start": event_time, "color": color}
+                    else:
+                        existing = led_phase.get(led)
+                        if existing is not None:
+                            existing["state"] = "release"
+                            existing["start"] = event_time
+                    i += 1
+
+                if led_phase and now >= next_render_time:
+                    finished = []
+                    for led, phase in led_phase.items():
+                        frac = _led_frac(phase, song_pos)
+                        if phase["state"] == "release" and frac <= 0.0:
+                            strip.set_pixel_color(led, OFF)
+                            finished.append(led)
+                        else:
+                            strip.set_pixel_color(led, _scale_color(phase["color"], frac))
+                    for led in finished:
+                        del led_phase[led]
+                    strip.show()
+                    next_render_time = now + render_dt
 
             key = read_key()
             if key:
@@ -508,6 +710,8 @@ def _run(
                 print(f"  speed {state.speed:.1f}x" if key in "+=-_" else "")
 
             time.sleep(0.004)
+
+        return True
 
 
 def main() -> int:
@@ -567,14 +771,9 @@ def main() -> int:
         threading.Thread(target=http_server.serve_forever, daemon=True).start()
         print(f"  http control on :{args.http_port}  (GET /status, POST /control)")
 
-    for remaining in range(int(args.lead_in_sec), 0, -1):
-        print(f"  starting in {remaining}...")
-        for i in range(strip.num_pixels()):
-            strip.set_pixel_color(i, Color(20, 20, 20))
-        strip.show()
-        time.sleep(0.15)
-        strip.clear()
-        time.sleep(0.85)
+    if not args.no_leds:
+        _rainbow_chase(strip, RAINBOW_START_SEC, reverse=False)
+    _countdown_flash(strip, int(args.lead_in_sec))
 
     recorder = None
     metronome = AlsaMetronome(args.metronome_device) if args.metronome_device else None
@@ -584,8 +783,9 @@ def main() -> int:
         state.set_recording(True)
         print(f"  recording to {args.record_output} (device {args.record_device})")
 
+    finished = False
     try:
-        _run(
+        finished = _run(
             strip,
             events,
             state,
@@ -603,6 +803,11 @@ def main() -> int:
             print(f"  recording stopped: {args.record_output}")
         if metronome is not None:
             metronome.close()
+        # A finished-early (quit / segmented-loop-practice-stopped) run skips
+        # this -- an end-of-song flourish would misleadingly read as "you
+        # finished the piece" when the user just bailed out.
+        if finished and not args.no_leds:
+            _rainbow_chase(strip, RAINBOW_END_SEC, reverse=True)
         if http_server is not None:
             http_server.shutdown()
         print("done")
