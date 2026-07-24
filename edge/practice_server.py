@@ -93,9 +93,15 @@ POSTURE_READY_TIMEOUT_SEC = float(
 POSTURE_READY_POLL_SEC = 0.1
 POLL_INTERVAL_SEC = 1.0
 CONSECUTIVE_MISSES_TO_FINISH = 4
-# Both are required for a formal scored attempt. The server also waits for
-# valid BLE packets from every requested hand before starting the guide/audio,
-# so a missing motion dimension can never silently enter formal history.
+# Both are required for a formal scored attempt by default. The server also
+# waits for valid BLE packets from every requested hand before starting the
+# guide/audio, so a missing motion dimension can never silently enter formal
+# history. Set PIANOPAL_REQUIRE_MOTION=0 to opt out of this gate entirely
+# (e.g. no micro:bit hardware at hand) -- sessions then behave exactly like
+# the BLE-config-missing/model-missing cases below: motion_score/hand_shape
+# come back explicitly unavailable and the overall score is renormalized
+# across the remaining sub-scores, same as always.
+MOTION_REQUIRED = os.environ.get("PIANOPAL_REQUIRE_MOTION", "1") not in ("0", "false", "False")
 BLE_CONFIG_PATH = REPO_ROOT / "edge/microbit_rpi_comm/raspberry/config.json"
 POSTURE_MODEL_CANDIDATES = (
     # Prefer the portable export on the Pi: it avoids requiring the exact
@@ -430,6 +436,10 @@ def _start_session(
     if practice_only:
         session.motion_unavailable_reason = (
             "segmented practice is not formally scored"
+        )
+    elif not MOTION_REQUIRED:
+        session.motion_unavailable_reason = (
+            "motion sensing disabled (PIANOPAL_REQUIRE_MOTION=0)"
         )
     elif not BLE_CONFIG_PATH.exists():
         raise RuntimeError(
