@@ -7,11 +7,10 @@ Unlike ws2812_guide_song.py (which ends on its own once the song finishes),
 this has no natural end -- it runs until edge/practice_server.py sends it
 SIGTERM at the end of a session, same lifecycle as the audio recording.
 
-Graceful degradation is the whole point: if --ble-config is missing, or the
-BLE connection/bleak import fails, this writes a null-score result instead
-of raising, so motion sensing is optional hardware rather than a requirement
-to practice. edge/practice_server.py leaves the motion score unavailable and
-renormalizes the remaining audio scores; it never substitutes a fake score.
+When used alone, missing configuration or a BLE/import failure is persisted as
+a null-score result instead of raising. Formal scored sessions add a stricter
+readiness gate in edge/practice_server.py: all requested hands must stream a
+valid packet before the guide and microphone are allowed to start.
 
 Run:
     python3 edge/posture_capture.py --ble-config edge/microbit_rpi_comm/raspberry/config.json \\
@@ -22,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from contextlib import suppress
 import json
 import signal
 import sys
@@ -34,6 +34,47 @@ if str(REPO_ROOT) not in sys.path:
 
 from edge.raspi_runtime.ble import BleHandSensorSource  # noqa: E402
 from edge.raspi_runtime.posture import RealtimePosturePipeline, load_posture_model  # noqa: E402
+
+BLE_SHUTDOWN_GRACE_SECONDS = 2.0
+
+
+async def _run_source_until_stopped(
+    source,
+    stop_event: asyncio.Event,
+    handle_packet,
+    *,
+    shutdown_grace_seconds: float = BLE_SHUTDOWN_GRACE_SECONDS,
+) -> None:
+    """Run one BLE source and make process shutdown bounded.
+
+    Bleak connection attempts may remain inside the platform Bluetooth stack
+    longer than practice_server waits for this process. Cancelling after a
+    short grace period ensures the caller can still persist the aggregate
+    motion result instead of being killed with no output file.
+    """
+    source_task = asyncio.create_task(source.run(stop_event, handle_packet))
+    stopped_task = asyncio.create_task(stop_event.wait())
+    try:
+        done, _pending = await asyncio.wait(
+            {source_task, stopped_task},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        if source_task in done:
+            await source_task
+            return
+        try:
+            await asyncio.wait_for(
+                asyncio.shield(source_task),
+                timeout=shutdown_grace_seconds,
+            )
+        except asyncio.TimeoutError:
+            source_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await source_task
+    finally:
+        stopped_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await stopped_task
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,10 +94,34 @@ def parse_args() -> argparse.Namespace:
         "--start-delay-sec",
         type=float,
         default=0.0,
-        help="Warm up BLE/model buffering immediately, but only count predictions after this delay.",
+        help=(
+            "Warm up BLE/model buffering immediately, but only count "
+            "predictions this many seconds after all requested hands become ready."
+        ),
+    )
+    parser.add_argument(
+        "--ready-output",
+        type=Path,
+        default=None,
+        help=(
+            "Optional readiness JSON written after every requested hand has "
+            "provided at least one valid sensor packet."
+        ),
     )
     parser.add_argument("-o", "--output", type=Path, required=True, help="Where to write the aggregate result JSON.")
     return parser.parse_args()
+
+
+def _write_ready(output_path: Path, capture_hands: list[str]) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output_path.with_name(f"{output_path.name}.tmp")
+    temporary.write_text(json.dumps({
+        "schema_version": "formal_motion_ready_v1",
+        "ready": True,
+        "capture_hands": capture_hands,
+        "ready_at_unix_ms": time.time_ns() // 1_000_000,
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(output_path)
 
 
 def _write_result(
@@ -90,6 +155,8 @@ def _write_result(
 
 async def _run(args: argparse.Namespace) -> None:
     capture_hands = sorted(set(args.hands))
+    if args.ready_output is not None:
+        args.ready_output.unlink(missing_ok=True)
     if args.ble_config is None or not args.ble_config.exists():
         _write_result(
             args.output,
@@ -121,29 +188,46 @@ async def _run(args: argparse.Namespace) -> None:
     normal = 0
     label_counts: dict[str, int] = {}
     stop_event = asyncio.Event()
-    scoring_starts_at = time.monotonic() + max(0.0, float(args.start_delay_sec))
+    seen_hands: set[str] = set()
+    scoring_starts_at: float | None = None
 
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stop_event.set)
 
     async def handle_packet(packet) -> None:
-        nonlocal total, normal
+        nonlocal total, normal, scoring_starts_at
         if packet.hand not in capture_hands:
             return
+        seen_hands.add(packet.hand)
+        if scoring_starts_at is None and seen_hands.issuperset(capture_hands):
+            # Readiness is based on real, parseable streaming data rather than
+            # merely opening a BLE connection. Starting the score delay here
+            # aligns it with practice_server launching the guide countdown
+            # immediately after observing this readiness file.
+            scoring_starts_at = (
+                time.monotonic() + max(0.0, float(args.start_delay_sec))
+            )
+            if args.ready_output is not None:
+                _write_ready(args.ready_output, capture_hands)
         prediction = pipeline.add_packet(packet)
         # Feed the rolling model window during the guide's lead-in so motion
         # inference is warm when microphone recording starts, but do not let
         # countdown/setup movements affect the formal performance score.
-        if prediction is None or time.monotonic() < scoring_starts_at:
+        if (
+            prediction is None
+            or scoring_starts_at is None
+            or time.monotonic() < scoring_starts_at
+        ):
             return
         total += 1
         label_counts[prediction.predicted_label] = label_counts.get(prediction.predicted_label, 0) + 1
         if prediction.predicted_label == "normal":
             normal += 1
 
+    source = BleHandSensorSource(args.ble_config, hands=frozenset(capture_hands))
     try:
-        await BleHandSensorSource(args.ble_config).run(stop_event, handle_packet)
+        await _run_source_until_stopped(source, stop_event, handle_packet)
     except Exception as exc:  # bleak not installed, connection failure, etc. -- degrade, don't crash
         _write_result(
             args.output,
@@ -165,6 +249,11 @@ async def _run(args: argparse.Namespace) -> None:
         capture_hands=capture_hands,
         model_name=model.model_name,
         model_version=model.model_version,
+        error=(
+            None
+            if total > 0
+            else f"no usable BLE predictions were received for hands {capture_hands}"
+        ),
     )
 
 

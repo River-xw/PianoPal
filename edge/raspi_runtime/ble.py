@@ -21,17 +21,45 @@ CONNECT_TIMEOUT_SECONDS = 12
 RECONNECT_DELAY_SECONDS = 2
 
 
-def load_devices(config_path: Path) -> list[dict[str, str]]:
+def _short_hand(value: str) -> str:
+    hand = str(value).strip().upper()
+    return {"LEFT": "L", "RIGHT": "R"}.get(hand, hand)
+
+
+def load_devices(
+    config_path: Path,
+    hands: set[str] | frozenset[str] | None = None,
+) -> list[dict[str, str]]:
     config = json.loads(config_path.read_text(encoding="utf-8"))
     devices = config.get("devices")
     if not isinstance(devices, list) or not devices:
         raise ValueError('config must contain a non-empty "devices" list')
+    if hands is not None:
+        wanted = {_short_hand(hand) for hand in hands}
+        devices = [
+            device
+            for device in devices
+            if _short_hand(device.get("hand", "")) in wanted
+        ]
+        if not devices:
+            raise ValueError(
+                f"config has no devices for requested hands {sorted(wanted)}"
+            )
     return devices
 
 
 class BleHandSensorSource:
-    def __init__(self, config_path: Path) -> None:
+    def __init__(
+        self,
+        config_path: Path,
+        hands: set[str] | frozenset[str] | None = None,
+    ) -> None:
         self.config_path = config_path
+        # None keeps the training collector's existing both-hands behavior.
+        # Formal assessment passes its explicitly requested hands, currently
+        # {"L"}; when a right-hand model is ready it can pass {"L", "R"}
+        # without any BLE protocol or storage changes.
+        self.hands = hands
 
     async def run(self, stop_event: asyncio.Event, on_packet: PacketHandler) -> None:
         try:
@@ -39,7 +67,7 @@ class BleHandSensorSource:
         except ImportError as exc:
             raise RuntimeError("Install bleak on the Raspberry Pi to use BLE mode") from exc
 
-        devices = load_devices(self.config_path)
+        devices = load_devices(self.config_path, self.hands)
         connect_lock = asyncio.Lock()
         tasks = []
 
