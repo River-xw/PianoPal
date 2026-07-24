@@ -61,13 +61,14 @@ class ScoringConfig:
     score_weight_pitch: float = 0.4
     score_weight_rhythm: float = 0.4
     score_weight_timing_stability: float = 0.2
-    # Hand-shape/posture score, supplied externally (e.g. from an IMU-based
-    # classifier) via score_performance()'s hand_shape_score param -- there is
-    # no such classifier wired into the production pipeline yet, so this
-    # defaults to 0 (fully excluded, same "not computed/shown" behavior as
-    # score_weight_timing_stability=0) until one is. Keeping the weight slot
-    # here now means callers that DO have a real hand-shape score can turn it
-    # on without any further changes to the scoring formula.
+    # Hand-shape/posture score, supplied externally via score_performance()'s
+    # hand_shape_score param -- this module has no sensor input of its own.
+    # edge/practice_server.py resolves a real value from a BLE IMU posture
+    # classifier when one is configured (see edge/posture_capture.py), but
+    # defaults to 0 here so this weight is fully excluded (same
+    # "not computed/shown" behavior as score_weight_timing_stability=0) for
+    # any caller that doesn't explicitly opt in -- e.g. scripts/session_server.py,
+    # which still always passes the fixed placeholder score.
     score_weight_hand_shape: float = 0.0
 
     # --- tempo trend classification ---

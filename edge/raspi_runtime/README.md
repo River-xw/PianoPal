@@ -167,5 +167,14 @@ The runtime uses `backend.db` to create:
 - `artifacts`: raw audio, acquisition timing, left/right IMU JSONL, IMU predictions JSONL
 - `model_runs`: real-time IMU posture inference metadata
 
-The posture model adapter lives in `posture.py`. Replace
-`ThresholdPostureModel` with the trained model loader for deployment.
+The posture model adapter lives in `posture.py`. `load_posture_model(path)`
+picks the right loader from the file extension -- `.joblib` -> `SklearnPostureModel`,
+`.json` -> `PortableRandomForestPostureModel` (no scikit-learn needed to run
+it, just this repo's own tree-walking code) -- and falls back to the
+threshold-rule `ThresholdPostureModel` placeholder only when `path` is
+`None`. A trained model already exists at
+`models/gesture/left_hand_posture_classifier.joblib` (see the `--posture-model`
+example above) -- `edge/posture_capture.py` (the practice-session-facing
+posture scorer, see [../README.md](../README.md)) loads this same model by
+default too, so this acquisition runtime and the main practice flow share one
+trained classifier.

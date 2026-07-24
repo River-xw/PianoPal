@@ -11,7 +11,22 @@ SQLite stores the lightweight index:
 - model run metadata
 
 Large files should stay in `data/raw/` or `data/artifacts/`; ChromaDB should
-store searchable summaries, feature vectors, labels, and user-profile memory.
+store searchable summaries, feature vectors, labels, and user-profile memory
+(this part is still just a design intent -- no ChromaDB integration exists
+yet anywhere in the codebase).
+
+This schema was originally built for the IMU/posture acquisition pipeline
+(`edge/raspi_runtime`), and is now also the practice-history store behind the
+frontend's "我的" page: `edge/practice_server.py`/`scripts/session_server.py`
+write one `practice_sessions` row per learn/perform attempt (with an
+additive `mode` column), register the full per-session `result.json` as a
+`result_json` artifact, and the frontend's `GET /api/history` reads it back
+through `get_recent_sessions()`/`get_session()`. `count_sessions()`,
+`recent_average_score()`, and `most_frequent_piece()` back the home/我的
+pages' "用户画像" summary card; `delete_session()` backs the history page's
+delete button (it only removes the DB rows -- callers are responsible for
+also deleting the artifact files themselves, see `edge/practice_server.py`'s
+`_history_delete`).
 
 ## Initialize
 

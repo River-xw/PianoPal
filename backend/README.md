@@ -10,7 +10,7 @@ python -m backend.audio_to_performance recording.wav -o performance.json
 python -m backend.scoring reference.json performance.json -o result.json
 ```
 
-The current backend has no long-running API server yet. A future database/API service should live here and call these packages rather than duplicating their schemas.
+These `backend/*` packages are themselves still pure libraries/CLIs, no server of their own. The actual long-running practice-session API server is `edge/practice_server.py` (Pi-native) / `scripts/session_server.py` (SSH fallback) -- both import and call straight into `backend.db`, `backend.score_to_reference`, and shell out to `scripts/grade_audio_reference_constrained.py` (which in turn calls `backend.audio_to_performance` + `backend.scoring`), rather than duplicating any of this layer's schemas.
 
 ## Local Data Layers
 

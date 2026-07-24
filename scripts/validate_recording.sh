@@ -56,7 +56,7 @@ DEBUG_JSON="$(mktemp).json"
   "$AUDIO_PATH" \
   --keyboard-profile "$PROFILE" \
   --white-keys-only \
-  --mode reference-grid \
+  --mode reference-dtw \
   -o "$RESULT_JSON" \
   --debug-output "$DEBUG_JSON" 2>&1 | grep -v "Warning\|warn" || true
 

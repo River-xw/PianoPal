@@ -40,7 +40,7 @@
 | mistake(故意彈錯) | 37 | 2-4 |
 | right(只彈右手) | 38 | 17-18(本來就只彈一半，合理) |
 
-`--emit-wrong-pitch`(現在預設開啟，用 `--no-emit-wrong-pitch` 關掉)讓「彈錯的音」不再被吞成籠統的 `missed`，而是明確標出「彈了什麼」——實測對著 mistake 錄音裡明確知道位置的一個彈錯和弦(E3 被彈成 F4)，debug 輸出精準對上：`pitch_ref=52(E3) → pitch_perf=65(F4), status=wrong_pitch`。
+`--emit-wrong-pitch`(現在預設開啟，用 `--no-emit-wrong-pitch` 關掉)讓「彈錯的音」不再被吞成籠統的 `missed`，而是明確標出「彈了什麼」——實測對著 mistake 錄音裡刻意彈錯的位置（第 1 小節的 G4 彈成了 F4），debug 輸出精準對上：`pitch_ref=67(G4) → pitch_perf=65(F4), status=wrong_pitch`。（這個對應的確切 ref_index 會隨節奏曲線/DTW 演算法微調而變動——上面這組數字是照目前這版驗證過的，不是寫死的常數；有疑問時直接重跑 debug JSON 核對最準。）
 
 代價：對著上面表格那種零浮動的乾淨合成音檔，`reference-dtw` 分數比 `reference-grid` 略低(twinkle_twinkle: 97.1→91.1)，因為 DTW 自己重新擬合的節奏曲線在完全規律的輸入上反而引入一點點雜訊；相對於真人錄音的漏彈率大幅改善，這個取捨是值得的。
 
@@ -239,6 +239,6 @@ python3 -m pytest audio_to_performance/tests -v
 
 ## 重要限制
 
-- **這是一個深度學習模型，假設跑在筆電/雲端，不是樹莓派本身**——樹莓派那端應該只負責錄音+把音檔傳出去，不要在樹莓派上直接呼叫 `transcribe()`
+- **這是一個深度學習模型**——早期假設它太重，只能跑在筆電/雲端，樹莓派只負責錄音+把音檔傳出去。後來 `experiments/benchmarks/basic_pitch_pi_bench.py` 實測 Pi 5 + ONNX Runtime 跑 basic-pitch 轉譜，5-30 秒音檔的推論時間只要 0.12-0.6 秒（比即時快 40 倍以上），證實這個顧慮不成立——`edge/practice_server.py`（前端實際在用的樹莓派原生 orchestrator）現在就是直接在樹莓派上呼叫 `scripts/grade_audio_reference_constrained.py`（進而呼叫這裡的 `transcribe()`），錄音、燈光引導、轉譜評分全部在同一台樹莓派上跑完，不需要額外的筆電/雲端這一段。`scripts/session_server.py`（SSH 備案 orchestrator）仍然保留，給還沒在樹莓派上裝評分依賴的情況用——這時轉譜評分才會在 SSH 對面的開發機上跑
 - 轉譜不是100%準確，尤其是快速圓滑奏、踏板延音、極端音域的段落——這比通用 onset 偵測好非常多，但不是完美的
 - 只處理單一鋼琴音源，不是多樂器分離(沒有用 Spleeter/Demucs 那類工具，也不需要，因為場景就是一台鋼琴)

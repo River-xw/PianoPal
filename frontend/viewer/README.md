@@ -6,13 +6,17 @@
 
 不用 `react-router`（維持專案一貫的輕量風格），`App.jsx` 用一個 `page: "onboarding" | "home" | "learn" | "perform" | "me"` 的 state 機做最外層導覽，`learn`/`perform` 內部各自維持 `setup → live → result` 三態子狀態機（兩者共用 `SessionSetup`/`LiveSession`，用 `mode` prop 區分文案跟行為）。姓名存在 localStorage：第一次打開（或姓名被清空）落到 `onboarding`，之後重新整理直接進 `home`；`home` 頁上有個「目前使用者：xxx（更換）」連結可以隨時切回 `onboarding` 換身份。
 
-**學習模式 vs 演奏模式**：都是 `POST /api/session/start` 帶 `mode: "learn"|"perform"`，後端依 mode 選一組 `ScoringConfig` 權重（`edge/practice_server.py`/`scripts/session_server.py` 的 `MODE_SCORE_WEIGHTS`）——學習模式音準/手型權重高、節奏均勻度不計；演奏模式三者較均衡的嚴格評分，而且會多帶 `--no-leds` 給 `ws2812_guide_song.py`（只計時+錄音，不點燈）。**評分引擎本身完全沒有分兩套**，純粹是權重參數不同。手型評分目前是固定的佔位值（`HAND_SHAPE_PLACEHOLDER_SCORE = 100.0`）——隊友那套姿勢辨識（`edge/raspi_runtime/`）還在門檻式佔位模型階段，且沒接到這兩支 orchestrator，等那邊成熟後才會接上真數據。
+**學習模式 vs 演奏模式**：都是 `POST /api/session/start` 帶 `mode: "learn"|"perform"`，後端依 mode 選一組 `ScoringConfig` 權重（`edge/practice_server.py`/`scripts/session_server.py` 的 `MODE_SCORE_WEIGHTS`）——學習模式音準/手型權重高、節奏均勻度不計；演奏模式三者較均衡的嚴格評分，而且會多帶 `--no-leds` 給 `ws2812_guide_song.py`（只計時+錄音，不點燈）。**評分引擎本身完全沒有分兩套**，純粹是權重參數不同。手型評分在 `edge/practice_server.py`（前端實際在用的樹莓派原生 orchestrator）已經接上真的 IMU 姿勢分類器——有設定 BLE 感測裝置（`edge/microbit_rpi_comm/raspberry/config.json`）時，`edge/posture_capture.py` 會在整場練習期間即時分類手型姿勢、把「正常姿勢時間窗比例」換算成 0-100 分餵進評分公式；沒有設定裝置的機器（多數開發機）會自動退回固定佔位值（`HAND_SHAPE_PLACEHOLDER_SCORE = 100.0`），不影響沒裝硬體的人繼續練習。`scripts/session_server.py`（SSH 備案 orchestrator）目前還沒接這塊，維持佔位值。
 
 學習模式另外還有：**燈光參數**（亮度滑桿 + 全鍵位/單鍵位範圍切換，隨 `POST /api/session/start` 的 `brightness`/`full_range` 傳給 `ws2812_guide_song.py` 既有的 `--brightness`/`--full-range`）、**節拍器**（`LiveSession.jsx` 用 `src/utils/metronome.js` 的 Web Audio lookahead scheduler，貫穿整個引導過程持續播放，拍速 = 曲子的 `tempo_bpm × 目前倍速`，跟樹莓派的燈光/錄音時序完全獨立，純瀏覽器端）、**曲目記憶**（`GET /api/songs?username=&mode=` 回傳這個使用者在這個模式下最近彈的 `last_song_id`，選歌下拉預設帶出）、**分段循環練習**（指定小節範圍讓 `ws2812_guide_song.py` 反覆循環引導，見下方獨立說明）。
 
 **分段循環練習**：學習模式選歌畫面上的另一個獨立按鈕（不是「開始練習」，是「開始分段練習」），帶 `loop_start_measure`/`loop_end_measure` 給後端；`ws2812_guide_song.py` 算出這個小節範圍對應的時間區間，讓播放時鐘到達區間終點就自動繞回起點、無限循環，直到使用者按「結束」。這種 session **不計分、不存入歷史紀錄**（`Session.practice_only`）——分段反覆彈奏的錄音對著整曲的參考譜評分沒有意義，純粹是熟練用的練習輔助。
 
 **我的**：每次評分完成，後端會把完整 `result.json` 存一份到 `data/session_scratch/results/<姓名>/<session_id>.json`（每個 session 獨立檔案，不會互相覆蓋），並把摘要寫進 `backend/db/sqlite.py` 管理的 SQLite（`practice_sessions` 表）。前端「我的」頁面打 `GET /api/history?username=&mode=&song_id=` 拿列表（回應同時帶一個 `profile` 區塊：`total_sessions`/`recent_avg_score`/`most_frequent_piece`，`home`頁的「近期總結」卡片跟「我的」頁最上面的畫像卡片共用同一份資料、同一句用 `src/utils/profile.js` 產生的畫像文字）、`GET /api/history/<session_id>` 拿單筆完整報告（直接餵給跟即時結果同一組 `SummaryPanel`/`NotationView`/`FeedbackPanel`/`PianoRoll`/`TimingStrip`）、`DELETE /api/history/<session_id>` 刪除。列表下方還有**分數趨勢圖**（`TrendChart.jsx`，手刻 SVG，同 `PianoRoll`/`TimingStrip` 風格）跟**多筆比對**（勾選 2 筆以上跳出子分數對照表），每筆記錄可以直接**匯出 JSON**（純前端 Blob 下載，沒有額外後端 API）。這套 SQLite schema是隊友原本為了姿勢辨識另外寫的，這次接進來重用，額外加了一個 `mode` 欄位（additive migration，不影響隊友原本的用法）。
+
+## 視覺風格
+
+整體是「手繪塗鴉風」：標題/logo 用 Google Fonts 的 `Permanent Marker`/`Caveat`（英文）+ `ZCOOL KuaiLe`（中文專用的圓潤手寫字體——前兩個純西文字體完全不含中文字形，中文文字都是靠字體堆疊自動 fallback 到 `ZCOOL KuaiLe` 才有手寫感，見 `index.html` 的字體 `<link>` 跟 `index.css` 的 `--font-title`/`--font-hand`），內文用 `Kalam`。所有卡片容器用 `.sketch-card`/`.sketch-card-alt`（`index.css`）套不對稱的 `border-radius` 做出歪斜的手繪感，配合暖色紙感背景(`body::before` 的顆粒紋理)、便利貼膠帶(`.washi-tape`)、螢光筆畫重點(`.marker-highlight`)。主色調是藍色系（`--accent` + 天空藍/藍綠/藍紫/深靛藍四種裝飾色 `--sketch-*`/`--tint-*`），評分視覺化用的狀態色（`--status-*`）完全獨立、不隨主色調變動。`引導/主頁/學習模式/演奏模式` 這幾個內容量小的「單卡片」畫面在 `App.jsx` 裡會垂直置中在扣掉 header 後的剩餘高度，避免寬螢幕(16:9)下面留一大片空白；「我的」跟評分報告頁維持從上往下自然排列，因為內容量會隨資料增減。
 
 ## 執行
 
@@ -102,8 +106,11 @@ cd frontend/viewer && npm install && npm run dev
 | `src/App.jsx` | 最外層：`page`(onboarding/home/learn/perform/me) + `view`(setup/live/result，只在 learn/perform 內有意義) 狀態機、檔案選取、姓名狀態(含 localStorage)、把資料分派給各個面板 |
 | `src/i18n.js` | 純資料的翻譯字典 + `translate(key, lang, vars)`，不依賴 React，`utils/feedback.js`/`utils/profile.js` 也直接 import |
 | `src/LanguageContext.jsx` | 包在 `i18n.js` 外面的 React context/hook(`useTranslation`)，管理目前語言 + localStorage 持久化 |
-| `src/components/OnboardingPage.jsx` | 引導頁：姓名輸入框、Slogan、藍色主色調、「進入」按鈕 |
-| `src/components/HomePage.jsx` | 主頁：logo、近期總結卡片(總練習次數/近期平均分/上次練習/畫像一句話)、學習模式/演奏模式/我的三張導覽卡片、切換使用者連結 |
+| `src/components/OnboardingPage.jsx` | 引導頁：逐字打出來的手寫標題動畫、Slogan、姓名輸入框、「進入」按鈕 |
+| `src/components/HomePage.jsx` | 主頁：logo(含 Mascot)、近期總結卡片(總練習次數/近期平均分/上次練習/畫像一句話)、學習模式/演奏模式/我的三張導覽卡片、切換使用者連結 |
+| `src/components/Mascot.jsx` | 手繪風小人物插圖(純 SVG，之後會換成真的圖片檔)，用在引導頁/主頁 |
+| `src/components/Doodles.jsx` | 背景散落的手繪小圖示(星星/愛心/閃光)，只用在資料量少的頁面(引導頁/主頁)，避免干擾資料密集畫面的閱讀 |
+| `src/components/icons.jsx` | 共用的極簡線條圖示(燈泡/靶心/循環箭頭/展開箭頭)，`SessionSetup.jsx` 用來標示學習/演奏模式跟各個子區塊 |
 | `src/components/MyPage.jsx` | 我的：使用者畫像卡片、分數趨勢圖、練習記錄列表(依模式/曲目篩選、多筆勾選比對)、單筆查看(複用結果視圖)、刪除、匯出 JSON |
 | `src/components/TrendChart.jsx` | 分數趨勢折線圖(手刻 SVG，同 PianoRoll/TimingStrip 風格) |
 | `src/utils/profile.js` | 從 `profile` 聚合資料算出「新手/進階/熟練」等級 + 一句話畫像文字，HomePage/MyPage 共用 |
