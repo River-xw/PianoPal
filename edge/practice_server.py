@@ -87,11 +87,15 @@ RECORD_DEVICE = os.environ.get("PIANOPAL_RECORD_DEVICE", "plughw:2,0")
 # use a browser-local speaker or do not want audible clicks in mic recordings.
 PLAYBACK_DEVICE = os.environ.get("PIANOPAL_PLAYBACK_DEVICE")
 GUIDE_LEAD_IN_SEC = 3.0
+POSTURE_READY_TIMEOUT_SEC = float(
+    os.environ.get("PIANOPAL_POSTURE_READY_TIMEOUT_SEC", "20")
+)
+POSTURE_READY_POLL_SEC = 0.1
 POLL_INTERVAL_SEC = 1.0
 CONSECUTIVE_MISSES_TO_FINISH = 4
-# Both are existence-checked at session start. Motion sensing is reported as
-# unavailable when either is absent; formal scoring never substitutes a fake
-# perfect posture score.
+# Both are required for a formal scored attempt. The server also waits for
+# valid BLE packets from every requested hand before starting the guide/audio,
+# so a missing motion dimension can never silently enter formal history.
 BLE_CONFIG_PATH = REPO_ROOT / "edge/microbit_rpi_comm/raspberry/config.json"
 POSTURE_MODEL_CANDIDATES = (
     # Prefer the portable export on the Pi: it avoids requiring the exact
@@ -99,7 +103,27 @@ POSTURE_MODEL_CANDIDATES = (
     REPO_ROOT / "models/gesture/left_hand_posture_classifier.json",
     REPO_ROOT / "models/gesture/left_hand_posture_classifier.joblib",
 )
-POSTURE_HANDS = ("L",)
+
+
+def _configured_posture_hands() -> tuple[str, ...]:
+    raw = os.environ.get("PIANOPAL_POSTURE_HANDS", "L")
+    requested = raw.upper().replace(",", " ").split()
+    invalid = sorted(set(requested) - {"L", "R"})
+    if invalid:
+        raise ValueError(
+            f"PIANOPAL_POSTURE_HANDS only accepts L/R, got {invalid}"
+        )
+    hands = tuple(dict.fromkeys(requested))
+    if not hands:
+        raise ValueError("PIANOPAL_POSTURE_HANDS must request at least one hand")
+    return hands
+
+
+# The shipped classifier is left-hand-only, so production defaults to L.
+# Right-hand BLE/storage is already supported; after a compatible model is
+# trained, launch with PIANOPAL_POSTURE_HANDS="L,R" to enable both without a
+# server code change.
+POSTURE_HANDS = _configured_posture_hands()
 
 DEFAULT_MODE = "learn"
 # learn (LED-guided) is lenient -- pitch/hand-shape weighted high, timing
@@ -226,6 +250,8 @@ class Session:
         self.recording_path = self.session_dir / "performance.wav"
         self.guide_json_path = self.session_dir / "guide.json"
         self.posture_result_path = self.session_dir / "motion_assessment.json"
+        self.posture_ready_path = self.session_dir / "motion_ready.json"
+        self.posture_log_path = self.session_dir / "motion_capture.log"
         self.result_path = self.session_dir / "result.json"
         self.debug_path = self.session_dir / "audio_debug.json"
         self.song_end = 0.0
@@ -261,6 +287,110 @@ def _guide_control(action: str, value=None) -> bool:
         return False
 
 
+def _terminate_process(process: subprocess.Popen | None, timeout: float = 5.0) -> None:
+    if process is None or process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
+def _posture_failure_detail(session: Session) -> str:
+    if session.posture_result_path.exists():
+        try:
+            result = json.loads(
+                session.posture_result_path.read_text(encoding="utf-8")
+            )
+            if result.get("error"):
+                return str(result["error"])
+        except (json.JSONDecodeError, OSError):
+            pass
+    if session.posture_log_path.exists():
+        try:
+            log = session.posture_log_path.read_text(
+                encoding="utf-8", errors="replace"
+            ).strip()
+            if log:
+                return log[-800:]
+        except OSError:
+            pass
+    return "no valid sensor packets were received"
+
+
+def _start_posture_capture_and_wait(
+    session: Session,
+    posture_model_path: Path,
+    timeout_sec: float = POSTURE_READY_TIMEOUT_SEC,
+) -> None:
+    """Start formal motion capture and block until every requested hand has
+    streamed at least one valid packet.
+
+    The guide, microphone, and formal DB row are deliberately not started
+    before this returns. A failed/timeout BLE connection therefore cannot
+    create a scored attempt with a silently missing motion dimension.
+    """
+    session.posture_ready_path.unlink(missing_ok=True)
+    session.posture_result_path.unlink(missing_ok=True)
+    posture_cmd = [
+        sys.executable,
+        "-u",
+        str(Path(__file__).resolve().parent / "posture_capture.py"),
+        "--ble-config",
+        str(BLE_CONFIG_PATH),
+        "--posture-model",
+        str(posture_model_path),
+        "--hands",
+        *POSTURE_HANDS,
+        "--start-delay-sec",
+        str(GUIDE_LEAD_IN_SEC),
+        "--ready-output",
+        str(session.posture_ready_path),
+        "-o",
+        str(session.posture_result_path),
+    ]
+    with session.posture_log_path.open("w", encoding="utf-8") as posture_log:
+        session.posture_process = subprocess.Popen(
+            posture_cmd,
+            cwd=str(REPO_ROOT),
+            stdin=subprocess.DEVNULL,
+            stdout=posture_log,
+            stderr=subprocess.STDOUT,
+        )
+
+    deadline = time.monotonic() + max(0.0, timeout_sec)
+    while time.monotonic() < deadline:
+        if session.posture_ready_path.exists():
+            try:
+                ready = json.loads(
+                    session.posture_ready_path.read_text(encoding="utf-8")
+                )
+            except (json.JSONDecodeError, OSError):
+                time.sleep(POSTURE_READY_POLL_SEC)
+                continue
+            ready_hands = set(ready.get("capture_hands", []))
+            if ready.get("ready") is True and ready_hands.issuperset(
+                POSTURE_HANDS
+            ):
+                return
+        if (
+            session.posture_process is not None
+            and session.posture_process.poll() is not None
+        ):
+            detail = _posture_failure_detail(session)
+            raise RuntimeError(f"motion sensor connection failed: {detail}")
+        time.sleep(POSTURE_READY_POLL_SEC)
+
+    _terminate_process(session.posture_process)
+    detail = _posture_failure_detail(session)
+    raise TimeoutError(
+        "motion sensors were not ready within "
+        f"{timeout_sec:.0f}s for hands {list(POSTURE_HANDS)}: {detail}"
+    )
+
+
 def _start_session(
     song_id: str, speed: float, username: str, mode: str,
     brightness: float = 0.25, full_range: bool = False,
@@ -283,12 +413,6 @@ def _start_session(
     session.white_keys_only = _is_white_key_only(reference)
     session.tempo_bpm = reference.get("tempo_bpm")
 
-    now = _now_iso()
-    db.create_user(safe_name, username, now)
-    db.create_piece(song_id, reference.get("title", song_id), None, None, now)
-    if not practice_only:
-        db.create_practice_session(session_id, safe_name, song_id, now, mode=mode)
-
     session.session_dir.mkdir(parents=True, exist_ok=True)
     session.guide_json_path.write_text(json.dumps({
         "title": reference.get("title", song_id), "tempo_bpm": reference.get("tempo_bpm"),
@@ -296,7 +420,34 @@ def _start_session(
     }), encoding="utf-8")
 
     subprocess.run(["pkill", "-f", "ws2812_guide_son[g]"], capture_output=True)
-    time.sleep(0.3)
+    subprocess.run(["pkill", "-f", "posture_captur[e]"], capture_output=True)
+    time.sleep(0.5)
+
+    # Formal scored attempts require motion streaming to be ready before the
+    # guide countdown and microphone start. Segmented-loop practice is not
+    # formally scored and intentionally skips this gate.
+    posture_model_path = _resolve_posture_model_path()
+    if practice_only:
+        session.motion_unavailable_reason = (
+            "segmented practice is not formally scored"
+        )
+    elif not BLE_CONFIG_PATH.exists():
+        raise RuntimeError(
+            f"BLE configuration unavailable: {BLE_CONFIG_PATH}"
+        )
+    elif posture_model_path is None:
+        raise RuntimeError("trained motion model is unavailable")
+    else:
+        _start_posture_capture_and_wait(session, posture_model_path)
+
+    now = _now_iso()
+    db.create_user(safe_name, username, now)
+    db.create_piece(song_id, reference.get("title", song_id), None, None, now)
+    if not practice_only:
+        db.create_practice_session(
+            session_id, safe_name, song_id, now, mode=mode
+        )
+
     guide_cmd = [
         sys.executable, "-u", str(Path(__file__).resolve().parent / "ws2812_guide_song.py"),
         str(session.guide_json_path),
@@ -324,32 +475,6 @@ def _start_session(
         cwd=str(Path(__file__).resolve().parent),
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
-
-    # Formal motion assessment is separate from the training-data collector:
-    # posture_capture only writes one aggregate JSON under this formal
-    # session. edge.raspi_runtime remains the raw IMU/audio collection path.
-    subprocess.run(["pkill", "-f", "posture_captur[e]"], capture_output=True)
-    posture_model_path = _resolve_posture_model_path()
-    if practice_only:
-        session.motion_unavailable_reason = "segmented practice is not formally scored"
-    elif not BLE_CONFIG_PATH.exists():
-        session.motion_unavailable_reason = "BLE configuration is unavailable"
-    elif posture_model_path is None:
-        session.motion_unavailable_reason = "trained motion model is unavailable"
-    else:
-        posture_cmd = [
-            sys.executable, "-u", str(Path(__file__).resolve().parent / "posture_capture.py"),
-            "--ble-config", str(BLE_CONFIG_PATH),
-            "--posture-model", str(posture_model_path),
-            "--hands", *POSTURE_HANDS,
-            "--start-delay-sec", str(GUIDE_LEAD_IN_SEC),
-            "-o", str(session.posture_result_path),
-        ]
-        session.posture_process = subprocess.Popen(
-            posture_cmd,
-            cwd=str(REPO_ROOT),
-            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
 
     session.phase = "guiding"
     return session

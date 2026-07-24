@@ -43,7 +43,10 @@ rsync -av --exclude='*.wav' data/bf3738c_keybank docs/piano_music pi@<树莓派I
 树莓派上启动一个进程：
 
 ```bash
-cd ~/PianoPal && python3 edge/practice_server.py
+cd ~/PianoPal
+PIANOPAL_RECORD_DEVICE='plughw:CARD=Device_1,DEV=0' \
+PIANOPAL_PLAYBACK_DEVICE='plughw:CARD=Device,DEV=0' \
+backend/audio_to_performance/.venv/bin/python3 edge/practice_server.py --port 8900
 ```
 
 本机浏览器打开 `http://<树莓派IP>:8900/` 就是选歌画面。整个练习流程（引导/录音/评分）都在树莓派本地跑，本机跟树莓派之间的网络抖动不影响流程，只影响你看不看得到画面。
