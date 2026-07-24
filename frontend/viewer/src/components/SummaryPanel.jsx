@@ -37,11 +37,11 @@ export default function SummaryPanel({ summary }) {
   const octaveSlips = summary.octave_slips_in_wrong_pitch ?? 0;
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border p-6" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+    <div className="sketch-card flex flex-col gap-4 p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-sm" style={{ color: "var(--text-muted)" }}>{t("overallScore")}</div>
-          <div className="text-5xl font-semibold leading-none" style={{ color: "var(--text-primary)" }}>
+          <div className="text-5xl leading-none" style={{ color: "var(--accent)", fontFamily: "var(--font-title)" }}>
             {score.toFixed(1)}
           </div>
         </div>

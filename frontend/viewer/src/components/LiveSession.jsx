@@ -84,12 +84,9 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
   const progress = status?.song_end > 0 ? Math.min(1, (status.song_pos || 0) / status.song_end) : 0;
 
   return (
-    <div
-      className="flex flex-col gap-4 rounded-2xl border px-6 py-6 shadow-sm"
-      style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-    >
+    <div className="sketch-card flex flex-col gap-4 px-6 py-6">
       <div>
-        <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+        <h2 className="text-xl" style={{ color: "var(--text-primary)" }}>
           {songTitle}
         </h2>
         <span className="text-sm" style={{ color: "var(--text-muted)" }}>

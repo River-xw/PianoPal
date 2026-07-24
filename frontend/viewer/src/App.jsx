@@ -13,6 +13,12 @@ import { useTranslation } from "./LanguageContext.jsx";
 import { LANGUAGES } from "./i18n";
 
 const USERNAME_STORAGE_KEY = "pianopal_username";
+// Short, single-card "hero" pages -- vertically centered in whatever's left
+// of the viewport below the header, so a wide/short 16:9 window doesn't just
+// pin them to the top with a big dead gap underneath. "me" and the result
+// view are excluded: their content is naturally long/scrollable and
+// shouldn't be squeezed into one screen's worth of height.
+const CENTERED_PAGES = new Set(["onboarding", "home", "learn", "perform"]);
 
 function readStoredUsername() {
   try {
@@ -127,8 +133,10 @@ export default function App() {
     setPage("onboarding");
   };
 
+  const isCentered = view !== "result" && CENTERED_PAGES.has(page);
+
   return (
-    <div className="mx-auto max-w-5xl px-6 py-8">
+    <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-8">
       <header className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
@@ -187,7 +195,11 @@ export default function App() {
       {/* A loaded/graded result takes priority over whatever `page` is --
           "Load result.json" is available from any page (including home),
           so it must be able to display regardless of which page was active
-          when it was triggered, not just from within learn/perform. */}
+          when it was triggered, not just from within learn/perform. Short
+          "hero" pages (onboarding/home/learn/perform) get centered in
+          whatever height is left below the header; "me" and the result view
+          scroll from the top since their content length varies. */}
+      <div className={isCentered ? "flex flex-1 flex-col justify-center" : "flex-1"}>
       {view === "result" && result ? (
         <div className="flex flex-col gap-4">
           <SummaryPanel summary={result.summary} />
@@ -219,6 +231,7 @@ export default function App() {
           />
         )
       ) : null}
+      </div>
     </div>
   );
 }

@@ -74,7 +74,7 @@ export default function PianoRoll({ notes }) {
   const yForPitch = (p) => MARGIN.top + (maxPitch - p) * PX_PER_SEMITONE;
 
   return (
-    <div className="rounded-xl border" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+    <div className="sketch-card">
       <div className="flex items-center gap-4 border-b px-4 py-2 text-sm" style={{ borderColor: "var(--border)" }}>
         <span className="font-medium" style={{ color: "var(--text-primary)" }}>{t("pianoRollTitle")}</span>
         {Object.entries(STATUS_VAR).map(([status, cssVar]) => (

@@ -2,16 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 手繪塗鴉風主題：藍色為基調的紙感背景 + 手寫字體 + 歪斜圓角卡片。狀態色
+   （correct/timing_off/...）刻意不跟著換 -- 那是評分視覺化的辨識色，
+   跟裝飾性主色調無關。 */
 :root {
   color-scheme: light;
   --surface: #ffffff;
-  --page: #eaf2fd;
-  --text-primary: #0f2947;
-  --text-secondary: #3d5876;
-  --text-muted: #7592b0;
-  --gridline: #dce8f7;
-  --axis: #b6cde7;
-  --border: rgba(29, 78, 149, 0.16);
+  --page: #eef3fa;
+  --text-primary: #1e2a3a;
+  --text-secondary: #4c5c70;
+  --text-muted: #8296ab;
+  --gridline: #dce6f0;
+  --axis: #b9cbdc;
+  --border: rgba(30, 58, 94, 0.18);
 
   --status-correct: #0ca30c;
   --status-timing-off: #fab219;
@@ -19,26 +22,49 @@
   --status-missed: #8698b3;
   --status-extra: #4a3aa7;
 
-  /* 淺藍/深藍/白三色主調：surface=白、page=淺藍、text-primary=深藍；
-     accent 是強調用的品牌深藍（CTA、logo、連結），accent-light 是淺藍色塊
-     （選中/hover 底色）。狀態色（correct/timing_off/...）維持不變，跟主色
-     調無關，避免破壞既有的可辨識度。 */
-  --accent: #1d5fd6;
+  --accent: #2f6fed;
   --accent-contrast: #ffffff;
-  --accent-light: #dbeafe;
+  --accent-light: #dbe9ff;
+
+  /* 裝飾用色（便利貼膠帶、導覽卡圖示底色…）-- 都是藍色系的深淺變化
+     （天空藍/藍綠/藍紫/深靛藍），跟狀態色/accent 分開 */
+  --sketch-sky: #4a90e2;
+  --sketch-teal: #38b6ac;
+  --sketch-indigo: #7b7fd1;
+  --sketch-navy: #35577e;
+
+  /* 上面四色的粉彩淡底色版本，給各個區塊分別上色用，避免整頁都是同一種
+     accent-light 藍看起來太單一/太一本正經 */
+  --tint-sky: #e3eefc;
+  --tint-teal: #dbf3f0;
+  --tint-indigo: #e7e7f7;
+  --tint-navy: #e1e8f0;
+
+  /* Permanent Marker/Caveat/Kalam 都不含中文字形，中文會整段掉回瀏覽器
+     預設字體，等於白做 -- ZCOOL KuaiLe 是特別做給中文用的圓潤手寫感字體，
+     放在 fallback 位置，同一段文字裡英文用前面那些手寫字體、中文自動接手
+     用 ZCOOL KuaiLe（瀏覽器對字體堆疊本來就是逐字判斷有沒有對應字形）。 */
+  --font-title: "Permanent Marker", "ZCOOL KuaiLe", "Caveat", cursive;
+  --font-hand: "Kalam", "ZCOOL KuaiLe", "Patrick Hand", cursive;
+
+  /* 兩種歪斜圓角變化，卡片交替使用增加手繪感（比一開始的版本更明顯一點，
+     不然太嚴肅、看起來還是像一般圓角卡片） */
+  --sketch-radius-a: 38px 8px 38px 8px / 8px 38px 8px 38px;
+  --sketch-radius-b: 8px 38px 8px 38px / 38px 8px 38px 8px;
+  --sketch-radius-btn: 18px 6px 18px 6px / 6px 18px 6px 18px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --surface: #10233c;
-    --page: #071426;
-    --text-primary: #f3f8ff;
-    --text-secondary: #a9c7ec;
-    --text-muted: #7996bd;
-    --gridline: #16283f;
-    --axis: #2c4468;
-    --border: rgba(147, 197, 253, 0.18);
+    --surface: #17263a;
+    --page: #0d1826;
+    --text-primary: #eef3fa;
+    --text-secondary: #aebfd2;
+    --text-muted: #7c8fa5;
+    --gridline: #1c2c3f;
+    --axis: #33475e;
+    --border: rgba(200, 220, 245, 0.16);
 
     --status-correct: #0ca30c;
     --status-timing-off: #fab219;
@@ -47,14 +73,135 @@
     --status-extra: #9085e9;
 
     --accent: #5b9bf7;
-    --accent-contrast: #071426;
-    --accent-light: #17324f;
+    --accent-contrast: #0d1826;
+    --accent-light: #1a2c42;
+
+    --sketch-sky: #6fa8ea;
+    --sketch-teal: #4ecdc4;
+    --sketch-indigo: #9b9fe0;
+    --sketch-navy: #5c85b3;
+
+    --tint-sky: #17293d;
+    --tint-teal: #16302d;
+    --tint-indigo: #232236;
+    --tint-navy: #1b2836;
   }
 }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-hand);
   background: var(--page);
   color: var(--text-primary);
+  position: relative;
+  accent-color: var(--accent);
+}
+
+/* 紙張顆粒紋理 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(30, 58, 94, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-title);
+  font-weight: 400;
+}
+
+/* 歪斜手繪感卡片 -- 大卡片用，小元件（輸入框等）維持一般圓角以免看起來像壞掉。
+   -alt 只是另一種歪斜方向，兩者都要有完整卡片樣式，各自獨立使用 */
+.sketch-card, .sketch-card-alt {
+  border: 2px solid var(--border);
+  background: var(--surface);
+  box-shadow: 2px 3px 0 rgba(61, 54, 42, 0.06);
+}
+.sketch-card {
+  border-radius: var(--sketch-radius-a);
+}
+.sketch-card-alt {
+  border-radius: var(--sketch-radius-b);
+}
+.sketch-btn {
+  border-radius: var(--sketch-radius-btn);
+}
+
+/* 螢光筆畫重點 */
+.marker-highlight {
+  padding: 0 0.25em;
+  border-radius: 4px 10px 4px 10px / 10px 4px 10px 4px;
+  background: var(--accent-light);
+}
+
+/* 便利貼膠帶 -- 貼在卡片一角，父層需要 position: relative */
+.washi-tape {
+  position: absolute;
+  top: -8px;
+  width: 44px;
+  height: 18px;
+  opacity: 0.85;
+  border-radius: 2px;
+}
+
+/* 引導頁的手寫打字動畫：標題逐字出現 + 閃爍游標，打完彈一下，
+   接著 slogan/輸入框才淡入滑入 -- 呼應參考網站 SVG 逐字描邊+bounce 的效果 */
+@keyframes blink-cursor {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.typewriter-cursor {
+  margin-left: 2px;
+  animation: blink-cursor 0.9s step-end infinite;
+}
+
+@keyframes bounce-pop {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.08); }
+  60% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+.title-bounce {
+  animation: bounce-pop 0.4s ease-out;
+}
+
+.reveal-fade-up {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.reveal-fade-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 區塊上色 -- 同一頁裡不同區塊給不同粉彩底色（都是藍色系深淺），比全部都
+   套同一種 accent-light 更活潑、也更容易一眼分辨「這是哪一塊」 */
+.tint-sky { background: var(--tint-sky); }
+.tint-teal { background: var(--tint-teal); }
+.tint-indigo { background: var(--tint-indigo); }
+.tint-navy { background: var(--tint-navy); }
+
+/* 手繪虛線分隔線，取代死板的實線 border-bottom */
+.doodle-divider {
+  border: none;
+  border-top: 2px dashed var(--border);
+}
+
+/* 按鈕 hover 時輕輕晃一下，比單純變色更有手繪塗鴉的活潑感 */
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-2deg); }
+  75% { transform: rotate(2deg); }
+}
+.wiggle-hover:hover {
+  animation: wiggle 0.3s ease-in-out;
 }

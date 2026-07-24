@@ -133,10 +133,7 @@ export default function MyPage({ username }) {
       </div>
 
       {profile && (
-        <div
-          className="flex flex-col gap-1 rounded-xl border px-5 py-4"
-          style={{ borderColor: "var(--border)", background: "var(--accent-light)" }}
-        >
+        <div className="sketch-card tint-sky flex flex-col gap-1 px-5 py-4" style={{ border: "none" }}>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm" style={{ color: "var(--text-secondary)" }}>
             <span>{t("recentSummaryTotal", { count: profile.total_sessions })}</span>
             {profile.recent_avg_score != null && (
@@ -220,7 +217,7 @@ export default function MyPage({ username }) {
       </div>
 
       {compareSessions.length >= 2 && (
-        <div className="overflow-x-auto rounded-xl border p-4" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+        <div className="sketch-card-alt overflow-x-auto p-4">
           <div className="mb-2 text-sm font-medium" style={{ color: "var(--text-primary)" }}>{t("compareTitle")}</div>
           <table className="w-full text-left text-sm" style={{ color: "var(--text-secondary)" }}>
             <thead>

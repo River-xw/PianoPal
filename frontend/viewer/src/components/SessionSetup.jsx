@@ -130,19 +130,16 @@ export default function SessionSetup({ mode, username, onUsernameChange, onStart
   const ModeIcon = mode === "perform" ? IconTarget : IconLightbulb;
 
   return (
-    <div
-      className="flex flex-col gap-6 rounded-2xl border px-6 py-6 shadow-sm"
-      style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-    >
-      <div className="flex items-center gap-3 border-b pb-5" style={{ borderColor: "var(--border)" }}>
+    <div className="sketch-card flex flex-col gap-6 px-6 py-6">
+      <div className="flex items-center gap-3 pb-5" style={{ borderBottom: "2px dashed var(--border)" }}>
         <div
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-          style={{ background: "var(--accent-light)", color: "var(--accent)" }}
+          className="sketch-btn flex h-11 w-11 shrink-0 items-center justify-center"
+          style={{ background: "var(--accent-light)", color: "var(--accent)", border: "none" }}
         >
           <ModeIcon className="h-6 w-6" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+          <h2 className="text-xl" style={{ color: "var(--text-primary)" }}>
             {mode === "perform" ? t("navPerformMode") : t("navLearnMode")}
           </h2>
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
@@ -158,7 +155,7 @@ export default function SessionSetup({ mode, username, onUsernameChange, onStart
       )}
 
       <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+        <span className="text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-title)" }}>
           {t("yourName")}
         </span>
         <input
@@ -172,7 +169,7 @@ export default function SessionSetup({ mode, username, onUsernameChange, onStart
       </div>
 
       <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+        <span className="text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-title)" }}>
           {t("song")}
         </span>
         <select
@@ -209,7 +206,7 @@ export default function SessionSetup({ mode, username, onUsernameChange, onStart
       </div>
 
       <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+        <span className="text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-title)" }}>
           {t(mode === "perform" ? "targetSpeedLabel" : "speedLabel", { speed: speed.toFixed(2) })}
         </span>
         <input
@@ -223,9 +220,9 @@ export default function SessionSetup({ mode, username, onUsernameChange, onStart
       </div>
 
       {mode === "learn" && (
-        <div className="flex flex-col gap-3 rounded-xl px-4 py-4" style={{ background: "var(--accent-light)" }}>
-          <span className="flex items-center gap-2 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-            <IconLightbulb className="h-4 w-4" style={{ color: "var(--accent)" }} />
+        <div className="sketch-card-alt tint-teal flex flex-col gap-3 px-4 py-4" style={{ border: "none" }}>
+          <span className="flex items-center gap-2 text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-title)" }}>
+            <IconLightbulb className="h-4 w-4" style={{ color: "var(--sketch-teal)" }} />
             {t("ledConfigLabel")}
           </span>
           <div className="flex flex-col gap-1">
@@ -249,13 +246,13 @@ export default function SessionSetup({ mode, username, onUsernameChange, onStart
       )}
 
       {mode === "learn" && (
-        <div className="overflow-hidden rounded-xl border" style={{ borderColor: "var(--border)" }}>
+        <div className="sketch-card-alt tint-indigo overflow-hidden" style={{ border: "none" }}>
           <button
             className="flex w-full items-center justify-between px-4 py-3 text-left"
             onClick={() => setLoopExpanded((v) => !v)}
           >
-            <span className="flex items-center gap-2 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-              <IconRepeat className="h-4 w-4" style={{ color: "var(--text-muted)" }} />
+            <span className="flex items-center gap-2 text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-title)" }}>
+              <IconRepeat className="h-4 w-4" style={{ color: "var(--sketch-indigo)" }} />
               {t("segmentLoopLabel")}
             </span>
             <IconChevronDown
@@ -264,7 +261,7 @@ export default function SessionSetup({ mode, username, onUsernameChange, onStart
             />
           </button>
           {loopExpanded && (
-            <div className="flex flex-col gap-2 border-t px-4 py-3" style={{ borderColor: "var(--border)" }}>
+            <div className="flex flex-col gap-2 px-4 py-3" style={{ borderTop: "2px dashed var(--border)" }}>
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>{t("segmentLoopHint")}</span>
               {refNotes.length > 0 && <NotationView notes={refNotes} preview highlightRange={previewRange} />}
               <div className="flex items-end gap-2">
@@ -306,8 +303,8 @@ export default function SessionSetup({ mode, username, onUsernameChange, onStart
       )}
 
       <button
-        className="rounded-xl px-4 py-3 text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-        style={{ background: "var(--accent)", color: "var(--accent-contrast)" }}
+        className="sketch-btn wiggle-hover px-4 py-3 text-base transition-opacity hover:opacity-90 disabled:opacity-50"
+        style={{ background: "var(--accent)", color: "var(--accent-contrast)", border: "none", fontFamily: "var(--font-title)" }}
         disabled={!selectedId || starting}
         onClick={() => handleStart()}
       >

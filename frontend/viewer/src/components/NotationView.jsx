@@ -188,7 +188,7 @@ export default function NotationView({ notes, preview = false, highlightRange = 
   }, [measures, preview]);
 
   return (
-    <div className="rounded-xl border" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+    <div className="sketch-card">
       <div className="flex items-center gap-4 border-b px-4 py-2 text-sm" style={{ borderColor: "var(--border)" }}>
         <span className="font-medium" style={{ color: "var(--text-primary)" }}>{t("notationTitle")}</span>
         {!preview && Object.entries(STATUS_VAR).map(([status, cssVarName]) => (

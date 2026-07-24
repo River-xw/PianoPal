@@ -14,7 +14,7 @@ export default function FeedbackPanel({ notes, summary }) {
   const feedback = useMemo(() => generateFeedback(notes, summary, lang), [notes, summary, lang]);
 
   return (
-    <div className="rounded-xl border p-4" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+    <div className="sketch-card-alt p-4">
       <div className="mb-3 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
         {t("feedbackTitle")}
       </div>

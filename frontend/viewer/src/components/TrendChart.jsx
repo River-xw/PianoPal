@@ -36,7 +36,7 @@ export default function TrendChart({ sessions }) {
   const yForScore = (v) => MARGIN.top + plotH - (v / 100) * plotH;
 
   return (
-    <div className="rounded-xl border p-4" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+    <div className="sketch-card-alt p-4">
       <div className="mb-2 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
         {t("trendChartTitle")}
       </div>

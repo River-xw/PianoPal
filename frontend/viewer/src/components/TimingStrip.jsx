@@ -43,7 +43,7 @@ export default function TimingStrip({ notes }) {
   const yForOffset = (v) => MARGIN.top + plotH / 2 - (v / maxAbsOffset) * (plotH / 2);
 
   return (
-    <div className="rounded-xl border p-4" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+    <div className="sketch-card-alt p-4">
       <div className="mb-2 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
         {t("timingStripTitle")}
       </div>
