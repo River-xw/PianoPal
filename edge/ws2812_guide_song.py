@@ -49,13 +49,18 @@ from __future__ import annotations
 import argparse
 import bisect
 import json
+import math
+import os
 import select
+import struct
 import subprocess
 import sys
+import tempfile
 import termios
 import threading
 import time
 import tty
+import wave
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -91,8 +96,20 @@ def parse_args() -> argparse.Namespace:
                         help="If given, record audio from --record-device to this WAV path for exactly the "
                              "guided session's duration (starts when the lead-in ends, stops when the song ends "
                              "or playback is quit/restarted) -- so the recording lines up with the LED timeline.")
-    parser.add_argument("--record-device", default="plughw:2,0",
-                        help="ALSA capture device for `arecord -D` (see `arecord -l` on the Pi for options).")
+    parser.add_argument(
+        "--record-device",
+        default=os.environ.get("PIANOPAL_RECORD_DEVICE", "plughw:2,0"),
+        help="ALSA capture device for `arecord -D` (see `arecord -l` on the Pi for options).",
+    )
+    parser.add_argument(
+        "--metronome-device",
+        default=os.environ.get("PIANOPAL_PLAYBACK_DEVICE"),
+        help=(
+            "ALSA playback device for learn-mode metronome clicks, e.g. "
+            "plughw:CARD=Device,DEV=0. Omit to leave metronome playback to "
+            "the frontend browser."
+        ),
+    )
     parser.add_argument(
         "--no-leds", action="store_true",
         help="Skip all LED lighting (for 演奏模式/performance mode, which has no visual guidance) -- "
@@ -157,6 +174,62 @@ class AudioRecorder:
         self.process = None
 
 
+class AlsaMetronome:
+    """Play short click WAVs through one explicitly selected Pi ALSA device.
+
+    Each click is an independent non-blocking ``aplay`` invocation. Keeping
+    playback on the guide's song-time crossings makes speed, pause, restart,
+    and segmented-loop controls share the exact same transport as the LEDs
+    and recording lifecycle.
+    """
+
+    def __init__(self, device: str):
+        self.device = device
+        self.process: subprocess.Popen | None = None
+        with tempfile.NamedTemporaryFile(
+            prefix="pianopal_metronome_", suffix=".wav", delete=False
+        ) as tmp:
+            self.click_path = Path(tmp.name)
+        self._write_click()
+
+    def _write_click(self) -> None:
+        sample_rate = 44100
+        duration_sec = 0.04
+        frame_count = int(sample_rate * duration_sec)
+        frames = bytearray()
+        for index in range(frame_count):
+            elapsed = index / sample_rate
+            envelope = max(0.0, 1.0 - elapsed / duration_sec) ** 3
+            sample = int(12000 * envelope * math.sin(2.0 * math.pi * 1000.0 * elapsed))
+            frames.extend(struct.pack("<h", sample))
+        with wave.open(str(self.click_path), "wb") as output:
+            output.setnchannels(1)
+            output.setsampwidth(2)
+            output.setframerate(sample_rate)
+            output.writeframes(frames)
+
+    def play_click(self) -> None:
+        # A click is only 40 ms. If ALSA is unexpectedly still busy with the
+        # previous one, skip rather than queue a late click.
+        if self.process is not None and self.process.poll() is None:
+            return
+        self.process = subprocess.Popen(
+            ["aplay", "-q", "-D", self.device, str(self.click_path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    def close(self) -> None:
+        if self.process is not None and self.process.poll() is None:
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait()
+        self.click_path.unlink(missing_ok=True)
+
+
 def _build_timeline(notes: list, pitch_leds: dict[int, list[int]]):
     """Flatten notes into sorted (song_time_sec, kind, led, color) events;
     kind 0 = on (sorts first), 1 = off. song_time is in the score's own
@@ -189,6 +262,7 @@ class PlaybackState:
     def __init__(
         self, speed: float, title: str, song_end: float,
         loop_start: float | None = None, loop_end: float | None = None,
+        metronome_on_pi: bool = False,
     ):
         self._lock = threading.Lock()
         self.speed = speed
@@ -197,6 +271,8 @@ class PlaybackState:
         self.quit_requested = False
         self.song_pos = 0.0
         self.recording = False
+        self.metronome_on_pi = metronome_on_pi
+        self.metronome_muted = False
         self.title = title
         self.song_end = song_end
         # 分段循環練習: when both are set, tick() wraps song_pos back to
@@ -216,6 +292,8 @@ class PlaybackState:
                 self.restart_requested = True
             elif action == "quit":
                 self.quit_requested = True
+            elif action == "metronome_mute_set" and value is not None:
+                self.metronome_muted = bool(value)
 
     def snapshot(self) -> dict:
         with self._lock:
@@ -226,6 +304,8 @@ class PlaybackState:
                 "song_pos": round(self.song_pos, 2),
                 "song_end": round(self.song_end, 2),
                 "recording": self.recording,
+                "metronome_output": "pi" if self.metronome_on_pi else "browser",
+                "metronome_muted": self.metronome_muted,
             }
 
     def set_recording(self, recording: bool) -> None:
@@ -286,7 +366,14 @@ def _make_http_handler(state: PlaybackState):
                 self._send_json({"error": "invalid json"}, status=400)
                 return
             action = payload.get("action")
-            if action not in {"speed_set", "speed_delta", "pause_toggle", "restart", "quit"}:
+            if action not in {
+                "speed_set",
+                "speed_delta",
+                "pause_toggle",
+                "restart",
+                "quit",
+                "metronome_mute_set",
+            }:
                 self._send_json({"error": f"unknown action {action!r}"}, status=400)
                 return
             state.apply(action, payload.get("value"))
@@ -341,7 +428,14 @@ def _apply_key(state: PlaybackState, key: str) -> None:
         state.apply("quit")
 
 
-def _run(strip, events, state: PlaybackState, interactive_hint: bool) -> None:
+def _run(
+    strip,
+    events,
+    state: PlaybackState,
+    interactive_hint: bool,
+    metronome: AlsaMetronome | None = None,
+    tempo_bpm: float | None = None,
+) -> None:
     """Sampled playback: advance a song-time cursor by dt*speed each tick,
     firing events as it passes them, so speed changes (from either control
     path) take effect live."""
@@ -353,6 +447,8 @@ def _run(strip, events, state: PlaybackState, interactive_hint: bool) -> None:
             bisect.bisect_left([e[0] for e in events], state.loop_start) if looping else None
         )
         i = 0
+        beat_sec = 60.0 / tempo_bpm if tempo_bpm and tempo_bpm > 0 else None
+        next_beat_time = 0.0
         last = time.monotonic()
         while i < len(events) or looping:
             if state.quit_requested:
@@ -370,6 +466,7 @@ def _run(strip, events, state: PlaybackState, interactive_hint: bool) -> None:
                 strip.show()
                 i = 0
                 song_pos = 0.0
+                next_beat_time = 0.0
                 print("  restart")
                 last = time.monotonic()
                 continue
@@ -380,8 +477,21 @@ def _run(strip, events, state: PlaybackState, interactive_hint: bool) -> None:
                 strip.show()
                 i = loop_start_index
                 song_pos = state.loop_start
+                if beat_sec is not None:
+                    next_beat_time = math.ceil(
+                        state.loop_start / beat_sec - 1e-9
+                    ) * beat_sec
                 last = time.monotonic()
                 continue
+
+            if metronome is not None and beat_sec is not None:
+                if song_pos + 1e-6 >= next_beat_time:
+                    if not state.snapshot()["metronome_muted"]:
+                        metronome.play_click()
+                    # Advance the beat grid even when muted or after a slow
+                    # scheduling iteration, so clicks never queue up late.
+                    while next_beat_time <= song_pos + 1e-6:
+                        next_beat_time += beat_sec
 
             dirty = False
             while i < len(events) and events[i][0] <= song_pos:
@@ -448,6 +558,7 @@ def main() -> int:
     state = PlaybackState(
         speed=args.speed, title=title, song_end=song_end,
         loop_start=loop_start_sec, loop_end=loop_end_sec,
+        metronome_on_pi=bool(args.metronome_device),
     )
 
     http_server = None
@@ -466,6 +577,7 @@ def main() -> int:
         time.sleep(0.85)
 
     recorder = None
+    metronome = AlsaMetronome(args.metronome_device) if args.metronome_device else None
     if args.record_output:
         recorder = AudioRecorder(args.record_device, args.record_output)
         recorder.start()
@@ -473,7 +585,14 @@ def main() -> int:
         print(f"  recording to {args.record_output} (device {args.record_device})")
 
     try:
-        _run(strip, events, state, interactive_hint=sys.stdin.isatty())
+        _run(
+            strip,
+            events,
+            state,
+            interactive_hint=sys.stdin.isatty(),
+            metronome=metronome,
+            tempo_bpm=float(song.get("tempo_bpm") or 0),
+        )
     except KeyboardInterrupt:
         pass
     finally:
@@ -482,6 +601,8 @@ def main() -> int:
             recorder.stop()
             state.set_recording(False)
             print(f"  recording stopped: {args.record_output}")
+        if metronome is not None:
+            metronome.close()
         if http_server is not None:
             http_server.shutdown()
         print("done")

@@ -28,12 +28,17 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
   const metronomeRef = useRef(null);
   if (!metronomeRef.current) metronomeRef.current = new Metronome();
 
-  // 节拍器: learn-mode only, runs for the whole guided attempt (see product
-  // spec) -- independent Web Audio click, not synced to the Pi's own audio
-  // recording, just to the song's tempo_bpm * current speed.
+  // Learn-mode metronome: use browser Web Audio only when the Pi did not
+  // advertise its own ALSA output. With PIANOPAL_PLAYBACK_DEVICE configured,
+  // the guide process owns the clicks and this browser remains control-only.
   useEffect(() => {
     const metronome = metronomeRef.current;
-    if (mode === "perform" || status?.phase !== "guiding" || !status?.tempo_bpm) {
+    if (
+      mode === "perform"
+      || status?.phase !== "guiding"
+      || !status?.tempo_bpm
+      || status?.metronome_output === "pi"
+    ) {
       metronome.stop();
       return;
     }
@@ -41,7 +46,24 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
     metronome.setBpm(status.tempo_bpm * (status.speed || 1));
     metronome.setPaused(!!status.paused);
     metronome.setMuted(muted);
-  }, [mode, status?.phase, status?.tempo_bpm, status?.speed, status?.paused, muted]);
+  }, [
+    mode,
+    status?.phase,
+    status?.tempo_bpm,
+    status?.speed,
+    status?.paused,
+    status?.metronome_output,
+    muted,
+  ]);
+
+  useEffect(() => {
+    if (
+      status?.metronome_output === "pi"
+      && typeof status?.metronome_muted === "boolean"
+    ) {
+      setMuted(status.metronome_muted);
+    }
+  }, [status?.metronome_output, status?.metronome_muted]);
 
   useEffect(() => () => metronomeRef.current.stop(), []);
 
@@ -178,7 +200,14 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
                   <button
                     className="rounded-lg border px-3 py-1.5 text-sm"
                     style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
-                    onClick={() => setMuted((m) => !m)}
+                    onClick={() => setMuted((current) => {
+                      const next = !current;
+                      postControl("/api/session/control", {
+                        action: "metronome_mute_set",
+                        value: next,
+                      });
+                      return next;
+                    })}
                   >
                     {muted ? t("metronomeUnmute") : t("metronomeMute")}
                   </button>

@@ -46,6 +46,7 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import os
 import re
 import subprocess
 import sys
@@ -77,7 +78,14 @@ LATEST_DIR = FORMAL_DATA_DIR / "latest"
 FRONTEND_DIST_DIR = Path(__file__).resolve().parent / "frontend_dist"
 LATEST_RESULT_JSON = LATEST_DIR / "result.json"
 LATEST_DEBUG_JSON = LATEST_DIR / "last_debug.json"
-RECORD_DEVICE = "plughw:2,0"
+# Prefer a stable ALSA card name (for example
+# ``plughw:CARD=Device,DEV=0``) supplied by the Pi's service/start command.
+# Numeric card indexes can change whenever USB devices are reconnected.
+RECORD_DEVICE = os.environ.get("PIANOPAL_RECORD_DEVICE", "plughw:2,0")
+# When set, learn-mode metronome clicks are rendered by the Pi instead of
+# the remote browser. This is intentionally opt-in because many installations
+# use a browser-local speaker or do not want audible clicks in mic recordings.
+PLAYBACK_DEVICE = os.environ.get("PIANOPAL_PLAYBACK_DEVICE")
 GUIDE_LEAD_IN_SEC = 3.0
 POLL_INTERVAL_SEC = 1.0
 CONSECUTIVE_MISSES_TO_FINISH = 4
@@ -302,6 +310,8 @@ def _start_session(
         guide_cmd.append("--no-leds")  # 演奏模式: timing/recording only, no visual guidance
     else:
         guide_cmd += ["--brightness", str(brightness)]
+        if PLAYBACK_DEVICE:
+            guide_cmd += ["--metronome-device", PLAYBACK_DEVICE]
         if full_range:
             guide_cmd.append("--full-range")
         if practice_only:
@@ -669,6 +679,10 @@ def _make_handler():
                 "song_id": session.song_id, "song_end": round(session.song_end, 2),
                 "speed": session.speed, "tempo_bpm": session.tempo_bpm,
                 "practice_only": session.practice_only,
+                "metronome_output": (
+                    "pi" if session.mode == "learn" and PLAYBACK_DEVICE else "browser"
+                ),
+                "metronome_muted": False,
                 "capture": {
                     "audio_recording": False,
                     "motion_recognition": (
@@ -685,6 +699,12 @@ def _make_handler():
                     payload["song_pos"] = status.get("song_pos")
                     payload["speed"] = status.get("speed", session.speed)
                     payload["paused"] = status.get("paused")
+                    payload["metronome_output"] = status.get(
+                        "metronome_output", payload["metronome_output"]
+                    )
+                    payload["metronome_muted"] = bool(
+                        status.get("metronome_muted", False)
+                    )
                     payload["capture"]["audio_recording"] = bool(status.get("recording"))
             self._json(payload)
 
