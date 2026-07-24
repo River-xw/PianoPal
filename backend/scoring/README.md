@@ -135,8 +135,8 @@ python -m backend.scoring reference.json performance.json -o result.json --bpm 9
 - **pitch accuracy** = (correct + timing_off) ÷ (correct+timing_off+wrong_pitch+missed+extra) × 100 —— 有彈對音高的比例
 - **rhythm accuracy** = pitch_accuracy × correct ÷ (correct + timing_off) —— 音高對的音符裡時間點準的比例，再乘上 pitch_accuracy 做覆蓋率修正，這樣「漏彈大半首、剩下幾個音卡得很準」不會被打成節奏滿分
 - **timing stability** = pitch_accuracy × [100 ÷ (1 + std(offset_ms) / tol_ms)] —— 同樣先算誤差標準差=0時是100分、標準差=容忍度時是50分，再乘上 pitch_accuracy 做覆蓋率修正；`score_weight_timing_stability=0`（預設）時整個不計算，回傳 `null`
-- **hand_shape** —— 完全是外部傳入的分數（`score_performance(..., hand_shape_score=...)`），這個模組本身不碰任何感測器/影像；`score_weight_hand_shape=0`（預設）時忽略傳入值、回傳 `null`。目前唯一會真的算出非佔位分數餵進來的呼叫端是 `edge/practice_server.py`（見該模組說明的 IMU 姿勢分類器整合）
-- **overall** = 四個子分數的加權平均（權重在 `ScoringConfig`，`timing_stability`/`hand_shape` 為 `null` 時對應那一項直接算 0 貢獻，不會報錯）
+- **hand_shape** —— 完全是外部傳入的分數（`score_performance(..., hand_shape_score=...)`），這個模組本身不碰任何感測器/影像；`score_weight_hand_shape=0`（預設）或沒有傳入分數時回傳 `null`。目前唯一會真的算出非 `null` 分數餵進來的呼叫端是 `edge/practice_server.py`（見該模組說明的 IMU 姿勢分類器整合）
+- **overall** = 對「當下實際可用」的子分數做**重新正規化**的加權平均——`timing_stability`/`hand_shape` 為 `null`（維度關閉，或該次感測不可用）時，不是直接當 0 分貢獻拖低總分，而是把它的權重份額從分母中移除、其餘子分數的權重按比例放大湊回 1.0。例如手型感測器沒接上、其餘三項都滿分，`overall` 依然是 100，而不是被扣掉 `score_weight_hand_shape` 那一份權重
 
 ### status / timing 分類邏輯
 

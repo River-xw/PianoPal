@@ -51,6 +51,50 @@ class TestPerfectPerformance:
             "correct": 12, "timing_off": 0, "wrong_pitch": 0, "missed": 0, "extra": 0,
         }
 
+    def test_missing_external_posture_score_is_not_treated_as_zero(self):
+        from backend.scoring.config import ScoringConfig
+
+        reference = _build_reference()
+        performance = _perfect_performance(reference)
+        config = ScoringConfig(
+            score_weight_pitch=0.6,
+            score_weight_rhythm=0.15,
+            score_weight_timing_stability=0.0,
+            score_weight_hand_shape=0.25,
+        )
+
+        result = score_performance(
+            reference,
+            performance,
+            config=config,
+            hand_shape_score=None,
+        )
+
+        assert result.summary.sub_scores["hand_shape"] is None
+        assert result.summary.score == pytest.approx(100.0)
+
+    def test_external_posture_score_contributes_when_available(self):
+        from backend.scoring.config import ScoringConfig
+
+        reference = _build_reference()
+        performance = _perfect_performance(reference)
+        config = ScoringConfig(
+            score_weight_pitch=0.6,
+            score_weight_rhythm=0.15,
+            score_weight_timing_stability=0.0,
+            score_weight_hand_shape=0.25,
+        )
+
+        result = score_performance(
+            reference,
+            performance,
+            config=config,
+            hand_shape_score=60.0,
+        )
+
+        assert result.summary.sub_scores["hand_shape"] == 60.0
+        assert result.summary.score == pytest.approx(90.0)
+
 
 class TestUniformTempoChange:
     def test_absorbed_by_global_fit(self):
@@ -284,5 +328,4 @@ class TestOctaveSlipCount:
         reference = _build_reference()
         result = score_performance(reference, _perfect_performance(reference))
         assert result.summary.octave_slips_in_wrong_pitch == 0
-
 

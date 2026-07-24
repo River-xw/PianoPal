@@ -28,12 +28,17 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
   const metronomeRef = useRef(null);
   if (!metronomeRef.current) metronomeRef.current = new Metronome();
 
-  // 节拍器: learn-mode only, runs for the whole guided attempt (see product
-  // spec) -- independent Web Audio click, not synced to the Pi's own audio
-  // recording, just to the song's tempo_bpm * current speed.
+  // Learn-mode metronome: use browser Web Audio only when the Pi did not
+  // advertise its own ALSA output. With PIANOPAL_PLAYBACK_DEVICE configured,
+  // the guide process owns the clicks and this browser remains control-only.
   useEffect(() => {
     const metronome = metronomeRef.current;
-    if (mode === "perform" || status?.phase !== "guiding" || !status?.tempo_bpm) {
+    if (
+      mode === "perform"
+      || status?.phase !== "guiding"
+      || !status?.tempo_bpm
+      || status?.metronome_output === "pi"
+    ) {
       metronome.stop();
       return;
     }
@@ -41,7 +46,24 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
     metronome.setBpm(status.tempo_bpm * (status.speed || 1));
     metronome.setPaused(!!status.paused);
     metronome.setMuted(muted);
-  }, [mode, status?.phase, status?.tempo_bpm, status?.speed, status?.paused, muted]);
+  }, [
+    mode,
+    status?.phase,
+    status?.tempo_bpm,
+    status?.speed,
+    status?.paused,
+    status?.metronome_output,
+    muted,
+  ]);
+
+  useEffect(() => {
+    if (
+      status?.metronome_output === "pi"
+      && typeof status?.metronome_muted === "boolean"
+    ) {
+      setMuted(status.metronome_muted);
+    }
+  }, [status?.metronome_output, status?.metronome_muted]);
 
   useEffect(() => () => metronomeRef.current.stop(), []);
 
@@ -82,6 +104,12 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
 
   const phase = status?.phase || "starting";
   const progress = status?.song_end > 0 ? Math.min(1, (status.song_pos || 0) / status.song_end) : 0;
+  const capture = status?.capture;
+  const motionStatusLabel = {
+    running: t("motionRecognizing"),
+    finished: t("motionFinished"),
+    unavailable: t("motionUnavailable"),
+  };
 
   return (
     <div className="sketch-card flex flex-col gap-4 px-6 py-6">
@@ -103,6 +131,28 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
             {(status.song_pos || 0).toFixed(1)}s / {status.song_end.toFixed(1)}s
             {status.paused && <span style={{ color: "var(--status-timing-off)" }}> · {t("paused")}</span>}
           </div>
+          {capture && (
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span
+                className="rounded-full border px-3 py-1"
+                style={{
+                  borderColor: capture.audio_recording ? "var(--status-correct)" : "var(--border)",
+                  color: capture.audio_recording ? "var(--status-correct)" : "var(--text-muted)",
+                }}
+              >
+                {capture.audio_recording ? t("microphoneRecording") : t("microphoneStarting")}
+              </span>
+              <span
+                className="rounded-full border px-3 py-1"
+                style={{
+                  borderColor: capture.motion_recognition === "running" ? "var(--status-correct)" : "var(--border)",
+                  color: capture.motion_recognition === "unavailable" ? "var(--text-muted)" : "var(--status-correct)",
+                }}
+              >
+                {motionStatusLabel[capture.motion_recognition] || t("motionUnavailable")}
+              </span>
+            </div>
+          )}
           <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--border)" }}>
             <div
               className="h-full rounded-full transition-all"
@@ -150,7 +200,14 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
                   <button
                     className="rounded-lg border px-3 py-1.5 text-sm"
                     style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
-                    onClick={() => setMuted((m) => !m)}
+                    onClick={() => setMuted((current) => {
+                      const next = !current;
+                      postControl("/api/session/control", {
+                        action: "metronome_mute_set",
+                        value: next,
+                      });
+                      return next;
+                    })}
                   >
                     {muted ? t("metronomeUnmute") : t("metronomeMute")}
                   </button>

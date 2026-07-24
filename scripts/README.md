@@ -35,7 +35,7 @@ Developer-facing wrappers around the main pipeline.
 
   ```bash
   python3 scripts/analyze_posture_predictions.py \
-    data/artifacts/sessions/sess_posture_live_001/imu_predictions.jsonl
+    data/training_collection/artifacts/sessions/sess_posture_live_001/imu_predictions.jsonl
   ```
 
   The posture score is the confidence-weighted share of `normal` predictions.

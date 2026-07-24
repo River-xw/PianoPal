@@ -118,8 +118,12 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--hand-shape-score", type=float, default=100.0,
-        help="Externally-computed hand-shape/posture score (0-100). Only used when --score-weight-hand-shape > 0.",
+        "--hand-shape-score", type=float, default=None,
+        help=(
+            "Externally-computed hand-shape/posture score (0-100). "
+            "Omit it when motion sensing was unavailable; the overall score "
+            "will then be renormalized across the audio-derived scores."
+        ),
     )
     parser.add_argument("-o", "--output", required=True, help="Path to write result.json.")
     parser.add_argument("--debug-output", default=None, help="Optional path to write verifier debug JSON.")
@@ -149,6 +153,19 @@ def main() -> int:
         dtw_time_weight=args.dtw_time_weight,
         dtw_gap_penalty=args.dtw_gap_penalty,
     )
+    if config.allowed_pitches is not None:
+        allowed = set(config.allowed_pitches)
+        skipped_pitches = sorted({int(n["pitch"]) for n in reference["notes"] if int(n["pitch"]) not in allowed})
+        if skipped_pitches:
+            reference = {
+                **reference,
+                "notes": [n for n in reference["notes"] if int(n["pitch"]) in allowed],
+            }
+            print(
+                f"skipping {len(skipped_pitches)} unsupported-pitch reference note(s) "
+                f"(e.g. black keys the keyboard has no profile for): {skipped_pitches} -- "
+                "excluded entirely from scoring, not counted as missed"
+            )
     if args.restrict_onset_pitches_to_reference:
         reference_pitches = {int(n["pitch"]) for n in reference["notes"]}
         if config.allowed_pitches is not None:

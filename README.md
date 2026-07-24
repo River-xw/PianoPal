@@ -25,7 +25,7 @@ POST /api/session/start（樹莓派原生 orchestrator：edge/practice_server.py
   -> scripts/grade_audio_reference_constrained.py
        -> backend.audio_to_performance（麥克風錄音 -> 音符清單，reference-dtw 模式吸收真人節奏浮動）
        -> backend.scoring（符號音樂對齊 + 評分公式，見下方）
-  -> data/session_scratch/results/<使用者>/<session_id>.json + backend.db.sqlite（practice_sessions 表）
+  -> data/formal_assessments/sessions/<使用者>/<session_id>/result.json + backend.db.sqlite（practice_sessions 表）
   -> GET /api/history, /api/history/<id> 給前端「我的」頁面
 ```
 
@@ -38,7 +38,7 @@ POST /api/session/start（樹莓派原生 orchestrator：edge/practice_server.py
 1. 先用一輪音高優先的粗略對齊找出「確實彈對音高」的錨點，在這些錨點上用穩健回歸（Theil-Sen）分段擬合一條**分段線性節奏曲線**，吸收使用者整體變速或中途變速（rubato）——不會被誤判成每個音都搶拍/拖拍。
 2. 再用真正的對齊成本函數做第二輪 DTW，把每個演奏音符跟參考音符配對，分類成 `correct`/`timing_off`/`wrong_pitch`/`missed`/`extra`。
 
-總分是最多四個子分數的加權平均：
+總分是最多四個子分數的**重新正規化加權平均**——某個子分數因為維度關閉（權重=0）或該次感測不可用而是 `null` 時，不會直接當 0 分拖低總分，而是把它的權重份額從分母移除、其餘子分數按比例補回 1.0：
 
 | 子分數 | 公式 | 說明 |
 | --- | --- | --- |
@@ -47,9 +47,11 @@ POST /api/session/start（樹莓派原生 orchestrator：edge/practice_server.py
 | 節奏穩定度（timing_stability） | 音準 × 100/(1+std(offset_ms)/tol_ms) | 預設權重 0，不計算/不顯示——真人麥克風錄音上雜訊太大不可靠 |
 | 手型（hand_shape） | 外部傳入(IMU 姿勢分類器) | 這個模組本身不做任何感測——見下方 |
 
-學習模式（寬鬆：音準/手型權重高、節奏均勻度不計）跟演奏模式（嚴格：三者均衡）**用同一個評分函式**，只是 `edge/practice_server.py`/`scripts/session_server.py` 的 `MODE_SCORE_WEIGHTS` 傳不同的權重進去。詳細公式、`tol_beat`/`ignore_timing`/泛音假訊號過濾等選項，見 [backend/scoring/README.md](backend/scoring/README.md)。
+學習模式（寬鬆：旋律/動作權重高、節奏均勻度不計）跟演奏模式（嚴格：三者均衡）**用同一個評分函式**，只是 `edge/practice_server.py`/`scripts/session_server.py` 的 `MODE_SCORE_WEIGHTS` 傳不同的權重進去。詳細公式、`tol_beat`/`ignore_timing`/泛音假訊號過濾等選項，見 [backend/scoring/README.md](backend/scoring/README.md)。
 
-**手型評分**：`edge/practice_server.py` 有設定 BLE IMU 裝置時，`edge/posture_capture.py` 會即時分類手型姿勢、把「正常姿勢時間窗比例」換算成分數；沒裝硬體就自動退回固定佔位值，不擋練習流程。分類器本身（`edge/raspi_runtime/posture.py`）跟訓練資料/腳本見 [backend/sensors/README.md](backend/sensors/README.md)。
+**手型評分**：`edge/practice_server.py` 有設定 BLE IMU 裝置時，`edge/posture_capture.py` 會即時分類手型姿勢、把「正常姿勢時間窗比例」換算成分數餵進評分公式；BLE、設定檔或模型不可用時這個子分數是 `null`，套用上面的正規化邏輯排除，不會用固定佔位分頂替，也不擋練習流程。分類器本身（`edge/raspi_runtime/posture.py`）跟訓練資料/腳本見 [backend/sensors/README.md](backend/sensors/README.md)。
+
+**黑鍵/超出範圍音符**：BF-3738C 鍵盤只校準了 22 個白鍵（`data/bf3738c_keybank/`），樂譜裡任何黑鍵或超出範圍的音符會被 `scripts/grade_audio_reference_constrained.py`（`--white-keys-only`）整個從評分排除——不計分、也不算漏彈（`missed`），LED 引導（`edge/ws2812_guide_song.py`）同樣只對有對應 LED 的白鍵點燈。這讓含黑鍵的樂曲也能拿來練習，只是黑鍵部分不参与引導與計分。
 
 ## Repository Structure
 

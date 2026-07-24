@@ -157,7 +157,7 @@ basic-pitch 是自由(不受限)的複音轉譜——在整個鋼琴音域裡自
 
 上面的 `keyboard_profile` 只是疊加在 basic-pitch 轉譜結果上的加分項，錄音本身還是得先過一次 basic-pitch。這裡是另一套獨立機制，完全跳過 basic-pitch：
 
-- **`reference_constrained.py`**：`_candidate_pitches()` 直接把候選音高鎖死在 22 個白鍵(或整個鍵盤範圍)——不是拿 basic-pitch 的猜測結果來篩選，而是從一開始就只在這個小集合裡評分，`ReferenceConstrainedConfig` 可設 `allowed_pitches=WHITE_KEY_MIDIS` 限定白鍵模式。
+- **`reference_constrained.py`**：`_candidate_pitches()` 直接把候選音高鎖死在 22 個白鍵(或整個鍵盤範圍)——不是拿 basic-pitch 的猜測結果來篩選，而是從一開始就只在這個小集合裡評分，`ReferenceConstrainedConfig` 可設 `allowed_pitches=WHITE_KEY_MIDIS` 限定白鍵模式。白鍵模式下，樂譜裡不在 `allowed_pitches` 內的音符（黑鍵/超出範圍）在轉譜階段就標成 `unsupported_pitch` 跳過；`scripts/grade_audio_reference_constrained.py` 的 `--white-keys-only` 進一步把這些音符從送進 `backend.scoring` 的參考音符清單整個剔除，所以它們不計分、也不會被算成 `missed`——而不只是轉不出音而已。
 - **`audio_reference.py`**：
   - `build_audio_reference()`：直接對一段「範例錄音」做 onset 偵測 + 上面的候選音高評分，產生一份音訊原生的參考譜(不需要對應的 MIDI/樂譜檔)——`scripts/build_demo_audio_reference.py` 的實作。
   - `grade_student_against_demo()`：把學生錄音一樣做 onset+候選音評分，直接拿去跟這份「範例錄音」的參考譜比對評分——完全是音檔對音檔，兩邊都不經過 basic-pitch——`scripts/grade_against_demo_audio.py` 的實作。

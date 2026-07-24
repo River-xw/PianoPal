@@ -48,11 +48,18 @@ def build_parser() -> argparse.ArgumentParser:
             "make sliding-window features, and train a supervised classifier."
         ),
     )
-    parser.add_argument("--sessions-root", type=Path, default=ROOT / "data" / "raw" / "sessions")
+    parser.add_argument(
+        "--sessions-root",
+        type=Path,
+        default=ROOT / "data" / "training_collection" / "raw" / "sessions",
+    )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=ROOT / "data" / "artifacts" / "gesture_training" / "left_hand_posture",
+        default=(
+            ROOT / "data" / "training_collection" / "artifacts"
+            / "gesture_training" / "left_hand_posture"
+        ),
     )
     parser.add_argument(
         "--model-output",
@@ -69,6 +76,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-valid-samples", type=int, default=4)
     parser.add_argument("--min-valid-ratio", type=float, default=0.8)
     parser.add_argument("--max-gap-ms", type=int, default=3000)
+    parser.add_argument(
+        "--normal-class-weight",
+        type=float,
+        default=1.25,
+        help=(
+            "Weight for the normal class. Values above 1 make the classifier "
+            "more conservative about reporting posture errors."
+        ),
+    )
     parser.add_argument("--random-state", type=int, default=42)
     return parser
 
@@ -83,6 +99,8 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--min-valid-samples must be at least 1")
     if not 0.0 <= args.min_valid_ratio <= 1.0:
         raise SystemExit("--min-valid-ratio must be between 0 and 1")
+    if args.normal_class_weight <= 0.0:
+        raise SystemExit("--normal-class-weight must be positive")
 
     rows, report = build_labeled_feature_rows(
         sessions_root=args.sessions_root,
@@ -99,6 +117,7 @@ def main(argv: list[str] | None = None) -> int:
         rows,
         model_output=args.model_output,
         portable_model_output=args.portable_model_output,
+        normal_class_weight=args.normal_class_weight,
         random_state=args.random_state,
     )
 
@@ -384,6 +403,7 @@ def train_sklearn_model(
     *,
     model_output: Path,
     portable_model_output: Path,
+    normal_class_weight: float,
     random_state: int,
 ) -> dict[str, Any]:
     try:
@@ -405,6 +425,10 @@ def train_sklearn_model(
     labels = [row["label"] for row in rows]
     groups = [row["session_id"] for row in rows]
     label_counts = Counter(labels)
+    class_weight = {
+        label: (float(normal_class_weight) if label == "normal" else 1.0)
+        for label in label_counts
+    }
     group_counts_by_label: dict[str, set[str]] = defaultdict(set)
     for label, group in zip(labels, groups):
         group_counts_by_label[label].add(group)
@@ -421,7 +445,7 @@ def train_sklearn_model(
                     n_estimators=300,
                     max_depth=None,
                     min_samples_leaf=2,
-                    class_weight="balanced",
+                    class_weight=class_weight,
                     random_state=random_state,
                     n_jobs=-1,
                 ),
@@ -499,6 +523,8 @@ def train_sklearn_model(
             "right_hand_ignored": True,
             "hand_identity_used_as_feature": False,
             "cross_validation_group": "session_id",
+            "class_weight": class_weight,
+            "normal_class_weight": normal_class_weight,
         },
     }
 
