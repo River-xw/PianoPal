@@ -118,8 +118,12 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--hand-shape-score", type=float, default=100.0,
-        help="Externally-computed hand-shape/posture score (0-100). Only used when --score-weight-hand-shape > 0.",
+        "--hand-shape-score", type=float, default=None,
+        help=(
+            "Externally-computed hand-shape/posture score (0-100). "
+            "Omit it when motion sensing was unavailable; the overall score "
+            "will then be renormalized across the audio-derived scores."
+        ),
     )
     parser.add_argument("-o", "--output", required=True, help="Path to write result.json.")
     parser.add_argument("--debug-output", default=None, help="Optional path to write verifier debug JSON.")

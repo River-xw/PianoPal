@@ -82,6 +82,12 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
 
   const phase = status?.phase || "starting";
   const progress = status?.song_end > 0 ? Math.min(1, (status.song_pos || 0) / status.song_end) : 0;
+  const capture = status?.capture;
+  const motionStatusLabel = {
+    running: t("motionRecognizing"),
+    finished: t("motionFinished"),
+    unavailable: t("motionUnavailable"),
+  };
 
   return (
     <div className="sketch-card flex flex-col gap-4 px-6 py-6">
@@ -103,6 +109,28 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
             {(status.song_pos || 0).toFixed(1)}s / {status.song_end.toFixed(1)}s
             {status.paused && <span style={{ color: "var(--status-timing-off)" }}> · {t("paused")}</span>}
           </div>
+          {capture && (
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span
+                className="rounded-full border px-3 py-1"
+                style={{
+                  borderColor: capture.audio_recording ? "var(--status-correct)" : "var(--border)",
+                  color: capture.audio_recording ? "var(--status-correct)" : "var(--text-muted)",
+                }}
+              >
+                {capture.audio_recording ? t("microphoneRecording") : t("microphoneStarting")}
+              </span>
+              <span
+                className="rounded-full border px-3 py-1"
+                style={{
+                  borderColor: capture.motion_recognition === "running" ? "var(--status-correct)" : "var(--border)",
+                  color: capture.motion_recognition === "unavailable" ? "var(--text-muted)" : "var(--status-correct)",
+                }}
+              >
+                {motionStatusLabel[capture.motion_recognition] || t("motionUnavailable")}
+              </span>
+            </div>
+          )}
           <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--border)" }}>
             <div
               className="h-full rounded-full transition-all"

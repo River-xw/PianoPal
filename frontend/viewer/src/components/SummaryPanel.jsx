@@ -35,6 +35,9 @@ export default function SummaryPanel({ summary }) {
   const { score, sub_scores, global_tempo_ratio, counts } = summary;
   const harmonicExtrasRemoved = summary.harmonic_extras_removed ?? 0;
   const octaveSlips = summary.octave_slips_in_wrong_pitch ?? 0;
+  const motionAssessment = summary.motion_assessment;
+  const melodyAccuracy = sub_scores.melody_accuracy ?? sub_scores.pitch;
+  const motionScore = sub_scores.motion ?? sub_scores.hand_shape;
 
   return (
     <div className="sketch-card flex flex-col gap-4 p-6">
@@ -58,11 +61,22 @@ export default function SummaryPanel({ summary }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label={t("pitchAccuracy")} value={sub_scores.pitch} />
+        <StatTile label={t("pitchAccuracy")} value={melodyAccuracy} />
+        <StatTile label={t("handShapeScore")} value={motionScore} />
         <StatTile label={t("rhythmAccuracy")} value={sub_scores.rhythm} />
         <StatTile label={t("timingStability")} value={sub_scores.timing_stability} />
-        <StatTile label={t("handShapeScore")} value={sub_scores.hand_shape} />
       </div>
+
+      {motionAssessment && (
+        <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+          {motionAssessment.available
+            ? t("motionSamples", {
+                total: motionAssessment.total_predictions ?? 0,
+                normal: motionAssessment.normal_predictions ?? 0,
+              })
+            : t("motionScoreUnavailable")}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3">
         {Object.entries(counts)

@@ -196,6 +196,7 @@ class PlaybackState:
         self.restart_requested = False
         self.quit_requested = False
         self.song_pos = 0.0
+        self.recording = False
         self.title = title
         self.song_end = song_end
         # 分段循環練習: when both are set, tick() wraps song_pos back to
@@ -224,7 +225,12 @@ class PlaybackState:
                 "paused": self.paused,
                 "song_pos": round(self.song_pos, 2),
                 "song_end": round(self.song_end, 2),
+                "recording": self.recording,
             }
+
+    def set_recording(self, recording: bool) -> None:
+        with self._lock:
+            self.recording = bool(recording)
 
     def tick(self, dt: float) -> tuple[float, bool, bool]:
         """Advance song_pos by dt*speed (unless paused), and atomically
@@ -463,6 +469,7 @@ def main() -> int:
     if args.record_output:
         recorder = AudioRecorder(args.record_device, args.record_output)
         recorder.start()
+        state.set_recording(True)
         print(f"  recording to {args.record_output} (device {args.record_device})")
 
     try:
@@ -473,6 +480,7 @@ def main() -> int:
         strip.clear()
         if recorder is not None:
             recorder.stop()
+            state.set_recording(False)
             print(f"  recording stopped: {args.record_output}")
         if http_server is not None:
             http_server.shutdown()

@@ -12,6 +12,7 @@ from .speaker import CommandSpeaker, ConsoleSpeaker
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+TRAINING_DATA_ROOT = REPO_ROOT / "data" / "training_collection"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,7 +26,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--piece-composer", default=None)
     parser.add_argument("--session-id", default=None)
     parser.add_argument("--target-bpm", type=int, default=None)
-    parser.add_argument("--data-root", type=Path, default=REPO_ROOT / "data")
+    parser.add_argument(
+        "--data-root",
+        type=Path,
+        default=TRAINING_DATA_ROOT,
+        help=(
+            "Raw training-collection root. Kept separate from "
+            "data/formal_assessments used by the frontend scoring flow."
+        ),
+    )
     parser.add_argument("--db-path", type=Path, default=None)
     parser.add_argument("--mode", choices=["simulate", "ble", "audio-only"], default="simulate")
     parser.add_argument("--duration-sec", type=float, default=5.0)
@@ -70,7 +79,7 @@ def main() -> None:
         ble_config=args.ble_config,
         duration_sec=args.duration_sec,
         target_bpm=args.target_bpm,
-        db_path=args.db_path,
+        db_path=args.db_path or args.data_root / "db" / "pianopal.sqlite3",
         posture_model_path=args.posture_model,
         posture_hands=tuple(args.posture_hands) if args.posture_hands else None,
     )

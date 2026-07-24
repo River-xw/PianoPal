@@ -71,35 +71,39 @@ GUIDE_HTTP_PORT = 8765
 KEYBOARD_PROFILE = str(REPO_ROOT / "data/bf3738c_keybank/bf3738c_white_profile.json")
 SONG_LIBRARY_DIR = REPO_ROOT / "docs/piano_music"
 CUSTOM_SONGS_DIR = REPO_ROOT / "data/custom_songs"
-SCRATCH_DIR = REPO_ROOT / "data/session_scratch"
+FORMAL_DATA_DIR = REPO_ROOT / "data/formal_assessments"
+FORMAL_SESSIONS_DIR = FORMAL_DATA_DIR / "sessions"
+LATEST_DIR = FORMAL_DATA_DIR / "latest"
 FRONTEND_DIST_DIR = Path(__file__).resolve().parent / "frontend_dist"
-RESULT_JSON = SCRATCH_DIR / "result.json"
-DEBUG_JSON = SCRATCH_DIR / "last_debug.json"
-RESULTS_DIR = SCRATCH_DIR / "results"
+LATEST_RESULT_JSON = LATEST_DIR / "result.json"
+LATEST_DEBUG_JSON = LATEST_DIR / "last_debug.json"
 RECORD_DEVICE = "plughw:2,0"
+GUIDE_LEAD_IN_SEC = 3.0
 POLL_INTERVAL_SEC = 1.0
 CONSECUTIVE_MISSES_TO_FINISH = 4
-# Both existence-checked at session start, not required -- a machine with no
-# IMU rig set up (no config.json, only the committed .example.json) just
-# never starts edge/posture_capture.py at all and keeps using
-# HAND_SHAPE_PLACEHOLDER_SCORE, same as before this was wired in.
+# Both are existence-checked at session start. Motion sensing is reported as
+# unavailable when either is absent; formal scoring never substitutes a fake
+# perfect posture score.
 BLE_CONFIG_PATH = REPO_ROOT / "edge/microbit_rpi_comm/raspberry/config.json"
-POSTURE_MODEL_PATH = REPO_ROOT / "models/gesture/left_hand_posture_classifier.joblib"
+POSTURE_MODEL_CANDIDATES = (
+    # Prefer the portable export on the Pi: it avoids requiring the exact
+    # scikit-learn/joblib version used on the training machine.
+    REPO_ROOT / "models/gesture/left_hand_posture_classifier.json",
+    REPO_ROOT / "models/gesture/left_hand_posture_classifier.joblib",
+)
+POSTURE_HANDS = ("L",)
 
 DEFAULT_MODE = "learn"
 # learn (LED-guided) is lenient -- pitch/hand-shape weighted high, timing
 # uniformity low; perform (no LED guidance) is a stricter, balanced blend of
 # all three, per the product spec. Both share score_performance() unchanged;
 # only these weight presets differ. hand_shape is real when a BLE posture rig
-# is configured (see edge/posture_capture.py -- run in both modes, since it's
-# an orthogonal concern from the LED *visual* guidance that differs per
-# mode), and falls back to HAND_SHAPE_PLACEHOLDER_SCORE otherwise.
+# and trained model are configured; otherwise it is explicitly unavailable
+# and the available score weights are renormalized.
 MODE_SCORE_WEIGHTS = {
     "learn": {"pitch": 0.6, "rhythm": 0.15, "timing_stability": 0.0, "hand_shape": 0.25},
     "perform": {"pitch": 0.4, "rhythm": 0.3, "timing_stability": 0.15, "hand_shape": 0.15},
 }
-HAND_SHAPE_PLACEHOLDER_SCORE = 100.0
-
 WHITE_KEY_SET = set(WHITE_KEY_MIDIS)
 
 
@@ -113,7 +117,7 @@ def _is_white_key_only(reference: dict) -> bool:
 
 def _safe_username(name: str) -> str:
     """A display name -> a filesystem-safe stem, so entering it can never
-    escape RESULTS_DIR (path traversal via '..'/'/') or collide with an
+    escape the formal sessions directory (path traversal via '..'/'/') or collide with an
     unrelated file. Keeps letters (including CJK -- \\w is unicode-aware in
     Python 3), digits, underscore, and hyphen; everything else (spaces,
     slashes, dots, ...) collapses to '_'.
@@ -125,6 +129,36 @@ def _safe_username(name: str) -> str:
     if not safe:
         raise ValueError("username has no valid characters")
     return safe
+
+
+def _resolve_posture_model_path() -> Path | None:
+    return next((path for path in POSTURE_MODEL_CANDIDATES if path.exists()), None)
+
+
+def _unavailable_motion_assessment(reason: str) -> dict:
+    return {
+        "schema_version": "formal_motion_assessment_v1",
+        "available": False,
+        "hand_shape_score": None,
+        "motion_score": None,
+        "total_predictions": 0,
+        "normal_predictions": 0,
+        "label_counts": {},
+        "capture_hands": list(POSTURE_HANDS),
+        "model_name": None,
+        "model_version": None,
+        "score_formula": "normal_predictions / total_predictions * 100",
+        "error": reason,
+    }
+
+
+def _persist_motion_assessment(session: "Session", assessment: dict) -> dict:
+    session.posture_result_path.parent.mkdir(parents=True, exist_ok=True)
+    session.posture_result_path.write_text(
+        json.dumps(assessment, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return assessment
 
 
 def _apply_pitch_hand_fallback(reference: dict, threshold: int = 60) -> dict:
@@ -180,14 +214,18 @@ class Session:
         self.practice_only = practice_only  # segmented-loop practice: no grading/history, see _finish_session
         self.phase = "starting"  # starting -> guiding -> grading -> done -> error
         self.error = None
-        self.recording_path = SCRATCH_DIR / f"recording_{uuid.uuid4().hex[:8]}.wav"
-        self.guide_json_path = SCRATCH_DIR / f"guide_{uuid.uuid4().hex[:8]}.json"
+        self.session_dir = FORMAL_SESSIONS_DIR / _safe_username(username) / session_id
+        self.recording_path = self.session_dir / "performance.wav"
+        self.guide_json_path = self.session_dir / "guide.json"
+        self.posture_result_path = self.session_dir / "motion_assessment.json"
+        self.result_path = self.session_dir / "result.json"
+        self.debug_path = self.session_dir / "audio_debug.json"
         self.song_end = 0.0
         self.tempo_bpm = None
         self.white_keys_only = False
         self.process: subprocess.Popen | None = None
         self.posture_process: subprocess.Popen | None = None
-        self.posture_result_path = SCRATCH_DIR / f"posture_{uuid.uuid4().hex[:8]}.json"
+        self.motion_unavailable_reason: str | None = None
 
 
 LOCK = threading.Lock()
@@ -243,7 +281,7 @@ def _start_session(
     if not practice_only:
         db.create_practice_session(session_id, safe_name, song_id, now, mode=mode)
 
-    SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
+    session.session_dir.mkdir(parents=True, exist_ok=True)
     session.guide_json_path.write_text(json.dumps({
         "title": reference.get("title", song_id), "tempo_bpm": reference.get("tempo_bpm"),
         "notes": reference["notes"],
@@ -252,10 +290,11 @@ def _start_session(
     subprocess.run(["pkill", "-f", "ws2812_guide_son[g]"], capture_output=True)
     time.sleep(0.3)
     guide_cmd = [
-        "python3", "-u", str(Path(__file__).resolve().parent / "ws2812_guide_song.py"),
+        sys.executable, "-u", str(Path(__file__).resolve().parent / "ws2812_guide_song.py"),
         str(session.guide_json_path),
         "--http-port", str(GUIDE_HTTP_PORT),
         "--speed", str(speed),
+        "--lead-in-sec", str(GUIDE_LEAD_IN_SEC),
         "--record-output", str(session.recording_path),
         "--record-device", RECORD_DEVICE,
     ]
@@ -276,34 +315,47 @@ def _start_session(
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
 
+    # Formal motion assessment is separate from the training-data collector:
+    # posture_capture only writes one aggregate JSON under this formal
+    # session. edge.raspi_runtime remains the raw IMU/audio collection path.
     subprocess.run(["pkill", "-f", "posture_captur[e]"], capture_output=True)
-    if BLE_CONFIG_PATH.exists():
+    posture_model_path = _resolve_posture_model_path()
+    if practice_only:
+        session.motion_unavailable_reason = "segmented practice is not formally scored"
+    elif not BLE_CONFIG_PATH.exists():
+        session.motion_unavailable_reason = "BLE configuration is unavailable"
+    elif posture_model_path is None:
+        session.motion_unavailable_reason = "trained motion model is unavailable"
+    else:
         posture_cmd = [
-            "python3", "-u", str(Path(__file__).resolve().parent / "posture_capture.py"),
+            sys.executable, "-u", str(Path(__file__).resolve().parent / "posture_capture.py"),
             "--ble-config", str(BLE_CONFIG_PATH),
+            "--posture-model", str(posture_model_path),
+            "--hands", *POSTURE_HANDS,
+            "--start-delay-sec", str(GUIDE_LEAD_IN_SEC),
             "-o", str(session.posture_result_path),
         ]
-        if POSTURE_MODEL_PATH.exists():
-            posture_cmd += ["--posture-model", str(POSTURE_MODEL_PATH)]
         session.posture_process = subprocess.Popen(
             posture_cmd,
             cwd=str(REPO_ROOT),
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
-    # else: no IMU rig configured on this machine -- session.posture_process
-    # stays None, _finish_session() falls back to HAND_SHAPE_PLACEHOLDER_SCORE.
 
     session.phase = "guiding"
     return session
 
 
-def _stop_posture_capture(session: Session) -> float:
+def _stop_posture_capture(session: Session) -> dict:
     """Terminate this session's posture_capture.py (if one was started) and
-    return its computed hand_shape_score, or HAND_SHAPE_PLACEHOLDER_SCORE if
-    none was running, it didn't produce a usable result, or it never
-    collected any predictions (e.g. BLE never connected)."""
+    return its formal aggregate result. Missing hardware/model/predictions are
+    explicit unavailable results, never a placeholder score."""
     if session.posture_process is None:
-        return HAND_SHAPE_PLACEHOLDER_SCORE
+        return _persist_motion_assessment(
+            session,
+            _unavailable_motion_assessment(
+                session.motion_unavailable_reason or "motion recognition was not started"
+            ),
+        )
 
     if session.posture_process.poll() is None:
         session.posture_process.terminate()
@@ -314,19 +366,27 @@ def _stop_posture_capture(session: Session) -> float:
             session.posture_process.wait()
 
     if not session.posture_result_path.exists():
-        return HAND_SHAPE_PLACEHOLDER_SCORE
+        return _persist_motion_assessment(
+            session,
+            _unavailable_motion_assessment("motion recognition produced no result"),
+        )
     try:
         posture_result = json.loads(session.posture_result_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
-        return HAND_SHAPE_PLACEHOLDER_SCORE
-    score = posture_result.get("hand_shape_score")
-    return float(score) if score is not None else HAND_SHAPE_PLACEHOLDER_SCORE
+        return _persist_motion_assessment(
+            session,
+            _unavailable_motion_assessment("motion recognition result was unreadable"),
+        )
+    score = posture_result.get("motion_score", posture_result.get("hand_shape_score"))
+    posture_result["motion_score"] = float(score) if score is not None else None
+    posture_result["hand_shape_score"] = posture_result["motion_score"]
+    posture_result["available"] = posture_result["motion_score"] is not None
+    return _persist_motion_assessment(session, posture_result)
 
 
 def _finish_session(session: Session) -> None:
-    hand_shape_score = _stop_posture_capture(session)
-
     if session.practice_only:
+        _stop_posture_capture(session)
         # Segmented-loop practice has no single well-defined "performance" to
         # grade against the full-song reference -- it's a practice aid, not a
         # graded attempt, so it never touches grading/history at all.
@@ -334,6 +394,7 @@ def _finish_session(session: Session) -> None:
         return
 
     session.phase = "grading"
+    motion_assessment = _stop_posture_capture(session)
     if session.process is not None and session.process.poll() is None:
         session.process.wait(timeout=10)
 
@@ -345,7 +406,7 @@ def _finish_session(session: Session) -> None:
 
     weights = MODE_SCORE_WEIGHTS[session.mode]
     cmd = [
-        "python3", str(REPO_ROOT / "scripts/grade_audio_reference_constrained.py"),
+        sys.executable, str(REPO_ROOT / "scripts/grade_audio_reference_constrained.py"),
         str(session.song_path), str(session.recording_path),
         "--keyboard-profile", KEYBOARD_PROFILE,
         "--mode", "reference-dtw",
@@ -353,10 +414,11 @@ def _finish_session(session: Session) -> None:
         "--score-weight-rhythm", str(weights["rhythm"]),
         "--score-weight-timing-stability", str(weights["timing_stability"]),
         "--score-weight-hand-shape", str(weights["hand_shape"]),
-        "--hand-shape-score", str(hand_shape_score),
-        "-o", str(RESULT_JSON),
-        "--debug-output", str(DEBUG_JSON),
+        "-o", str(session.result_path),
+        "--debug-output", str(session.debug_path),
     ]
+    if motion_assessment["motion_score"] is not None:
+        cmd += ["--hand-shape-score", str(motion_assessment["motion_score"])]
     if session.white_keys_only:
         cmd.append("--white-keys-only")
 
@@ -367,19 +429,44 @@ def _finish_session(session: Session) -> None:
         db.finish_practice_session(session.session_id, _now_iso(), None, None, status="error")
         return
 
-    # Keep a PERMANENT, per-session copy for history (RESULT_JSON/DEBUG_JSON
-    # above get overwritten by the next session regardless of user -- fine
-    # as an internal "whoever was graded most recently" diagnostic, but
-    # useless for history) -- registered as a DB artifact so GET
-    # /api/history/<session_id> can find it later.
-    safe_name = _safe_username(session.username)
-    session_result_path = RESULTS_DIR / safe_name / f"{session.session_id}.json"
-    session_result_path.parent.mkdir(parents=True, exist_ok=True)
-    session_result_path.write_bytes(RESULT_JSON.read_bytes())
+    result_payload = json.loads(session.result_path.read_text(encoding="utf-8"))
+    result_payload["summary"]["motion_assessment"] = motion_assessment
+    result_payload.setdefault("pipeline", {})["motion_recognition"] = {
+        "model_name": motion_assessment.get("model_name"),
+        "model_version": motion_assessment.get("model_version"),
+        "capture_hands": motion_assessment.get("capture_hands", []),
+        "available": motion_assessment["available"],
+    }
+    result_payload["session"] = {
+        "id": session.session_id,
+        "mode": session.mode,
+        "data_kind": "formal_assessment",
+    }
+    session.result_path.write_text(
+        json.dumps(result_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    LATEST_DIR.mkdir(parents=True, exist_ok=True)
+    LATEST_RESULT_JSON.write_bytes(session.result_path.read_bytes())
+    if session.debug_path.exists():
+        LATEST_DEBUG_JSON.write_bytes(session.debug_path.read_bytes())
 
-    result_payload = json.loads(RESULT_JSON.read_text(encoding="utf-8"))
     now = _now_iso()
-    db.add_artifact(uuid.uuid4().hex[:12], session.session_id, "result_json", str(session_result_path), now)
+    for artifact_type, path in (
+        ("performance_audio", session.recording_path),
+        ("motion_assessment", session.posture_result_path),
+        ("audio_scoring_debug", session.debug_path),
+        ("guide_reference", session.guide_json_path),
+        ("result_json", session.result_path),
+    ):
+        if path.exists():
+            db.add_artifact(
+                uuid.uuid4().hex[:12],
+                session.session_id,
+                artifact_type,
+                str(path),
+                now,
+            )
     db.finish_practice_session(session.session_id, now, result_payload["summary"]["score"], result_payload["summary"])
 
     session.phase = "done"
@@ -448,7 +535,8 @@ def _make_handler():
             elif parsed.path == "/api/session/status":
                 self._status()
             elif parsed.path in ("/result.json", "/last_debug.json"):
-                self._serve_file(SCRATCH_DIR / parsed.path.lstrip("/"))
+                path = LATEST_RESULT_JSON if parsed.path == "/result.json" else LATEST_DEBUG_JSON
+                self._serve_file(path)
             elif parsed.path == "/api/history":
                 self._history_list(urllib.parse.parse_qs(parsed.query))
             elif parsed.path.startswith("/api/history/"):
@@ -544,8 +632,21 @@ def _make_handler():
                 self._json({"error": "not found"}, 404)
                 return
             for artifact in db.get_session_artifacts(session_id):
-                if artifact["artifact_type"] == "result_json":
+                if artifact["artifact_type"] in {
+                    "performance_audio",
+                    "motion_assessment",
+                    "audio_scoring_debug",
+                    "guide_reference",
+                    "result_json",
+                }:
                     Path(artifact["uri"]).unlink(missing_ok=True)
+            session_dir = FORMAL_SESSIONS_DIR / _safe_username(row["user_id"]) / session_id
+            if session_dir.exists():
+                try:
+                    session_dir.rmdir()
+                    session_dir.parent.rmdir()
+                except OSError:
+                    pass
             db.delete_session(session_id)
             self._json({"ok": True})
 
@@ -568,6 +669,15 @@ def _make_handler():
                 "song_id": session.song_id, "song_end": round(session.song_end, 2),
                 "speed": session.speed, "tempo_bpm": session.tempo_bpm,
                 "practice_only": session.practice_only,
+                "capture": {
+                    "audio_recording": False,
+                    "motion_recognition": (
+                        "unavailable"
+                        if session.posture_process is None
+                        else ("running" if session.posture_process.poll() is None else "finished")
+                    ),
+                    "motion_unavailable_reason": session.motion_unavailable_reason,
+                },
             }
             if session.phase == "guiding":
                 status = _guide_status()
@@ -575,6 +685,7 @@ def _make_handler():
                     payload["song_pos"] = status.get("song_pos")
                     payload["speed"] = status.get("speed", session.speed)
                     payload["paused"] = status.get("paused")
+                    payload["capture"]["audio_recording"] = bool(status.get("recording"))
             self._json(payload)
 
         def do_POST(self):

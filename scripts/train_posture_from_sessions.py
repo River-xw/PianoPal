@@ -48,11 +48,18 @@ def build_parser() -> argparse.ArgumentParser:
             "make sliding-window features, and train a supervised classifier."
         ),
     )
-    parser.add_argument("--sessions-root", type=Path, default=ROOT / "data" / "raw" / "sessions")
+    parser.add_argument(
+        "--sessions-root",
+        type=Path,
+        default=ROOT / "data" / "training_collection" / "raw" / "sessions",
+    )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=ROOT / "data" / "artifacts" / "gesture_training" / "left_hand_posture",
+        default=(
+            ROOT / "data" / "training_collection" / "artifacts"
+            / "gesture_training" / "left_hand_posture"
+        ),
     )
     parser.add_argument(
         "--model-output",

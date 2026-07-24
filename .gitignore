@@ -47,6 +47,8 @@ data/db/
 data/chroma/
 data/raw/sessions/
 data/artifacts/sessions/
+data/training_collection/
+data/formal_assessments/
 
 # Runtime session artifacts (practice_server/session_server write per-run
 # guide JSONs, recordings, and grading output here) and the viewer's live

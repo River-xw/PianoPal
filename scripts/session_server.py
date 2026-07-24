@@ -94,8 +94,9 @@ KEYBOARD_PROFILE = str(REPO_ROOT / "data/bf3738c_keybank/bf3738c_white_profile.j
 RESULT_JSON = REPO_ROOT / "frontend/viewer/public/result.json"
 DEBUG_JSON = REPO_ROOT / "frontend/viewer/public/last_debug.json"
 CUSTOM_SONGS_DIR = REPO_ROOT / "data/custom_songs"
-SCRATCH_DIR = REPO_ROOT / "data/session_scratch"
-RESULTS_DIR = SCRATCH_DIR / "results"
+FORMAL_DATA_DIR = REPO_ROOT / "data/formal_assessments" / "local_fallback"
+SCRATCH_DIR = FORMAL_DATA_DIR / "scratch"
+RESULTS_DIR = FORMAL_DATA_DIR / "results"
 SONG_LIBRARY_DIR = REPO_ROOT / "docs/piano_music"
 POLL_INTERVAL_SEC = 1.0
 
@@ -106,12 +107,9 @@ MODE_SCORE_WEIGHTS = {
     "learn": {"pitch": 0.6, "rhythm": 0.15, "timing_stability": 0.0, "hand_shape": 0.25},
     "perform": {"pitch": 0.4, "rhythm": 0.3, "timing_stability": 0.15, "hand_shape": 0.15},
 }
-# edge/practice_server.py now resolves hand_shape from a real BLE IMU posture
-# classifier when one is configured (edge/posture_capture.py), falling back
-# to this placeholder otherwise. This SSH fallback orchestrator hasn't been
-# wired up to that yet -- BLE only exists on the Pi side, so it would need
-# its own fetch-back step -- so it's still always the placeholder here.
-HAND_SHAPE_PLACEHOLDER_SCORE = 100.0
+# The SSH fallback does not own the Pi-side motion process. It therefore
+# leaves motion unavailable instead of fabricating a perfect score. Use
+# edge/practice_server.py on the Pi for the combined audio+motion assessment.
 
 WHITE_KEY_SET = set(WHITE_KEY_MIDIS)
 
@@ -402,7 +400,6 @@ def _finish_session(session: Session) -> None:
         "--score-weight-rhythm", str(weights["rhythm"]),
         "--score-weight-timing-stability", str(weights["timing_stability"]),
         "--score-weight-hand-shape", str(weights["hand_shape"]),
-        "--hand-shape-score", str(HAND_SHAPE_PLACEHOLDER_SCORE),
         "-o", str(RESULT_JSON),
         "--debug-output", str(DEBUG_JSON),
     ]

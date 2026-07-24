@@ -20,12 +20,12 @@ adapters on the Pi, and keep the default no-op adapters for local development.
 Keep these on the Raspberry Pi first:
 
 ```text
-data/raw/sessions/<session_id>/imu_left.jsonl
-data/raw/sessions/<session_id>/imu_right.jsonl
-data/raw/sessions/<session_id>/timing.json
-data/artifacts/sessions/<session_id>/imu_predictions.jsonl
-data/raw/sessions/<session_id>/audio.wav
-data/db/pianopal.sqlite3
+data/training_collection/raw/sessions/<session_id>/imu_left.jsonl
+data/training_collection/raw/sessions/<session_id>/imu_right.jsonl
+data/training_collection/raw/sessions/<session_id>/timing.json
+data/training_collection/artifacts/sessions/<session_id>/imu_predictions.jsonl
+data/training_collection/raw/sessions/<session_id>/audio.wav
+data/training_collection/db/pianopal.sqlite3
 ```
 
 After the session, sync `audio.wav` to the computer for heavier
@@ -67,7 +67,7 @@ python -m edge.raspi_runtime \
 Expected output path:
 
 ```text
-data/raw/sessions/<session_id>/audio.wav
+data/training_collection/raw/sessions/<session_id>/audio.wav
 ```
 
 The SQLite session status becomes `audio_acquired`, and `artifacts` contains
@@ -95,10 +95,10 @@ The `--duration-sec` clock therefore covers overlapping audio and IMU
 acquisition. It sends `STOP` at the end and writes files under:
 
 ```text
-data/raw/sessions/<session_id>/imu_left.jsonl
-data/raw/sessions/<session_id>/imu_right.jsonl
-data/raw/sessions/<session_id>/timing.json
-data/artifacts/sessions/<session_id>/imu_predictions.jsonl
+data/training_collection/raw/sessions/<session_id>/imu_left.jsonl
+data/training_collection/raw/sessions/<session_id>/imu_right.jsonl
+data/training_collection/raw/sessions/<session_id>/timing.json
+data/training_collection/artifacts/sessions/<session_id>/imu_predictions.jsonl
 ```
 
 Add audio recording only when the microphone path is ready:
@@ -134,7 +134,7 @@ python -m edge.raspi_runtime \
 Predictions are written to:
 
 ```text
-data/artifacts/sessions/<session_id>/imu_predictions.jsonl
+data/training_collection/artifacts/sessions/<session_id>/imu_predictions.jsonl
 ```
 
 The BLE data packet format is:

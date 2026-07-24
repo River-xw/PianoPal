@@ -215,7 +215,10 @@ def _resolve_paths(args: argparse.Namespace) -> dict[str, Path | None]:
     if left_imu is None or right_imu is None:
         raise SystemExit("provide --left-imu/--right-imu, or provide --session-dir")
 
-    artifacts_dir = ROOT / "data" / "artifacts" / "sessions" / args.session_id
+    artifacts_dir = (
+        ROOT / "data" / "training_collection" / "artifacts"
+        / "sessions" / args.session_id
+    )
     features_output = args.features_output or artifacts_dir / "imu_keypress_features.jsonl"
     model_output = args.model_output or ROOT / "models" / "gesture" / f"{args.session_id}_hand_imu_model.json"
 

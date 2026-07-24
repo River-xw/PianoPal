@@ -7,8 +7,10 @@ Sub-score formulas (all 0-100):
                        -- coverage-adjusted: missing most notes cannot still score 100 rhythm.
   timing stability  = pitch_accuracy * raw_timing_stability / 100
                        -- coverage-adjusted: a few perfectly-aligned notes cannot hide many misses.
-  overall           = score_weight_pitch*pitch + score_weight_rhythm*rhythm
-                       + score_weight_timing_stability*timing_stability   (weights in ScoringConfig)
+  overall           = weighted average of every available sub-score.
+                       A requested external score such as hand posture can be
+                       unavailable; in that case the remaining weights are
+                       renormalized instead of silently treating it as zero.
 """
 from __future__ import annotations
 
@@ -225,11 +227,24 @@ def _summarize(
     # not computed/shown at all, not silently scored as 0.
     hand_shape = hand_shape_score if config.score_weight_hand_shape > 0 else None
 
+    # External sensors are allowed to be unavailable. Do not turn a missing
+    # posture score into either a fake perfect score or an implicit zero:
+    # compute the weighted average across the sub-scores that were actually
+    # measured. When every configured weight is present and weights sum to
+    # one, this is identical to the original formula.
+    weighted_scores = [
+        (config.score_weight_pitch, pitch_accuracy),
+        (config.score_weight_rhythm, rhythm_accuracy),
+    ]
+    if timing_stability is not None:
+        weighted_scores.append((config.score_weight_timing_stability, timing_stability))
+    if hand_shape is not None:
+        weighted_scores.append((config.score_weight_hand_shape, hand_shape))
+    available_weight = sum(weight for weight, _ in weighted_scores if weight > 0)
     overall = (
-        config.score_weight_pitch * pitch_accuracy
-        + config.score_weight_rhythm * rhythm_accuracy
-        + (config.score_weight_timing_stability * timing_stability if timing_stability is not None else 0.0)
-        + (config.score_weight_hand_shape * hand_shape if hand_shape is not None else 0.0)
+        sum(weight * value for weight, value in weighted_scores if weight > 0) / available_weight
+        if available_weight > 0
+        else 0.0
     )
 
     octave_slips = sum(
