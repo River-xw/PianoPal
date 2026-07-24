@@ -9,7 +9,7 @@ Developer-facing wrappers around the main pipeline.
 - `grade_against_demo_audio.py`: grades a student recording against a **demo recording** instead of a MIDI/MusicXML reference (no score file needed) -- see `backend.audio_to_performance.audio_reference.grade_student_against_demo`.
 - `grade.py`: the original all-in-one wrapper (reference score + performance file -> scoring result -> `frontend/viewer/public/result.json` -> starts the local viewer). Superseded for real practice sessions by `edge/practice_server.py`'s live guided-session flow, but still handy for grading a one-off file pair.
 - `validate_grading_with_synthetic_errors.py`: synthesizes recordings with controlled, known mistakes (from keybank samples) to validate that the grading pipeline actually catches them -- a ground-truth check that doesn't depend on a real human performance.
-- `validate_recording.sh`: 給組員用的一鍵驗證腳本 -- 選歌、給錄音檔，其餘（跑評分、開前端、開瀏覽器）全自動，不需要記任何 CLI 參數。
+- `validate_recording.sh`: 给组员用的一键验证脚本 -- 选歌、给录音档，其余（跑评分、开前端、开浏览器）全自动，不需要记任何 CLI 参数。
 
 ## Session Servers
 

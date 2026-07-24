@@ -56,3 +56,7 @@ data/formal_assessments/
 data/session_scratch/
 data/custom_songs/
 frontend/viewer/public/last_debug.json
+
+# Local-only Traditional-Chinese mirror of each README.md (pushed READMEs are
+# Simplified to match the team's convention) -- never pushed, per-machine only
+README.zh-TW.md

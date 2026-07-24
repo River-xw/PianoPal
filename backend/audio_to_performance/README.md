@@ -1,244 +1,244 @@
 # audio_to_performance
 
-把單人單鋼琴的麥克風錄音，轉成 [scoring](../scoring) 引擎吃的 `performance.json`。跟先前 `latency_test` 那套用通用 onset 偵測（librosa spectral flux）的做法不同——這裡用 Spotify 的 **basic-pitch**，一個真正訓練過的複音鋼琴轉譜神經網路，而不是「有沒有聲音突然變大聲」這種通用方法。
+把单人单钢琴的麦克风录音，转成 [scoring](../scoring) 引擎吃的 `performance.json`。跟先前 `latency_test` 那套用通用 onset 侦测（librosa spectral flux）的做法不同——这里用 Spotify 的 **basic-pitch**，一个真正训练过的复音钢琴转谱神经网络，而不是「有没有声音突然变大声」这种通用方法。
 
-## 目前的建議用法：已知曲譜時，評分學生錄音改用 `grade_audio_reference_constrained.py`
+## 目前的建议用法：已知曲谱时，评分学生录音改用 `grade_audio_reference_constrained.py`
 
-**評分「學生錄音 vs 已知曲譜」這個主要場景，現在改用 `scripts/grade_audio_reference_constrained.py --mode reference-dtw`（不經過 basic-pitch），不再用 `scripts/grade_audio.py`。**（`reference-grid` 模式仍在，但已不是 production 預設——見下方「`reference-grid` 換成 `reference-dtw`」一節。）
+**评分「学生录音 vs 已知曲谱」这个主要场景，现在改用 `scripts/grade_audio_reference_constrained.py --mode reference-dtw`（不经过 basic-pitch），不再用 `scripts/grade_audio.py`。**（`reference-grid` 模式仍在，但已不是 production 缺省——见下方「`reference-grid` 换成 `reference-dtw`」一节。）
 
-原因：這台 BF-3738C 電子琴的音色跟 basic-pitch 訓練用的真鋼琴差很多，一直有「多餘音符」(harmonic bleed 誤判成新音符)的問題，就算加了 `suppress_harmonic_extras` 之類的heuristic 也只能減少、不能根除。
+原因：这台 BF-3738C 电子琴的音色跟 basic-pitch 训练用的真钢琴差很多，一直有「多余音符」(harmonic bleed 误判成新音符)的问题，就算加了 `suppress_harmonic_extras` 之类的heuristic 也只能减少、不能根除。
 
-實測拿曲庫裡5首完全落在22個白鍵範圍內的歌(其餘6首含黑鍵/超出範圍，用keybank合成會不公平)，各自合成成真實音色音檔，同一份音檔分別跑兩條路徑評分：
+实测拿曲库里5首完全落在22个白键范围内的歌(其余6首含黑键/超出范围，用keybank合成会不公平)，各自合成成真实音色音档，同一份音档分别跑两条路径评分：
 
-| 曲目 | refgrid分數 | bp分數 | refgrid(對/錯音/漏/多) | bp(對/錯音/漏/多) |
+| 曲目 | refgrid分数 | bp分数 | refgrid(对/错音/漏/多) | bp(对/错音/漏/多) |
 | --- | --- | --- | --- | --- |
 | 10_little_indians | 92.96 | 90.49 | 66/0/5/0 | 69/0/2/5 |
 | alabama | 95.10 | 87.37 | 97/0/5/0 | 95/5/2/9 |
 | pachelbel_canon_bpno | 96.15 | 93.97 | 100/0/4/0 | 102/0/2/2 |
 | silent_night_easy | 100.00 | 93.79 | 74/0/0/0 | 72/0/2/1 |
 | twinkle_twinkle | 97.10 | 92.17 | 67/0/2/0 | 69/0/0/4 |
-| **合計(438個音符)** | | | **404/0/16/0** | **407/5/8/21** |
+| **合计(438个音符)** | | | **404/0/16/0** | **407/5/8/21** |
 
-`reference-grid` 每一首歌分數都比 basic-pitch 高，而且**5首歌加總 0 個 extra、0 個 wrong_pitch**——不是單一首歌的偶然結果。basic-pitch 抓到的音符總數略多(漏音較少)，但代價是 21 個 extra + 5 個 wrong_pitch，這就是一直存在的「泛音誤判成新音符」問題；`reference-grid` 完全不會有這個毛病，因為它從頭到尾只在已知候選音高集合裡驗證，不會憑空多冒出音符。
+`reference-grid` 每一首歌分数都比 basic-pitch 高，而且**5首歌加总 0 个 extra、0 个 wrong_pitch**——不是单一首歌的偶然结果。basic-pitch 抓到的音符总数略多(漏音较少)，但代价是 21 个 extra + 5 个 wrong_pitch，这就是一直存在的「泛音误判成新音符」问题；`reference-grid` 完全不会有这个毛病，因为它从头到尾只在已知候选音高集合里验证，不会凭空多冒出音符。
 
-`reference-grid` 模式（`reference_constrained.py` 的 `transcribe_reference_constrained`）完全不猜音高——已知曲譜的每個音符各自在對應時間點的音檔窗口裡驗證「參考音高的證據夠不夠強」，不會像 basic-pitch 那樣把泛音誤判成獨立新音符。漏掉的16個音，一部分是已知的 F3 硬體特性(基頻弱)這類個別鍵的問題，其餘屬於還可以調參數優化的範圍(見下方)，不是新 bug。
+`reference-grid` 模式（`reference_constrained.py` 的 `transcribe_reference_constrained`）完全不猜音高——已知曲谱的每个音符各自在对应时间点的音档窗口里验证「参考音高的证据够不够强」，不会像 basic-pitch 那样把泛音误判成独立新音符。漏掉的16个音，一部分是已知的 F3 硬件特性(基频弱)这类个别键的问题，其余属于还可以调参数优化的范围(见下方)，不是新 bug。
 
-## `reference-grid` 換成 `reference-dtw`：真人錄音的節奏浮動(rubato)問題
+## `reference-grid` 换成 `reference-dtw`：真人录音的节奏浮动(rubato)问题
 
-`reference-grid` 對著上面表格裡**合成音檔**(節奏跟 MIDI 一模一樣、零浮動)表現很好，但拿真人在樹莓派上實際彈奏的錄音測試時，發現分數異常低(30-45分)、`missed` 數量異常高，一度懷疑是門檻(`min_ref_score_ratio`/`min_winner_confidence`)設太嚴——實測掃過整個門檻範圍(0.65 到 0.05)，「彈對」跟「刻意彈錯」兩份錄音的分數差距始終在 ±4.3 分以內，證實**門檻不是問題**。
+`reference-grid` 对着上面表格里**合成音档**(节奏跟 MIDI 一模一样、零浮动)表现很好，但拿真人在树莓派上实际弹奏的录音测试时，发现分数异常低(30-45分)、`missed` 数量异常高，一度怀疑是门槛(`min_ref_score_ratio`/`min_winner_confidence`)设太严——实测扫过整个门槛范围(0.65 到 0.05)，「弹对」跟「刻意弹错」两份录音的分数差距始终在 ±4.3 分以内，证实**门槛不是问题**。
 
-真正原因：`reference-grid`(`_estimate_time_alignment`) 只用**一條全域線性時間縮放**把參考譜的每個音符投影到音檔時間，再開一個固定 ±0.16 秒的窗口驗證音高。真人彈奏一定有節奏浮動(忽快忽慢)，浮動累積起來很容易讓後面的音符整個投影到音檔裡錯誤的位置，窗口驗證的其實是不相干的音檔片段——這才是漏彈率長期異常偏高的根本原因，不是門檻。
+真正原因：`reference-grid`(`_estimate_time_alignment`) 只用**一条全域线性时间缩放**把参考谱的每个音符投影到音档时间，再开一个固定 ±0.16 秒的窗口验证音高。真人弹奏一定有节奏浮动(忽快忽慢)，浮动累积起来很容易让后面的音符整个投影到音档里错误的位置，窗口验证的其实是不相干的音档片段——这才是漏弹率长期异常偏高的根本原因，不是门槛。
 
-`reference-dtw`(`transcribe_reference_dtw`)的做法：先偵測音檔裡**真實的**起音時間點(不假設格子時間)，再用 DTW 把參考譜的音符事件(和弦視為一個事件)對齊到偵測到的起音——對齊的成本主要看每個起音的音高證據撐不撐得起參考音符期望的音高，時間只當作極弱的「大概同一個相對位置」提示，用來消歧 Twinkle Twinkle 這種大量重複同一音高的曲子，不是像 `reference-grid` 那樣的硬窗口。對齊完之後把結果丟回既有的 `score_performance()`(`backend/scoring/align.py`)，讓它自己的 DTW+分段節奏曲線去做最終的 correct/timing_off 判斷——這部分邏輯不用重寫，本來就是為了處理真人演奏節奏浮動設計的。
+`reference-dtw`(`transcribe_reference_dtw`)的做法：先侦测音档里**真实的**起音时间点(不假设格子时间)，再用 DTW 把参考谱的音符事件(和弦视为一个事件)对齐到侦测到的起音——对齐的成本主要看每个起音的音高证据撑不撑得起参考音符期望的音高，时间只当作极弱的「大概同一个相对位置」提示，用来消歧 Twinkle Twinkle 这种大量重复同一音高的曲子，不是像 `reference-grid` 那样的硬窗口。对齐完之后把结果丢回既有的 `score_performance()`(`backend/scoring/align.py`)，让它自己的 DTW+分段节奏曲线去做最终的 correct/timing_off 判断——这部分逻辑不用重写，本来就是为了处理真人演奏节奏浮动设计的。
 
-實測（4份樹莓派真人錄音，69音符的 Twinkle Twinkle，漏彈數）：
+实测（4份树莓派真人录音，69音符的 Twinkle Twinkle，漏弹数）：
 
-| 錄音 | reference-grid 漏彈 | reference-dtw 漏彈 |
+| 录音 | reference-grid 漏弹 | reference-dtw 漏弹 |
 | --- | --- | --- |
-| normal(正常彈) | 44 | 3 |
-| fast(彈快) | 29 | 6 |
-| mistake(故意彈錯) | 37 | 2-4 |
-| right(只彈右手) | 38 | 17-18(本來就只彈一半，合理) |
+| normal(正常弹) | 44 | 3 |
+| fast(弹快) | 29 | 6 |
+| mistake(故意弹错) | 37 | 2-4 |
+| right(只弹右手) | 38 | 17-18(本来就只弹一半，合理) |
 
-`--emit-wrong-pitch`(現在預設開啟，用 `--no-emit-wrong-pitch` 關掉)讓「彈錯的音」不再被吞成籠統的 `missed`，而是明確標出「彈了什麼」——實測對著 mistake 錄音裡刻意彈錯的位置（第 1 小節的 G4 彈成了 F4），debug 輸出精準對上：`pitch_ref=67(G4) → pitch_perf=65(F4), status=wrong_pitch`。（這個對應的確切 ref_index 會隨節奏曲線/DTW 演算法微調而變動——上面這組數字是照目前這版驗證過的，不是寫死的常數；有疑問時直接重跑 debug JSON 核對最準。）
+`--emit-wrong-pitch`(现在缺省打开，用 `--no-emit-wrong-pitch` 关掉)让「弹错的音」不再被吞成笼统的 `missed`，而是明确标出「弹了什么」——实测对着 mistake 录音里刻意弹错的位置（第 1 小节的 G4 弹成了 F4），debug 输出精准对上：`pitch_ref=67(G4) → pitch_perf=65(F4), status=wrong_pitch`。（这个对应的确切 ref_index 会随节奏曲线/DTW 算法微调而变动——上面这组数字是照目前这版验证过的，不是写死的常数；有疑问时直接重跑 debug JSON 核对最准。）
 
-代價：對著上面表格那種零浮動的乾淨合成音檔，`reference-dtw` 分數比 `reference-grid` 略低(twinkle_twinkle: 97.1→91.1)，因為 DTW 自己重新擬合的節奏曲線在完全規律的輸入上反而引入一點點雜訊；相對於真人錄音的漏彈率大幅改善，這個取捨是值得的。
+代价：对着上面表格那种零浮动的干净合成音档，`reference-dtw` 分数比 `reference-grid` 略低(twinkle_twinkle: 97.1→91.1)，因为 DTW 自己重新拟合的节奏曲线在完全规律的输入上反而引入一点点杂讯；相对于真人录音的漏弹率大幅改善，这个取舍是值得的。
 
-**這條路線原本有三個嚴重 bug 已修好**：
+**这条路线原本有三个严重 bug 已修好**：
 
-1. 時間對齊原本用一個粗略的「音檔哪裡有聲音」RMS 門檻估計，28秒的曲子會累積將近0.7秒的誤差，導致後半首歌大量誤判成 `missed`（分數曾經只有42分）。改成用模組裡已有的 onset 偵測去對齊第一個/最後一個音符的時間，才修正回 95分以上。
-2. `synthesize_reference_from_keybank.py` 原本把整首歌的音符全部混進**同一個長 buffer**——但每個 keybank 樣本的自然衰減(常常超過1秒)比大部分歌曲的音符間距(常常0.5-0.6秒)長很多，導致連續聽整首歌會有明顯的殘響堆疊、「一前一後」的黏糊感(耳朵聽得出來，但單一和弦的攻擊時間點本身是對的，物理量測也量不太出明顯差異)。改成**照小節切開、每個小節獨立合成再首尾接起來**(見下方)之後，5首歌整體評分也從399→404對、43→21個basic-pitch的extra，聽感更乾淨。
-3. **完全沒人彈琴的錄音，曾經被判成大部分音符都「彈對」**（真實案例：一段純環境雜音的錄音，102個音符裡84個被判對，分數82分）。原因是 `confidence`/`ref_ratio` 這兩個判定指標**只比較候選音高彼此之間的相對佔比**，純雜訊在約9個候選音高之間本來就會隨機分配不均，隨便一個「運氣好」拿到 0.22-0.38 的相對佔比太正常了，剛好超過 `min_winner_confidence=0.18` 這個門檻——從頭到尾沒有檢查過「這裡到底有沒有真的發出聲音」的絕對音量。修法：加一個 `_estimate_energy_floor()`，用這份錄音自己「參考譜最後一個音之後」的真實靜音尾段校準本次錄音的雜訊水準，音符窗口的能量沒有明顯超過這個雜訊水準就直接判 `missed`(標記 `below_noise_floor`)，不管候選音之間的相對比例好不好看。拿同一份純雜訊錄音重測：102個全部正確判成漏彈，分數變回0分；拿真的有彈奏的合成音檔重測，5首歌的分數/對錯數字完全沒變，證實這個門檻沒有誤傷真正彈對的音符。
+1. 时间对齐原本用一个粗略的「音档哪里有声音」RMS 门槛估计，28秒的曲子会累积将近0.7秒的误差，导致后半首歌大量误判成 `missed`（分数曾经只有42分）。改成用模块里已有的 onset 侦测去对齐第一个/最后一个音符的时间，才修正回 95分以上。
+2. `synthesize_reference_from_keybank.py` 原本把整首歌的音符全部混进**同一个长 buffer**——但每个 keybank 样本的自然衰减(常常超过1秒)比大部分歌曲的音符间距(常常0.5-0.6秒)长很多，导致连续听整首歌会有明显的残响堆栈、「一前一后」的黏糊感(耳朵听得出来，但单一和弦的攻击时间点本身是对的，物理量测也量不太出明显差异)。改成**照小节切开、每个小节独立合成再首尾接起来**(见下方)之后，5首歌整体评分也从399→404对、43→21个basic-pitch的extra，听感更干净。
+3. **完全没人弹琴的录音，曾经被判成大部分音符都「弹对」**（真实案例：一段纯环境杂音的录音，102个音符里84个被判对，分数82分）。原因是 `confidence`/`ref_ratio` 这两个判定指标**只比较候选音高彼此之间的相对占比**，纯杂讯在约9个候选音高之间本来就会随机分配不均，随便一个「运气好」拿到 0.22-0.38 的相对占比太正常了，刚好超过 `min_winner_confidence=0.18` 这个门槛——从头到尾没有检查过「这里到底有没有真的发出声音」的绝对音量。修法：加一个 `_estimate_energy_floor()`，用这份录音自己「参考谱最后一个音之后」的真实静音尾段校准本次录音的杂讯水准，音符窗口的能量没有明显超过这个杂讯水准就直接判 `missed`(标记 `below_noise_floor`)，不管候选音之间的相对比例好不好看。拿同一份纯杂讯录音重测：102个全部正确判成漏弹，分数变回0分；拿真的有弹奏的合成音档重测，5首歌的分数/对错数字完全没变，证实这个门槛没有误伤真正弹对的音符。
 
-**沒有被取代的部分**：`transcribe.py`/`pipeline.py`/`preprocess.py`/`postprocess.py` 這些 basic-pitch 模組保留，`validation/roundtrip.py` 等內部驗證工具還在用它們做「合成音檔反向驗證 MIDI 轉譜」這件事，跟「評分學生錄音」是不同用途。`grade_audio.py` 本身也還在，沒有刪除，只是不再是評分學生錄音的預設工具。
+**没有被取代的部分**：`transcribe.py`/`pipeline.py`/`preprocess.py`/`postprocess.py` 这些 basic-pitch 模块保留，`validation/roundtrip.py` 等内部验证工具还在用它们做「合成音档反向验证 MIDI 转谱」这件事，跟「评分学生录音」是不同用途。`grade_audio.py` 本身也还在，没有删除，只是不再是评分学生录音的缺省工具。
 
-## 為什麼要換掉之前的方法
+## 为什么要换掉之前的方法
 
-之前用 `latency_test` 測試過兩首完全不同的曲子（Für Elise 真實演奏、Bach前奏曲排除rubato變因），都得到同樣的結果：**72% 的音符完全沒被偵測到**，而且從頭到尾沒有音高資訊（只能判斷「有沒有聲音、什麼時候」，判斷不了「彈了哪個音」）。這是通用 onset 偵測方法在複音、連續鋼琴音樂上的已知天花板，不是調參數能解決的。
+之前用 `latency_test` 测试过两首完全不同的曲子（Für Elise 真实演奏、Bach前奏曲排除rubato变因），都得到同样的结果：**72% 的音符完全没被侦测到**，而且从头到尾没有音高信息（只能判断「有没有声音、什么时候」，判断不了「弹了哪个音」）。这是通用 onset 侦测方法在复音、连续钢琴音乐上的已知天花板，不是调参数能解决的。
 
-basic-pitch 是不一樣量級的工具：它是專門訓練來做「polyphonic automatic music transcription」的模型，同時輸出音高、起始時間、結束時間。在這個模組的端對端測試裡（合成一段C大調分解和弦），4個真實音符全部被正確辨識成 `correct`（音高、時間都對），`missed: 0`——相較之前的72%漏偵測，是質的差異。
+basic-pitch 是不一样量级的工具：它是专门训练来做「polyphonic automatic music transcription」的模型，同时输出音高、起始时间、结束时间。在这个模块的端对端测试里（合成一段C大调分解和弦），4个真实音符全部被正确辨识成 `correct`（音高、时间都对），`missed: 0`——相较之前的72%漏侦测，是质的差异。
 
-## 安裝（注意：需要 Python 3.11，不是 3.14）
+## 安装（注意：需要 Python 3.11，不是 3.14）
 
-`basic-pitch` 的依賴鏈（主要是 `resampy`/`numpy` 的原始碼包）在 Python 3.14 上編譯不起來，因為裡面用到已經被移除的 `pkgutil.ImpImporter`。這個專案其他模組能在 3.14 上跑，但這個模組需要自己的 Python 3.11 虛擬環境：
+`basic-pitch` 的依赖链（主要是 `resampy`/`numpy` 的原代码包）在 Python 3.14 上编译不起来，因为里面用到已经被移除的 `pkgutil.ImpImporter`。这个项目其他模块能在 3.14 上跑，但这个模块需要自己的 Python 3.11 虚拟环境：
 
 ```bash
-brew install python@3.11   # 如果還沒裝
-cd <repo根目錄>
+brew install python@3.11   # 如果还没装
+cd <repo根目录>
 python3.11 -m venv backend/audio_to_performance/.venv
 source backend/audio_to_performance/.venv/bin/activate
 pip install -r backend/audio_to_performance/requirements.txt
-pip install music21   # backend.scoring 會 import backend.score_to_reference，間接需要這個
+pip install music21   # backend.scoring 会 import backend.score_to_reference，间接需要这个
 ```
 
-**另一個安裝陷阱**：`setuptools` 從某個版本開始把 `pkg_resources` 整個移除了（resampy 還在用這個舊 API），所以 `requirements.txt` 裡特別釘住 `setuptools<81`。如果你自己手動升級過 setuptools，可能又會踩到這個錯誤，訊息長這樣：
+**另一个安装陷阱**：`setuptools` 从某个版本开始把 `pkg_resources` 整个移除了（resampy 还在用这个旧 API），所以 `requirements.txt` 里特别钉住 `setuptools<81`。如果你自己手动升级过 setuptools，可能又会踩到这个错误，消息长这样：
 
 ```
 ModuleNotFoundError: No module named 'pkg_resources'
 ```
 
-重新 `pip install "setuptools<81"` 就能解決。
+重新 `pip install "setuptools<81"` 就能解决。
 
 ## 用法
 
 ### CLI
 
 ```bash
-python -m backend.audio_to_performance 錄音.wav -o performance.json --save-midi 轉譜結果.mid
+python -m backend.audio_to_performance 录音.wav -o performance.json --save-midi 转谱结果.mid
 ```
 
-加上前處理（預設全部關閉，見下方說明）：
+加上前处理（缺省全部关闭，见下方说明）：
 
 ```bash
-python -m backend.audio_to_performance 錄音.wav -o performance.json \
+python -m backend.audio_to_performance 录音.wav -o performance.json \
   --denoise --bandpass --normalize \
   --onset-thresh 0.6 --frame-thresh 0.4
 ```
 
-### 當 Python 套件用
+### 当 Python 套件用
 
 ```python
 from backend.audio_to_performance import transcribe, AudioToPerformanceConfig
 
-# 從檔案
-performance = transcribe(wav_path="錄音.wav")
+# 从文件
+performance = transcribe(wav_path="录音.wav")
 
-# 從記憶體裡的 numpy array(例如即時錄音的 buffer，不用先寫檔)
+# 从内存里的 numpy array(例如即时录音的 buffer，不用先写档)
 performance = transcribe(audio=my_audio_array, samplerate=44100)
 ```
 
-`performance` 的格式跟 `scoring.midi_io.midi_to_performance()` 輸出的完全一樣——因為內部就是直接呼叫那個函式，兩條輸入路徑（真的 MIDI 鍵盤 vs. 麥克風轉譜）共用同一份「什麼是一個 performance 音符」的定義，沒有另外發明一套 schema。
+`performance` 的格式跟 `scoring.midi_io.midi_to_performance()` 输出的完全一样——因为内部就是直接调用那个函数，两条输入路径（真的 MIDI 键盘 vs. 麦克风转谱）共用同一份「什么是一个 performance 音符」的定义，没有另外发明一套 schema。
 
-## 前處理為什麼預設關閉
+## 前处理为什么缺省关闭
 
-`denoise`(降噪)、`bandpass`(限制在鋼琴音域 27.5-4186Hz)、`normalize`(音量正規化)都做了，但預設**全部關閉**。原因：basic-pitch 是拿相對乾淨的原始音訊訓練的，這些前處理步驟可能會削弱或扭曲音符起始瞬間的瞬態訊號——而模型正是靠這個瞬態判斷「這裡有一個新的音符開始了」。降噪尤其容易把攻擊瞬間磨平。想開啟前，建議先關/開各自測一次，比較實際轉譜結果，不要預設「處理過的音訊一定比較好」。
+`denoise`(降噪)、`bandpass`(限制在钢琴音域 27.5-4186Hz)、`normalize`(音量正规化)都做了，但缺省**全部关闭**。原因：basic-pitch 是拿相对干净的原始音频训练的，这些前处理步骤可能会削弱或扭曲音符起始瞬间的瞬态信号——而模型正是靠这个瞬态判断「这里有一个新的音符开始了」。降噪尤其容易把攻击瞬间磨平。想打开前，建议先关/开各自测一次，比较实际转谱结果，不要缺省「处理过的音频一定比较好」。
 
-## 轉譜出來的「多餘音符」問題（`--suppress-harmonics`）
+## 转谱出来的「多余音符」问题（`--suppress-harmonics`）
 
-拿真實錄音實測發現：轉譜結果裡有不少 `extra`(參考樂譜裡沒有對應的音符)，但這些不是隨機幻覺。實際比對一份 Bach 前奏曲的錄音發現：
+拿真实录音实测发现：转谱结果里有不少 `extra`(参考乐谱里没有对应的音符)，但这些不是随机幻觉。实际比对一份 Bach 前奏曲的录音发现：
 
-- 84% 的 extra 音符，都出現在某個「真的、被正確配對」的音符附近(150毫秒以內)
-- 其中 58% 跟那個真音符差一個八度、完全五度、或完全四度——古典的泛音/共鳴音程
-- extra 音符的音量中位數(50)明顯比真音符(73)小、拖長時間也短很多(0.28s vs 0.86s)
+- 84% 的 extra 音符，都出现在某个「真的、被正确配对」的音符附近(150毫秒以内)
+- 其中 58% 跟那个真音符差一个八度、完全五度、或完全四度——古典的泛音/共鸣音程
+- extra 音符的音量中位数(50)明显比真音符(73)小、拖长时间也短很多(0.28s vs 0.86s)
 
-也就是說：多數 extra 是鋼琴自己的泛音、或延音踏板的共鳴，被 basic-pitch 誤判成一個新按下的音符，不是轉譜邏輯亂猜。
+也就是说：多数 extra 是钢琴自己的泛音、或延音踏板的共鸣，被 basic-pitch 误判成一个新按下的音符，不是转谱逻辑乱猜。
 
-一開始想用單純的音量門檻濾掉，但發現 extra 跟真音符的音量分布重疊太多——設門檻濾掉六成 extra，也會誤殺一成真音符。所以改成更精準的條件（`postprocess.py`）：**只有同時滿足「時間夠近」+「音程是八度/五度/四度」+「音量明顯比旁邊那個真音符小」，才會被丟掉**。這樣可以放過：單獨彈的小聲音符（沒有旁邊音符可比較）、真的刻意八度加倍的和弦（兩個音量差不多大）。
+一开始想用单纯的音量门槛滤掉，但发现 extra 跟真音符的音量分布重叠太多——设门槛滤掉六成 extra，也会误杀一成真音符。所以改成更精准的条件（`postprocess.py`）：**只有同时满足「时间够近」+「音程是八度/五度/四度」+「音量明显比旁边那个真音符小」，才会被丢掉**。这样可以放过：单独弹的小声音符（没有旁边音符可比较）、真的刻意八度加倍的和弦（两个音量差不多大）。
 
-實測效果（同一份錄音，同一份轉譜結果，只是套用這個過濾器）：extra 從 358 降到 264(-26%)，總分從 60.69 提升到 62.4。不是完美解法（真音符也會被誤殺一些，`correct` 從451掉到437），但淨效益是正的。
+实测效果（同一份录音，同一份转谱结果，只是套用这个过滤器）：extra 从 358 降到 264(-26%)，总分从 60.69 提升到 62.4。不是完美解法（真音符也会被误杀一些，`correct` 从451掉到437），但净效益是正的。
 
-預設關閉，用 `--suppress-harmonics` 開啟：
+缺省关闭，用 `--suppress-harmonics` 打开：
 
 ```bash
-python -m backend.audio_to_performance 錄音.wav -o performance.json --suppress-harmonics
+python -m backend.audio_to_performance 录音.wav -o performance.json --suppress-harmonics
 ```
 
-## 限制式驗證(`constrained_verification.py`)：用已知的參考譜縮小搜尋範圍
+## 限制式验证(`constrained_verification.py`)：用已知的参考谱缩小搜索范围
 
-basic-pitch 是自由(不受限)的複音轉譜——在整個鋼琴音域裡自己猜每個音是什麼。這正是八度誤判的根源：2*f0 在物理上就跟高八度的音重疊，鋼琴的非諧性(inharmonicity)在低音區還可能讓泛音比基音更強，模型有時候會挑到泛音而不是基音。但既然我們透過 `reference.json` 已經知道「這個時間點應該是哪個音」，就不需要每次都做開放式轉譜——可以只在一個很小的候選音高集合裡（預期音高本身 + 最可能搞混的幾個音）比對原始音訊證據，而不是照單全收 basic-pitch 給的猜測。
+basic-pitch 是自由(不受限)的复音转谱——在整个钢琴音域里自己猜每个音是什么。这正是八度误判的根源：2*f0 在物理上就跟高八度的音重叠，钢琴的非谐性(inharmonicity)在低音区还可能让泛音比基音更强，模型有时候会挑到泛音而不是基音。但既然我们通过 `reference.json` 已经知道「这个时间点应该是哪个音」，就不需要每次都做开放式转谱——可以只在一个很小的候选音高集合里（预期音高本身 + 最可能搞混的几个音）比对原始音频证据，而不是照单全收 basic-pitch 给的猜测。
 
-這是疊加在既有 pipeline **之上**的一層，不是取代它：只重新檢視 `result.json` 裡已經被標記 `wrong_pitch`/`missed` 的音符。
+这是叠加在既有 pipeline **之上**的一层，不是取代它：只重新查看 `result.json` 里已经被标记 `wrong_pitch`/`missed` 的音符。
 
-- **候選集合**(`get_candidates`)：參考音高本身 + `±1、±2、±12、±24` 半音——涵蓋近似音跟一/二個八度的誤判。等實體鍵盤到了，把 `keyboard_range=(最低音, 最高音)` 設進 `ConstrainedVerificationConfig`，可以濾掉物理上鍵盤根本彈不出來的候選音(見程式碼裡的 TODO)。
-- **泛音感知評分**(`score_candidate`)：從 CQT 讀每個候選音基頻位置的能量，如果某候選音剛好是集合裡另一個候選音的高八度、而且自己的能量明顯比那個低音候選音弱(預設門檻：不到 0.4 倍)，就大幅打折——代表這很可能只是泛音，不是真的獨立按下的音。
-- **逐音重新驗證**(`reverify_note`)：贏家 = 參考音高 → 改判 `corrected_octave_or_harmonic_error`；贏家 = 原本 basic-pitch 猜的音 → 維持原狀(證實真的彈錯/沒偵測到)；贏家是集合裡其他候選音 → 改判 `reverified_different_pitch`；沒有候選音的信心度(佔全部候選音能量的比例)超過門檻 → 維持原狀，標 `reverification_inconclusive`，絕不亂猜。
-- **獨立的「未預期起音」掃描**(`scan_unexpected_onsets`)：上面的方法結構上只會去參考譜「預期有音符」的地方找證據，看不到完全不在預期範圍內的音符。這裡改用最單純的 onset-strength 包絡線(不管音高)掃過整段錄音，找出離所有已知起音(參考譜 + `result.json` 裡已經配對過的起音)都太遠(預設 >0.2秒)的起音，標成 `possible_unscored_extra_onset`——純資訊性質，不會自己生一個配了分的音符，因為我們還不夠確定它的音高。
+- **候选集合**(`get_candidates`)：参考音高本身 + `±1、±2、±12、±24` 半音——涵盖近似音跟一/二个八度的误判。等实体键盘到了，把 `keyboard_range=(最低音, 最高音)` 设进 `ConstrainedVerificationConfig`，可以滤掉物理上键盘根本弹不出来的候选音(见代码里的 TODO)。
+- **泛音感知评分**(`score_candidate`)：从 CQT 读每个候选音基频位置的能量，如果某候选音刚好是集合里另一个候选音的高八度、而且自己的能量明显比那个低音候选音弱(缺省门槛：不到 0.4 倍)，就大幅打折——代表这很可能只是泛音，不是真的独立按下的音。
+- **逐音重新验证**(`reverify_note`)：赢家 = 参考音高 → 改判 `corrected_octave_or_harmonic_error`；赢家 = 原本 basic-pitch 猜的音 → 维持原状(证实真的弹错/没侦测到)；赢家是集合里其他候选音 → 改判 `reverified_different_pitch`；没有候选音的信心度(占全部候选音能量的比例)超过门槛 → 维持原状，标 `reverification_inconclusive`，绝不乱猜。
+- **独立的「未预期起音」扫描**(`scan_unexpected_onsets`)：上面的方法结构上只会去参考谱「预期有音符」的地方找证据，看不到完全不在预期范围内的音符。这里改用最单纯的 onset-strength 包络线(不管音高)扫过整段录音，找出离所有已知起音(参考谱 + `result.json` 里已经配对过的起音)都太远(缺省 >0.2秒)的起音，标成 `possible_unscored_extra_onset`——纯信息性质，不会自己生一个配了分的音符，因为我们还不够确定它的音高。
 
-## 音色不符實體樂器：改用實體按鍵錄音的樣本比對(`keybank.py` / `keyboard_profile.py`)
+## 音色不符实体乐器：改用实体按键录音的样本比对(`keybank.py` / `keyboard_profile.py`)
 
-舊版 `timbre_fingerprint.py`（每個鍵的 CQT 指紋、比對候選音）已移除，改用另一套機制：直接錄一段「從左到右彈過全部37個鍵」的音檔，按物理順序切成一段一段的樣本(`train_keybank_from_scale.py` → `keybank.py`)，不靠音高偵測去猜每一段是哪個音——因為這台琴的音色本來就容易讓音高偵測器(pYIN、basic-pitch)誤判，用彈奏順序當標籤才可靠。
+旧版 `timbre_fingerprint.py`（每个键的 CQT 指纹、比对候选音）已移除，改用另一套机制：直接录一段「从左到右弹过全部37个键」的音档，按物理顺序切成一段一段的样本(`train_keybank_from_scale.py` → `keybank.py`)，不靠音高侦测去猜每一段是哪个音——因为这台琴的音色本来就容易让音高侦测器(pYIN、basic-pitch)误判，用弹奏顺序当标签才可靠。
 
-- **`keybank.py`**：從左到右的音階錄音偵測 onset、依序切割貼上 midi 標籤，同時算每個鍵的泛音能量統計；額外用 pYIN 做一個「診斷用」複核，跟物理順序標籤差超過 0.75 半音就標記 `pyin_octave_or_pitch_disagrees_with_order_label`——但這只是診斷資訊，不影響標籤本身。
-- **`keyboard_profile.py`**：把 keybank 的每鍵泛音統計整理成一份可重複使用的「這台琴聽起來長怎樣」的 profile。
-- **`constrained_verification.py` 的 `keyboard_profile` 參數**：候選音評分時，如果這個候選音在 profile 裡有記錄，會用觀測到的泛音能量分佈跟 profile 模板做 cosine 相似度，加權疊加到原本的 CQT 能量分數上(不是整個切換，是額外加分)。
-- **`synthesize_reference_from_keybank.py`**：直接照參考譜的音高、時間，從 keybank 找對應樣本原音重播混音，不做任何 pitch-shift。**預設照 `measure` 欄位切成一個個小節分開合成、再首尾接起來**(沒有 measure 資訊時退回整首歌一次合成)，而不是把整首歌塞進同一個長 buffer——每個小節自己的音符「下一個音在哪」決定自己的尾音要收多短(`--legato-overlap-sec`，預設0.08秒)，小節邊界互不影響，也各自獨立做 peak normalize。`--tail-sec` 只補在最後一個小節結尾。
+- **`keybank.py`**：从左到右的音阶录音侦测 onset、依序切割粘贴 midi 标签，同时算每个键的泛音能量统计；额外用 pYIN 做一个「诊断用」复核，跟物理顺序标签差超过 0.75 半音就标记 `pyin_octave_or_pitch_disagrees_with_order_label`——但这只是诊断信息，不影响标签本身。
+- **`keyboard_profile.py`**：把 keybank 的每键泛音统计整理成一份可重复使用的「这台琴听起来长怎样」的 profile。
+- **`constrained_verification.py` 的 `keyboard_profile` 参数**：候选音评分时，如果这个候选音在 profile 里有记录，会用观测到的泛音能量分布跟 profile 模板做 cosine 相似度，加权叠加到原本的 CQT 能量分数上(不是整个切换，是额外加分)。
+- **`synthesize_reference_from_keybank.py`**：直接照参考谱的音高、时间，从 keybank 找对应样本原音重播混音，不做任何 pitch-shift。**缺省照 `measure` 字段切成一个个小节分开合成、再首尾接起来**(没有 measure 信息时退回整首歌一次合成)，而不是把整首歌塞进同一个长 buffer——每个小节自己的音符「下一个音在哪」决定自己的尾音要收多短(`--legato-overlap-sec`，缺省0.08秒)，小节边界互不影响，也各自独立做 peak normalize。`--tail-sec` 只补在最后一个小节结尾。
 
-### 另一條路：完全不用 basic-pitch 的「音對音」比對(`audio_reference.py` / `reference_constrained.py`)
+### 另一条路：完全不用 basic-pitch 的「音对音」比对(`audio_reference.py` / `reference_constrained.py`)
 
-上面的 `keyboard_profile` 只是疊加在 basic-pitch 轉譜結果上的加分項，錄音本身還是得先過一次 basic-pitch。這裡是另一套獨立機制，完全跳過 basic-pitch：
+上面的 `keyboard_profile` 只是叠加在 basic-pitch 转谱结果上的加分项，录音本身还是得先过一次 basic-pitch。这里是另一套独立机制，完全跳过 basic-pitch：
 
-- **`reference_constrained.py`**：`_candidate_pitches()` 直接把候選音高鎖死在 22 個白鍵(或整個鍵盤範圍)——不是拿 basic-pitch 的猜測結果來篩選，而是從一開始就只在這個小集合裡評分，`ReferenceConstrainedConfig` 可設 `allowed_pitches=WHITE_KEY_MIDIS` 限定白鍵模式。白鍵模式下，樂譜裡不在 `allowed_pitches` 內的音符（黑鍵/超出範圍）在轉譜階段就標成 `unsupported_pitch` 跳過；`scripts/grade_audio_reference_constrained.py` 的 `--white-keys-only` 進一步把這些音符從送進 `backend.scoring` 的參考音符清單整個剔除，所以它們不計分、也不會被算成 `missed`——而不只是轉不出音而已。
+- **`reference_constrained.py`**：`_candidate_pitches()` 直接把候选音高锁死在 22 个白键(或整个键盘范围)——不是拿 basic-pitch 的猜测结果来筛选，而是从一开始就只在这个小集合里评分，`ReferenceConstrainedConfig` 可设 `allowed_pitches=WHITE_KEY_MIDIS` 限定白键模式。白键模式下，乐谱里不在 `allowed_pitches` 内的音符（黑键/超出范围）在转谱阶段就标成 `unsupported_pitch` 跳过；`scripts/grade_audio_reference_constrained.py` 的 `--white-keys-only` 进一步把这些音符从送进 `backend.scoring` 的参考音符清单整个剔除，所以它们不计分、也不会被算成 `missed`——而不只是转不出音而已。
 - **`audio_reference.py`**：
-  - `build_audio_reference()`：直接對一段「範例錄音」做 onset 偵測 + 上面的候選音高評分，產生一份音訊原生的參考譜(不需要對應的 MIDI/樂譜檔)——`scripts/build_demo_audio_reference.py` 的實作。
-  - `grade_student_against_demo()`：把學生錄音一樣做 onset+候選音評分，直接拿去跟這份「範例錄音」的參考譜比對評分——完全是音檔對音檔，兩邊都不經過 basic-pitch——`scripts/grade_against_demo_audio.py` 的實作。
-- **`train_keyboard_profile.py`**：另一種訓練 profile 的方式，直接對任意錄音跑 pYIN 抓穩定音高段落分組平均，不需要像 `keybank.py` 那樣照順序彈一次音階（兩者輸出的 profile JSON 格式相容）。
-- **`scripts/grade_audio_reference_constrained.py`**：`grade_audio.py` 的替代品——用符號化參考譜(MIDI/MusicXML)+候選音限制的方式評分麥克風錄音，同樣完全不經過 basic-pitch。
+  - `build_audio_reference()`：直接对一段「范例录音」做 onset 侦测 + 上面的候选音高评分，产生一份音频原生的参考谱(不需要对应的 MIDI/乐谱档)——`scripts/build_demo_audio_reference.py` 的实作。
+  - `grade_student_against_demo()`：把学生录音一样做 onset+候选音评分，直接拿去跟这份「范例录音」的参考谱比对评分——完全是音档对音档，两边都不经过 basic-pitch——`scripts/grade_against_demo_audio.py` 的实作。
+- **`train_keyboard_profile.py`**：另一种训练 profile 的方式，直接对任意录音跑 pYIN 抓稳定音高段落分组平均，不需要像 `keybank.py` 那样照顺序弹一次音阶（两者输出的 profile JSON 格式兼容）。
+- **`scripts/grade_audio_reference_constrained.py`**：`grade_audio.py` 的替代品——用符号化参考谱(MIDI/MusicXML)+候选音限制的方式评分麦克风录音，同样完全不经过 basic-pitch。
 
-**跟前面 `keyboard_profile` 疊加機制的差別**：前者仍然信任 basic-pitch 的轉譜，只在它猜錯時用泛音相似度去修正；這裡是從根本上不信任 basic-pitch，只在已知候選音高集合裡挑一個最像的。
+**跟前面 `keyboard_profile` 叠加机制的差别**：前者仍然信任 basic-pitch 的转谱，只在它猜错时用泛音相似度去修正；这里是从根本上不信任 basic-pitch，只在已知候选音高集合里挑一个最像的。
 
-**目前狀態**：`reference_constrained.py` 是評分「已知曲譜 + 學生錄音」的**預設工具**，見本文開頭。合成音檔(零節奏浮動)用 `transcribe_reference_constrained`(`--mode reference-grid`)就已經很準；但真人錄音有節奏浮動，production 預設已改成 `transcribe_reference_dtw`(`--mode reference-dtw`，見上方「`reference-grid` 換成 `reference-dtw`」一節)。
+**目前状态**：`reference_constrained.py` 是评分「已知曲谱 + 学生录音」的**缺省工具**，见本文开头。合成音档(零节奏浮动)用 `transcribe_reference_constrained`(`--mode reference-grid`)就已经很准；但真人录音有节奏浮动，production 缺省已改成 `transcribe_reference_dtw`(`--mode reference-dtw`，见上方「`reference-grid` 换成 `reference-dtw`」一节)。
 
-`audio_reference.py` 的 `build_audio_reference()`/`grade_student_against_demo()`（沒有已知 MIDI 曲譜，純粹音檔對音檔）跟 `transcribe_onset_first`/`transcribe_reference_guided_onsets` 這兩個模式，還停留在只跑過自我一致性檢查的階段——這兩個模式受限於 `max_pitches_per_onset`(預設1)，同一個時間點有兩個音同時彈(和弦)時只會保留最強的那個，這在小星星這首歌(69個音符裡有26個時間點是2音同時)已經證實會漏掉大量音符，還沒有調過。
+`audio_reference.py` 的 `build_audio_reference()`/`grade_student_against_demo()`（没有已知 MIDI 曲谱，纯粹音档对音档）跟 `transcribe_onset_first`/`transcribe_reference_guided_onsets` 这两个模式，还停留在只跑过自我一致性检查的阶段——这两个模式受限于 `max_pitches_per_onset`(缺省1)，同一个时间点有两个音同时弹(和弦)时只会保留最强的那个，这在小星星这首歌(69个音符里有26个时间点是2音同时)已经证实会漏掉大量音符，还没有调过。
 
-## 曲庫預先已知：用單曲音域縮小 basic-pitch 的搜尋範圍(`song_range.py`)
+## 曲库预先已知：用单曲音域缩小 basic-pitch 的搜索范围(`song_range.py`)
 
-> **目前狀態**：`grade_audio.py` 整包被 Codex 版本覆蓋後，暫時沒有呼叫這個模組了(`--no-song-range`/`--ignore-timing` 這兩個 CLI 參數也一併消失)。模組本身、測試都還在，下面的 A/B 數據依然成立，只是還沒重新接回 `grade_audio.py`。
+> **目前状态**：`grade_audio.py` 整包被 Codex 版本覆盖后，暂时没有调用这个模块了(`--no-song-range`/`--ignore-timing` 这两个 CLI 参数也一并消失)。模块本身、测试都还在，下面的 A/B 数据依然成立，只是还没重新接回 `grade_audio.py`。
 
-專案的曲庫不是開放式的任意音檔——每首歌的參考譜都預先知道，也就知道**這首歌實際會用到哪些音高**。之前測過把 basic-pitch 的 `minimum_frequency`/`maximum_frequency` 綁到整個鋼琴音域(27.5-4186Hz)完全沒效果，因為那個範圍太寬、幾乎沒縮小到什麼。單曲的音域通常窄很多，值得單獨測。
+项目的曲库不是开放式的任意音档——每首歌的参考谱都预先知道，也就知道**这首歌实际会用到哪些音高**。之前测过把 basic-pitch 的 `minimum_frequency`/`maximum_frequency` 绑到整个钢琴音域(27.5-4186Hz)完全没效果，因为那个范围太宽、几乎没缩小到什么。单曲的音域通常窄很多，值得单独测。
 
-拿11首真實曲子(FluidSynth合成音，走完整評分流程)實測掃過幾種留白(padding)大小：
+拿11首真实曲子(FluidSynth合成音，走完整评分流程)实测扫过几种留白(padding)大小：
 
 | padding | correct | wrong_pitch | missed | extra |
 | --- | --- | --- | --- | --- |
-| 不設範圍 | 995 | 7 | 22 | 60 |
-| ±1個八度(12半音) | 995 | 7 | 22 | 60（跟不設一樣，留白太寬沒縮到東西） |
+| 不设范围 | 995 | 7 | 22 | 60 |
+| ±1个八度(12半音) | 995 | 7 | 22 | 60（跟不设一样，留白太宽没缩到东西） |
 | ±6半音 | 995 | 6 | 23 | **50** |
-| ±3半音 | 995 | 6 | 23 | 50（跟±6一樣） |
-| 完全不留白(0) | **962** | 11 | **51** | 43（矯枉過正——曲子自己寫的音剛好卡在邊界也被切掉） |
+| ±3半音 | 995 | 6 | 23 | 50（跟±6一样） |
+| 完全不留白(0) | **962** | 11 | **51** | 43（矫枉过正——曲子自己写的音刚好卡在边界也被切掉） |
 
-**預設用 ±6半音**：extra 從60降到50、wrong_pitch 7→6，代價只有1個新增的missed，乾淨的淨改善。低於6沒有額外好處，降到0直接爆掉(correct掉33個、missed多29個)——所以6是實測出來的甜蜜點，不是隨便猜的。
+**缺省用 ±6半音**：extra 从60降到50、wrong_pitch 7→6，代价只有1个添加的missed，干净的净改善。低于6没有额外好处，降到0直接爆掉(correct掉33个、missed多29个)——所以6是实测出来的甜蜜点，不是随便猜的。
 
-`compute_song_frequency_range(reference, pad_semitones=6)`：算出這首歌實際音高範圍(留白後)對應的Hz範圍，餵給 `AudioToPerformanceConfig(minimum_frequency=..., maximum_frequency=...)`。`grade_audio.py` 預設會用，`--no-song-range` 關閉。
+`compute_song_frequency_range(reference, pad_semitones=6)`：算出这首歌实际音高范围(留白后)对应的Hz范围，喂给 `AudioToPerformanceConfig(minimum_frequency=..., maximum_frequency=...)`。`grade_audio.py` 缺省会用，`--no-song-range` 关闭。
 
 用法：
 
 ```bash
-python -m backend.audio_to_performance.constrained_verification result.json 錄音.wav \
+python -m backend.audio_to_performance.constrained_verification result.json 录音.wav \
   --reference reference.json --keyboard-range 21 108 \
   -o augmented_result.json
 ```
 
-## 執行測試
+## 运行测试
 
 ```bash
 source audio_to_performance/.venv/bin/activate
-cd 學習用/
+cd 学习用/
 python3 -m pytest audio_to_performance/tests -v
 ```
 
-- `test_preprocess.py`：純數學，合成 sine wave 測 bandpass/normalize/denoise，不需要真的錄音檔
-- `test_postprocess.py`：純數學，驗證泛音過濾規則(八度/五度/四度+音量差)的各種邊界情況
-- `test_pipeline.py`：**會真的呼叫 basic-pitch 做推論**——用加法合成器(sine+泛音+包絡線)生一段C大調分解和弦的假鋼琴音訊，跑完整 pipeline，檢查轉譜出來的音符數量、音高是否大致吻合(容忍度故意放寬，因為轉譜本來就不會100%精確，這裡測的是「整條路接得起來」，不是幫 basic-pitch 打分數)
-- `test_constrained_verification.py`：全部用手造的假 CQT 能量陣列測，不需要真的音訊——候選音生成、泛音折扣邏輯(含「真的彈錯不會被誤壓下去」的反例)、三種 reverify 結果、還有一個回歸測試專門確認「不確定的時候絕對不會偷偷改狀態」
+- `test_preprocess.py`：纯数学，合成 sine wave 测 bandpass/normalize/denoise，不需要真的录音档
+- `test_postprocess.py`：纯数学，验证泛音过滤规则(八度/五度/四度+音量差)的各种边界情况
+- `test_pipeline.py`：**会真的调用 basic-pitch 做推论**——用加法合成器(sine+泛音+包络线)生一段C大调分解和弦的假钢琴音频，跑完整 pipeline，检查转谱出来的音符数量、音高是否大致吻合(容忍度故意放宽，因为转谱本来就不会100%精确，这里测的是「整条路接得起来」，不是帮 basic-pitch 打分数)
+- `test_constrained_verification.py`：全部用手造的假 CQT 能量数组测，不需要真的音频——候选音生成、泛音折扣逻辑(含「真的弹错不会被误压下去」的反例)、三种 reverify 结果、还有一个回归测试专门确认「不确定的时候绝对不会偷偷改状态」
 
-## 37鍵實體鍵盤限制(`keyboard_range`，預設開啟)
+## 37键实体键盘限制(`keyboard_range`，缺省打开)
 
-專案的鍵盤只有37鍵(MIDI 48-84，C3-C6，唯一定義處在 `backend/hardware.py`)。這不是啟發式規則而是物理事實：鍵盤彈不出範圍外的音，所以**錄「這台鍵盤」的音檔裡轉譜出範圍外的音，百分之百是誤判**(通常是真音符的低八度/泛音鬼影)，直接刪掉。兩個地方都吃這個限制：
+项目的键盘只有37键(MIDI 48-84，C3-C6，唯一定义处在 `backend/hardware.py`)。这不是启发式规则而是物理事实：键盘弹不出范围外的音，所以**录「这台键盘」的音档里转谱出范围外的音，百分之百是误判**(通常是真音符的低八度/泛音鬼影)，直接删掉。两个地方都吃这个限制：
 
-- `pipeline.transcribe()`：範圍外的轉譜音符直接過濾(`config.keyboard_range`，預設 48-84)
-- `constrained_verification`：八度候選音超出鍵盤範圍的不列入考慮——邊界效果特別好，例如參考音是最低鍵48時，往下八度的36/24物理上不存在，低頻泛音就沒機會贏
+- `pipeline.transcribe()`：范围外的转谱音符直接过滤(`config.keyboard_range`，缺省 48-84)
+- `constrained_verification`：八度候选音超出键盘范围的不列入考虑——边界效果特别好，例如参考音是最低键48时，往下八度的36/24物理上不存在，低频泛音就没机会赢
 
-**唯一要注意的**：音檔不是來自實體鍵盤時(例如 `validation/roundtrip` 拿任意MIDI合成的音訊)必須設 `keyboard_range=None`，不然會把真實存在的範圍外音符當誤判刪掉——`roundtrip.py` 已經自動處理，`scripts/grade_audio.py` 會依「參考譜是否落在鍵盤範圍內」自動決定。如果鍵盤其實有八度移調(octave shift)設定，改 `backend/hardware.py` 一個地方即可。
+**唯一要注意的**：音档不是来自实体键盘时(例如 `validation/roundtrip` 拿任意MIDI合成的音频)必须设 `keyboard_range=None`，不然会把真实存在的范围外音符当误判删掉——`roundtrip.py` 已经自动处理，`scripts/grade_audio.py` 会依「参考谱是否落在键盘范围内」自动决定。如果键盘其实有八度移调(octave shift)设置，改 `backend/hardware.py` 一个地方即可。
 
-## 檔案結構
+## 文件结构
 
-| 檔案 | 作用 |
+| 文件 | 作用 |
 | --- | --- |
-| `config.py` | `AudioToPerformanceConfig`：前處理開關 + basic-pitch 參數 + 後處理開關 + 鍵盤範圍，全部集中一處 |
-| `preprocess.py` | 降噪/bandpass/正規化，預設全關 |
-| `transcribe.py` | 包裝 basic-pitch `predict()`，輸出 `pretty_midi.PrettyMIDI` |
-| `postprocess.py` | 泛音/延音踏板誤判成新音符的過濾器，預設關閉 |
-| `pipeline.py` | 串起來：載入音訊 → 前處理 → 轉譜 → 存成MIDI → 呼叫 `scoring.midi_io.midi_to_performance()` → (可選)後處理過濾 |
-| `constrained_verification.py` | 疊加層：用參考譜縮小候選音高範圍，重新檢視 `wrong_pitch`/`missed`，外加獨立的未預期起音掃描；也是 `keyboard_profile` 加分機制的所在地 |
-| `keybank.py` | 從左到右白鍵音階錄音訓練樣本庫，供 `synthesize_reference_from_keybank.py` 原音重播用 |
-| `keyboard_profile.py` | 把 keybank 的泛音統計整理成可重複使用的音色 profile |
-| `reference_constrained.py` | 候選音高從一開始就鎖在已知集合(白鍵/鍵盤範圍)裡評分，不信任 basic-pitch 的猜測 |
-| `audio_reference.py` | 音對音比對：`build_audio_reference()` 從範例錄音產生音訊原生參考譜，`grade_student_against_demo()` 拿學生錄音直接比對 |
+| `config.py` | `AudioToPerformanceConfig`：前处理开关 + basic-pitch 参数 + 后处理开关 + 键盘范围，全部集中一处 |
+| `preprocess.py` | 降噪/bandpass/正规化，缺省全关 |
+| `transcribe.py` | 包装 basic-pitch `predict()`，输出 `pretty_midi.PrettyMIDI` |
+| `postprocess.py` | 泛音/延音踏板误判成新音符的过滤器，缺省关闭 |
+| `pipeline.py` | 串起来：加载音频 → 前处理 → 转谱 → 存成MIDI → 调用 `scoring.midi_io.midi_to_performance()` → (可选)后处理过滤 |
+| `constrained_verification.py` | 叠加层：用参考谱缩小候选音高范围，重新查看 `wrong_pitch`/`missed`，外加独立的未预期起音扫描；也是 `keyboard_profile` 加分机制的所在地 |
+| `keybank.py` | 从左到右白键音阶录音训练样本库，供 `synthesize_reference_from_keybank.py` 原音重播用 |
+| `keyboard_profile.py` | 把 keybank 的泛音统计整理成可重复使用的音色 profile |
+| `reference_constrained.py` | 候选音高从一开始就锁在已知集合(白键/键盘范围)里评分，不信任 basic-pitch 的猜测 |
+| `audio_reference.py` | 音对音比对：`build_audio_reference()` 从范例录音产生音频原生参考谱，`grade_student_against_demo()` 拿学生录音直接比对 |
 | `cli.py` / `__main__.py` | `python -m backend.audio_to_performance ...` |
-| `tests/` | 見上 |
+| `tests/` | 见上 |
 
 ## 重要限制
 
-- **這是一個深度學習模型**——早期假設它太重，只能跑在筆電/雲端，樹莓派只負責錄音+把音檔傳出去。後來 `experiments/benchmarks/basic_pitch_pi_bench.py` 實測 Pi 5 + ONNX Runtime 跑 basic-pitch 轉譜，5-30 秒音檔的推論時間只要 0.12-0.6 秒（比即時快 40 倍以上），證實這個顧慮不成立——`edge/practice_server.py`（前端實際在用的樹莓派原生 orchestrator）現在就是直接在樹莓派上呼叫 `scripts/grade_audio_reference_constrained.py`（進而呼叫這裡的 `transcribe()`），錄音、燈光引導、轉譜評分全部在同一台樹莓派上跑完，不需要額外的筆電/雲端這一段。`scripts/session_server.py`（SSH 備案 orchestrator）仍然保留，給還沒在樹莓派上裝評分依賴的情況用——這時轉譜評分才會在 SSH 對面的開發機上跑
-- 轉譜不是100%準確，尤其是快速圓滑奏、踏板延音、極端音域的段落——這比通用 onset 偵測好非常多，但不是完美的
-- 只處理單一鋼琴音源，不是多樂器分離(沒有用 Spleeter/Demucs 那類工具，也不需要，因為場景就是一台鋼琴)
+- **这是一个深度学习模型**——早期假设它太重，只能跑在笔电/云端，树莓派只负责录音+把音档传出去。后来 `experiments/benchmarks/basic_pitch_pi_bench.py` 实测 Pi 5 + ONNX Runtime 跑 basic-pitch 转谱，5-30 秒音档的推论时间只要 0.12-0.6 秒（比即时快 40 倍以上），证实这个顾虑不成立——`edge/practice_server.py`（前端实际在用的树莓派原生 orchestrator）现在就是直接在树莓派上调用 `scripts/grade_audio_reference_constrained.py`（进而调用这里的 `transcribe()`），录音、灯光引导、转谱评分全部在同一台树莓派上跑完，不需要额外的笔电/云端这一段。`scripts/session_server.py`（SSH 备案 orchestrator）仍然保留，给还没在树莓派上装评分依赖的情况用——这时转谱评分才会在 SSH 对面的开发机上跑
+- 转谱不是100%准确，尤其是快速圆滑奏、踏板延音、极端音域的段落——这比通用 onset 侦测好非常多，但不是完美的
+- 只处理单一钢琴音源，不是多乐器分离(没有用 Spleeter/Demucs 那类工具，也不需要，因为场景就是一台钢琴)

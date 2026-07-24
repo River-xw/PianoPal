@@ -62,7 +62,7 @@ edge/microbit_rpi_comm/
 
 MPU6050 使用 `44Hz` 低通滤波，加速度量程为 `±8g`，陀螺仪量程为 `±2000°/s`，用于减少击键瞬间的原始值饱和。
 
-若改用 MicroPython 和外接 MPU6050，可以继续基于 `mpu6050.py` 扩展烧录脚本。
+若改用 MicroPython 和外置 MPU6050，可以继续基于 `mpu6050.py` 扩展烧录脚本。
 
 ## 树莓派 Pi 5 配置
 
@@ -90,13 +90,13 @@ pip install -r requirements.txt
 
 ### 1. 扫描两块 micro:bit 的 MAC 地址
 
-两块板子上电并运行程序后：
+两块板子上电并运行进程后：
 
 ```bash
 python scan_microbits.py
 ```
 
-若扫不到，先确认 micro:bit 已上电、正在运行 BLE UART 程序，并靠近 Raspberry Pi。Pi 5 内置 Wi-Fi/蓝牙可能互相干扰，可临时关闭 Wi-Fi 再试：
+若扫不到，先确认 micro:bit 已上电、正在运行 BLE UART 进程，并靠近 Raspberry Pi。Pi 5 内置 Wi-Fi/蓝牙可能互相干扰，可临时关闭 Wi-Fi 再试：
 
 ```bash
 sudo rfkill block wlan
@@ -106,7 +106,7 @@ sudo rfkill unblock wlan
 
 如果运行采集时出现 `Device with address ... was not found`，通常是 `config.json` 里的地址不是当前这块 micro:bit 的地址，或者设备没有在广播。重新运行 `python scan_microbits.py`，把最新地址填回 `config.json`。
 
-### 2. 填写配置文件
+### 2. 填写配置文档
 
 ```bash
 cp config.example.json config.json

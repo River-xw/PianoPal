@@ -1,96 +1,96 @@
 # PianoPal
 
-PianoPal 是一個鋼琴陪練/評分系統：一台 37 鍵電子琴（BF-3738C）+ WS2812 燈條做即時按鍵引導，麥克風錄音拿去跟樂譜比對算出音準/節奏分數，選配的手腕 IMU 感測器可以額外算一個手型/姿勢分數，全部整合在一個網頁前端裡。
+PianoPal 是一个钢琴陪练/评分系统：一台 37 键电子琴（BF-3738C）+ WS2812 灯条做即时按键引导，麦克风录音拿去跟乐谱比对算出音准/节奏分数，选配的手腕 IMU 传感器可以额外算一个手型/姿势分数，全部集成在一个网页前端里。
 
-## 核心體驗
+## 核心体验
 
-前端（`frontend/viewer/`）是整個系統的入口，架構是：
+前端（`frontend/viewer/`）是整个系统的入口，架构是：
 
 ```text
-引導頁（姓名 + Slogan）
-  -> 主頁（近期總結 + 三張導覽卡片）
-      ├ 學習模式：選歌 -> 燈光引導 + 錄音 -> 寬鬆評分報告（存入歷史）
-      ├ 演奏模式：選歌 -> 無燈光、只錄音 -> 嚴格評分報告（存入歷史）
-      └ 我的：歷史紀錄列表、使用者畫像、分數趨勢圖、多筆比對、匯出
+引导页（姓名 + Slogan）
+  -> 主页（近期总结 + 三张导览卡片）
+      ├ 学习模式：选歌 -> 灯光引导 + 录音 -> 宽松评分报告（存入历史）
+      ├ 演奏模式：选歌 -> 无灯光、只录音 -> 严格评分报告（存入历史）
+      └ 我的：历史纪录列表、用户画像、分数趋势图、多笔比对、导出
 ```
 
-學習模式跟演奏模式**共用同一套評分引擎**（`backend.scoring`），差別純粹是權重參數（見下方評分演算法）跟要不要點燈。細節見 [frontend/viewer/README.md](frontend/viewer/README.md)。
+学习模式跟演奏模式**共用同一套评分引擎**（`backend.scoring`），差别纯粹是权重参数（见下方评分算法）跟要不要点灯。细节见 [frontend/viewer/README.md](frontend/viewer/README.md)。
 
 ## Current Data Flow
 
 ```text
-POST /api/session/start（樹莓派原生 orchestrator：edge/practice_server.py）
-  -> ws2812_guide_song.py：LED 引導 + 麥克風錄音（演奏模式用 --no-leds）
-  -> posture_capture.py（選配，需要 BLE IMU 感測器才會啟動）：即時手型姿勢分類 -> 一個 0-100 分數
+POST /api/session/start（树莓派原生 orchestrator：edge/practice_server.py）
+  -> ws2812_guide_song.py：LED 引导 + 麦克风录音（演奏模式用 --no-leds）
+  -> posture_capture.py（选配，需要 BLE IMU 传感器才会启动）：即时手型姿势分类 -> 一个 0-100 分数
   -> scripts/grade_audio_reference_constrained.py
-       -> backend.audio_to_performance（麥克風錄音 -> 音符清單，reference-dtw 模式吸收真人節奏浮動）
-       -> backend.scoring（符號音樂對齊 + 評分公式，見下方）
-  -> data/formal_assessments/sessions/<使用者>/<session_id>/result.json + backend.db.sqlite（practice_sessions 表）
-  -> GET /api/history, /api/history/<id> 給前端「我的」頁面
+       -> backend.audio_to_performance（麦克风录音 -> 音符清单，reference-dtw 模式吸收真人节奏浮动）
+       -> backend.scoring（符号音乐对齐 + 评分公式，见下方）
+  -> data/formal_assessments/sessions/<用户>/<session_id>/result.json + backend.db.sqlite（practice_sessions 表）
+  -> GET /api/history, /api/history/<id> 给前端「我的」页面
 ```
 
-沒有裝評分依賴的樹莓派可以用 `scripts/session_server.py`（SSH 遙控備案）取代 `edge/practice_server.py`，跑在開發機上、透過 SSH 遙控樹莓派的燈光引導+錄音。
+没有装评分依赖的树莓派可以用 `scripts/session_server.py`（SSH 遥控备案）取代 `edge/practice_server.py`，跑在开发机上、通过 SSH 遥控树莓派的灯光引导+录音。
 
-## 評分演算法（目前驗證過的版本）
+## 评分算法（目前验证过的版本）
 
-`backend.scoring` 做的是「符號音樂對齊」——把參考樂譜跟實際彈奏的音符清單，用兩階段 DTW 對齊起來：
+`backend.scoring` 做的是「符号音乐对齐」——把参考乐谱跟实际弹奏的音符清单，用两阶段 DTW 对齐起来：
 
-1. 先用一輪音高優先的粗略對齊找出「確實彈對音高」的錨點，在這些錨點上用穩健回歸（Theil-Sen）分段擬合一條**分段線性節奏曲線**，吸收使用者整體變速或中途變速（rubato）——不會被誤判成每個音都搶拍/拖拍。
-2. 再用真正的對齊成本函數做第二輪 DTW，把每個演奏音符跟參考音符配對，分類成 `correct`/`timing_off`/`wrong_pitch`/`missed`/`extra`。
+1. 先用一轮音高优先的粗略对齐找出「确实弹对音高」的锚点，在这些锚点上用稳健回归（Theil-Sen）分段拟合一条**分段线性节奏曲线**，吸收用户整体变速或中途变速（rubato）——不会被误判成每个音都抢拍/拖拍。
+2. 再用真正的对齐成本函数做第二轮 DTW，把每个演奏音符跟参考音符配对，分类成 `correct`/`timing_off`/`wrong_pitch`/`missed`/`extra`。
 
-總分是最多四個子分數的**重新正規化加權平均**——某個子分數因為維度關閉（權重=0）或該次感測不可用而是 `null` 時，不會直接當 0 分拖低總分，而是把它的權重份額從分母移除、其餘子分數按比例補回 1.0：
+总分是最多四个子分数的**重新正规化加权平均**——某个子分数因为维度关闭（权重=0）或该次传感不可用而是 `null` 时，不会直接当 0 分拖低总分，而是把它的权重份额从分母移除、其余子分数按比例补回 1.0：
 
-| 子分數 | 公式 | 說明 |
+| 子分数 | 公式 | 说明 |
 | --- | --- | --- |
-| 音準（pitch） | (correct+timing_off) / 全部 × 100 | 音高彈對的比例 |
-| 節奏（rhythm） | 音準 × correct/(correct+timing_off) | 音高對的裡面，時間點準的比例，再乘音準做覆蓋率修正 |
-| 節奏穩定度（timing_stability） | 音準 × 100/(1+std(offset_ms)/tol_ms) | 預設權重 0，不計算/不顯示——真人麥克風錄音上雜訊太大不可靠 |
-| 手型（hand_shape） | 外部傳入(IMU 姿勢分類器) | 這個模組本身不做任何感測——見下方 |
+| 音准（pitch） | (correct+timing_off) / 全部 × 100 | 音高弹对的比例 |
+| 节奏（rhythm） | 音准 × correct/(correct+timing_off) | 音高对的里面，时间点准的比例，再乘音准做覆盖率修正 |
+| 节奏稳定度（timing_stability） | 音准 × 100/(1+std(offset_ms)/tol_ms) | 缺省权重 0，不计算/不显示——真人麦克风录音上杂讯太大不可靠 |
+| 手型（hand_shape） | 外部传入(IMU 姿势分类器) | 这个模块本身不做任何传感——见下方 |
 
-學習模式（寬鬆：旋律/動作權重高、節奏均勻度不計）跟演奏模式（嚴格：三者均衡）**用同一個評分函式**，只是 `edge/practice_server.py`/`scripts/session_server.py` 的 `MODE_SCORE_WEIGHTS` 傳不同的權重進去。詳細公式、`tol_beat`/`ignore_timing`/泛音假訊號過濾等選項，見 [backend/scoring/README.md](backend/scoring/README.md)。
+学习模式（宽松：旋律/动作权重高、节奏均匀度不计）跟演奏模式（严格：三者均衡）**用同一个评分函数**，只是 `edge/practice_server.py`/`scripts/session_server.py` 的 `MODE_SCORE_WEIGHTS` 传不同的权重进去。详细公式、`tol_beat`/`ignore_timing`/泛音假信号过滤等选项，见 [backend/scoring/README.md](backend/scoring/README.md)。
 
-**手型評分**：`edge/practice_server.py` 有設定 BLE IMU 裝置時，`edge/posture_capture.py` 會即時分類手型姿勢、把「正常姿勢時間窗比例」換算成分數餵進評分公式；BLE、設定檔或模型不可用時這個子分數是 `null`，套用上面的正規化邏輯排除，不會用固定佔位分頂替，也不擋練習流程。分類器本身（`edge/raspi_runtime/posture.py`）跟訓練資料/腳本見 [backend/sensors/README.md](backend/sensors/README.md)。
+**手型评分**：`edge/practice_server.py` 有设置 BLE IMU 设备时，`edge/posture_capture.py` 会即时分类手型姿势、把「正常姿势时间窗比例」换算成分数喂进评分公式；BLE、设置档或模型不可用时这个子分数是 `null`，套用上面的正规化逻辑排除，不会用固定占位分顶替，也不挡练习流程。分类器本身（`edge/raspi_runtime/posture.py`）跟训练数据/脚本见 [backend/sensors/README.md](backend/sensors/README.md)。
 
-**黑鍵/超出範圍音符**：BF-3738C 鍵盤只校準了 22 個白鍵（`data/bf3738c_keybank/`），樂譜裡任何黑鍵或超出範圍的音符會被 `scripts/grade_audio_reference_constrained.py`（`--white-keys-only`）整個從評分排除——不計分、也不算漏彈（`missed`），LED 引導（`edge/ws2812_guide_song.py`）同樣只對有對應 LED 的白鍵點燈。這讓含黑鍵的樂曲也能拿來練習，只是黑鍵部分不参与引導與計分。
+**黑键/超出范围音符**：BF-3738C 键盘只校准了 22 个白键（`data/bf3738c_keybank/`），乐谱里任何黑键或超出范围的音符会被 `scripts/grade_audio_reference_constrained.py`（`--white-keys-only`）整个从评分排除——不计分、也不算漏弹（`missed`），LED 引导（`edge/ws2812_guide_song.py`）同样只对有对应 LED 的白键点灯。这让含黑键的乐曲也能拿来练习，只是黑键部分不参与引导与计分。
 
 ## Repository Structure
 
 ```text
 .
-├── backend/                 # Python 函式庫：樂譜解析、音訊轉譜、評分、驗證
-│   ├── audio_to_performance/ # 麥克風錄音 -> 演奏音符清單（reference-dtw 對齊麥克風音準轉錄）
-│   ├── score_to_reference/   # MusicXML/MIDI 樂譜 -> 標準化參考 JSON
-│   ├── scoring/               # 參考 vs 演奏比對 -> result.json（詳見上方演算法說明）
-│   ├── db/                    # 本地 SQLite 索引（使用者/曲目/練習紀錄/檔案路徑）
-│   ├── sensors/               # IMU 封包格式、CSV 解析、關鍵時間窗切割
-│   └── validation/            # 轉譜品質的往返驗證
-├── camera_evidence/         # 用鏡頭看指尖位置，當作解決音準轉譜八度誤判的第二證據來源（目前沒有鏡頭硬體，只用合成資料測過）
-├── edge/                    # 裝置端/樹莓派程式碼
-│   ├── practice_server.py    # 前端實際在用的樹莓派原生 orchestrator（LED 引導+錄音+評分+歷史）
-│   ├── ws2812_guide_song.py  # WS2812 燈條引導 + 錄音
-│   ├── posture_capture.py    # 練習期間的即時手型姿勢評分 subprocess
-│   ├── microbit_rpi_comm/    # micro:bit BLE 韌體 + 樹莓派 BLE 接收端
-│   └── raspi_runtime/        # 獨立的感測器/音訊「採集」runtime，用來收集姿勢分類器的訓練資料
-├── experiments/             # 校準跟一次性實驗
-│   ├── latency_test/          # 麥克風延遲/節奏驗證
-│   └── benchmarks/            # 樹莓派硬體效能測試
+├── backend/                 # Python 函数库：乐谱解析、音频转谱、评分、验证
+│   ├── audio_to_performance/ # 麦克风录音 -> 演奏音符清单（reference-dtw 对齐麦克风音准转录）
+│   ├── score_to_reference/   # MusicXML/MIDI 乐谱 -> 标准化参考 JSON
+│   ├── scoring/               # 参考 vs 演奏比对 -> result.json（详见上方算法说明）
+│   ├── db/                    # 本地 SQLite 索引（用户/曲目/练习纪录/文件路径）
+│   ├── sensors/               # IMU 封包格式、CSV 解析、关键时间窗切割
+│   └── validation/            # 转谱品质的往返验证
+├── camera_evidence/         # 用镜头看指尖位置，当作解决音准转谱八度误判的第二证据来源（目前没有镜头硬件，只用合成数据测过）
+├── edge/                    # 设备端/树莓派代码
+│   ├── practice_server.py    # 前端实际在用的树莓派原生 orchestrator（LED 引导+录音+评分+历史）
+│   ├── ws2812_guide_song.py  # WS2812 灯条引导 + 录音
+│   ├── posture_capture.py    # 练习期间的即时手型姿势评分 subprocess
+│   ├── microbit_rpi_comm/    # micro:bit BLE 固件 + 树莓派 BLE 接收端
+│   └── raspi_runtime/        # 独立的传感器/音频「采集」runtime，用来收集姿势分类器的训练数据
+├── experiments/             # 校准跟一次性实验
+│   ├── latency_test/          # 麦克风延迟/节奏验证
+│   └── benchmarks/            # 树莓派硬件性能测试
 ├── frontend/
-│   └── viewer/                # Vite + React：整個練習流程的前端（見上方核心體驗）
-├── models/                  # 訓練好的手型姿勢分類器
-├── data/                    # 本地資料集、SQLite、練習錄音/結果暫存
-├── docs/                    # 曲庫 MIDI、架構筆記、錄音驗證指南
-└── scripts/                 # 開發者用的包裝腳本（評分、訓練、驗證）
+│   └── viewer/                # Vite + React：整个练习流程的前端（见上方核心体验）
+├── models/                  # 训练好的手型姿势分类器
+├── data/                    # 本地数据集、SQLite、练习录音/结果暂存
+├── docs/                    # 曲库 MIDI、架构笔记、录音验证指南
+└── scripts/                 # 开发者用的包装脚本（评分、训练、验证）
 ```
 
 ## Useful Commands
 
-用真人錄音驗證評分算法準不準（給不熟這個專案的組員用的一鍵腳本，見 [docs/VALIDATION_GUIDE.md](docs/VALIDATION_GUIDE.md)）：
+用真人录音验证评分算法准不准（给不熟这个项目的组员用的一键脚本，见 [docs/VALIDATION_GUIDE.md](docs/VALIDATION_GUIDE.md)）：
 
 ```bash
 ./scripts/validate_recording.sh
 ```
 
-跑目前的正式評分流程（樂譜 + 錄音 -> 評分結果，`reference-dtw` 模式）：
+跑目前的正式评分流程（乐谱 + 录音 -> 评分结果，`reference-dtw` 模式）：
 
 ```bash
 python3 scripts/grade_audio_reference_constrained.py reference.mid recording.wav \
@@ -98,25 +98,25 @@ python3 scripts/grade_audio_reference_constrained.py reference.mid recording.wav
   -o result.json
 ```
 
-樂譜轉成參考 JSON：
+乐谱转成参考 JSON：
 
 ```bash
 python -m backend.score_to_reference score.musicxml -o reference.json
 ```
 
-單純評分（reference.json + performance.json，不經過音訊轉譜）：
+单纯评分（reference.json + performance.json，不经过音频转谱）：
 
 ```bash
 python -m backend.scoring reference.json performance.json -o result.json
 ```
 
-啟動樹莓派原生 orchestrator（前端實際會連的那個）：
+启动树莓派原生 orchestrator（前端实际会连的那个）：
 
 ```bash
 python3 edge/practice_server.py
 ```
 
-啟動前端（dev 模式，透過 SSH 備案 orchestrator）：
+启动前端（dev 模式，通过 SSH 备案 orchestrator）：
 
 ```bash
 cd frontend/viewer
@@ -124,12 +124,12 @@ npm install
 npm run dev
 ```
 
-各模組更完整的指令/CLI 參數說明，見對應資料夾的 README。
+各模块更完整的指令/CLI 参数说明，见对应文件夹的 README。
 
 ## Notes For Future Work
 
-- Raspberry Pi 跟 micro:bit 採集端程式碼放 `edge/` 底下。
-- 訓練好的模型檔案放 `models/` 底下。
-- 可重用的後端流程放 `backend/` 底下；`experiments/` 是一次性腳本，不要被其他模組 import。
-- 本機裝置設定（BLE MAC 位址等）放在 `.gitignore` 排除的檔案裡，例如 `edge/microbit_rpi_comm/raspberry/config.json`。
-- 手型評分目前只接了 `edge/practice_server.py`；`scripts/session_server.py`（SSH 備案）還沒接，因為 BLE 只存在樹莓派端，備案需要多一層「錄完 IMU 資料再抓回開發機」的邏輯才能接上。
+- Raspberry Pi 跟 micro:bit 采集端代码放 `edge/` 底下。
+- 训练好的模型文件放 `models/` 底下。
+- 可重用的后端流程放 `backend/` 底下；`experiments/` 是一次性脚本，不要被其他模块 import。
+- 本机设备设置（BLE MAC 地址等）放在 `.gitignore` 排除的文件里，例如 `edge/microbit_rpi_comm/raspberry/config.json`。
+- 手型评分目前只接了 `edge/practice_server.py`；`scripts/session_server.py`（SSH 备案）还没接，因为 BLE 只存在树莓派端，备案需要多一层「录完 IMU 数据再抓回开发机」的逻辑才能接上。
