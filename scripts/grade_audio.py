@@ -107,17 +107,12 @@ def _recompute_summary(result: dict, tol_ms: float) -> None:
     matched_ok = counts["correct"] + counts["timing_off"]
     rhythm = 100.0 * counts["correct"] / matched_ok if matched_ok else 100.0
 
-    # timing_stability depends only on matched-note offset spread, which the
-    # reclassification doesn't change, so keep the value scoring already computed
-    timing_stability = result["summary"]["sub_scores"]["timing_stability"]
-
     summary = result["summary"]
     summary["counts"] = counts
     summary["sub_scores"] = {
         "pitch": round(pitch, 2), "rhythm": round(rhythm, 2),
-        "timing_stability": round(timing_stability, 2),
     }
-    summary["score"] = round(0.4 * pitch + 0.4 * rhythm + 0.2 * timing_stability, 2)
+    summary["score"] = round(0.5 * pitch + 0.5 * rhythm, 2)
 
 
 def main(argv=None) -> int:

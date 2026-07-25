@@ -132,15 +132,15 @@ def _configured_posture_hands() -> tuple[str, ...]:
 POSTURE_HANDS = _configured_posture_hands()
 
 DEFAULT_MODE = "learn"
-# learn (LED-guided) is lenient -- pitch/hand-shape weighted high, timing
-# uniformity low; perform (no LED guidance) is a stricter, balanced blend of
-# all three, per the product spec. Both share score_performance() unchanged;
-# only these weight presets differ. hand_shape is real when a BLE posture rig
-# and trained model are configured; otherwise it is explicitly unavailable
-# and the available score weights are renormalized.
+# Learn (LED-guided) emphasizes melody and motion; perform (no LED guidance)
+# uses a stricter blend of melody, rhythm accuracy, and motion. Timing
+# stability is intentionally absent from both the result UI and overall
+# score. hand_shape is real when a BLE posture rig and trained model are
+# configured; otherwise it is unavailable and the remaining weights are
+# renormalized.
 MODE_SCORE_WEIGHTS = {
-    "learn": {"pitch": 0.6, "rhythm": 0.15, "timing_stability": 0.0, "hand_shape": 0.25},
-    "perform": {"pitch": 0.4, "rhythm": 0.3, "timing_stability": 0.15, "hand_shape": 0.15},
+    "learn": {"pitch": 0.6, "rhythm": 0.15, "hand_shape": 0.25},
+    "perform": {"pitch": 0.45, "rhythm": 0.35, "hand_shape": 0.20},
 }
 WHITE_KEY_SET = set(WHITE_KEY_MIDIS)
 
@@ -557,7 +557,6 @@ def _finish_session(session: Session) -> None:
         "--mode", "reference-dtw",
         "--score-weight-pitch", str(weights["pitch"]),
         "--score-weight-rhythm", str(weights["rhythm"]),
-        "--score-weight-timing-stability", str(weights["timing_stability"]),
         "--score-weight-hand-shape", str(weights["hand_shape"]),
         # Always on: this keyboard's profile only ever covers white keys, and
         # grade_audio_reference_constrained.py now excludes any resulting

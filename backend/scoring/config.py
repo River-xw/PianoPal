@@ -58,9 +58,12 @@ class ScoringConfig:
     harmonic_extra_intervals: frozenset = frozenset({12, 19, 24})  # octave, octave+fifth, two octaves
 
     # --- scoring weights (intended to sum to 1.0) ---
-    score_weight_pitch: float = 0.4
-    score_weight_rhythm: float = 0.4
-    score_weight_timing_stability: float = 0.2
+    # The product score uses melody + rhythm accuracy. Timing stability is a
+    # legacy opt-in field kept for old callers only and is disabled by
+    # default; the current viewer does not display it.
+    score_weight_pitch: float = 0.5
+    score_weight_rhythm: float = 0.5
+    score_weight_timing_stability: float = 0.0
     # Hand-shape/posture score, supplied externally via score_performance()'s
     # hand_shape_score param -- this module has no sensor input of its own.
     # edge/practice_server.py resolves a real value from a BLE IMU posture

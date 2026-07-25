@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "../LanguageContext.jsx";
 import Doodles from "./Doodles.jsx";
-import Mascot from "./Mascot.jsx";
+import BrandLogo from "./BrandLogo.jsx";
 
 // Types `text` out one character at a time (like the reference site's
 // hand-drawn hero title), replaying from scratch whenever `text` changes --
@@ -35,7 +35,7 @@ function useTypewriter(text, speedMs = 110) {
 export default function OnboardingPage({ username, onUsernameChange, onEnter }) {
   const { t } = useTranslation();
   const [error, setError] = useState(null);
-  const { display: titleText, done: titleDone } = useTypewriter(t("appTitle"));
+  const { done: titleDone } = useTypewriter(t("appTitle"));
 
   const handleEnter = () => {
     if (!username.trim()) {
@@ -48,15 +48,24 @@ export default function OnboardingPage({ username, onUsernameChange, onEnter }) 
   return (
     <div className="relative flex flex-col items-center justify-center gap-8 py-10 text-center">
       <Doodles />
-      <Mascot className="h-24 w-24" />
+      <div className="onboarding-greeting">
+        <div className="sprite-paper sprite-paper--onboarding">
+          <img
+            src="/assets/spirit-surprised.png"
+            alt=""
+            className="onboarding-spirit"
+            aria-hidden="true"
+          />
+        </div>
+        <div className="doodle-speech-bubble onboarding-question" role="note">
+          {t("onboardingNameQuestion")}
+        </div>
+      </div>
       <div>
-        <h1
-          className={`text-5xl ${titleDone ? "title-bounce" : ""}`}
-          style={{ color: "var(--accent)" }}
-        >
-          {titleText}
-          {!titleDone && <span className="typewriter-cursor">|</span>}
-        </h1>
+        <BrandLogo
+          className={`onboarding-logo ${titleDone ? "title-bounce" : ""}`}
+          animated={!titleDone}
+        />
         <p className={`mt-4 text-lg reveal-fade-up ${titleDone ? "visible" : ""}`} style={{ color: "var(--text-muted)" }}>
           {t("appSlogan")}
         </p>

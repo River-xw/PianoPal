@@ -16,7 +16,13 @@
 
 ## 视觉风格
 
-整体是「手绘涂鸦风」：标题/logo 用 Google Fonts 的 `Permanent Marker`/`Caveat`（英文）+ `ZCOOL KuaiLe`（中文专用的圆润手写字体——前两个纯西文本体完全不含中文本形，中文文本都是靠字体堆栈自动 fallback 到 `ZCOOL KuaiLe` 才有手写感，见 `index.html` 的字体 `<link>` 跟 `index.css` 的 `--font-title`/`--font-hand`），内文用 `Kalam`。所有卡片容器用 `.sketch-card`/`.sketch-card-alt`（`index.css`）套不对称的 `border-radius` 做出歪斜的手绘感，配合暖色纸感背景(`body::before` 的颗粒纹理)、便利贴胶带(`.washi-tape`)、萤光笔画重点(`.marker-highlight`)。主色调是蓝色系（`--accent` + 天空蓝/蓝绿/蓝紫/深靛蓝四种装饰色 `--sketch-*`/`--tint-*`），评分可视化用的状态色（`--status-*`）完全独立、不随主色调制动。`引导/主页/学习模式/演奏模式` 这几个内容量小的「单卡片」画面在 `App.jsx` 里会垂直置中在扣掉 header 后的剩余高度，避免宽屏幕(16:9)下面留一大片空白；「我的」跟评分报告页维持从上往下自然排列，因为内容量会随数据增减。
+整体是「手绘涂鸦风」：每页顶部、引导页与首页使用用户手绘的 `public/assets/pianopal-logo.png`，进入时以逐段揭示模拟书写过程；其余标题和内文统一使用较规整的 `Patrick Hand`，中文逐字 fallback 到 `ZCOOL KuaiLe`。全局 rem 基准也已放大，面板标题另有更大的 `.panel-heading` 层级。动画遵守系统的「减少动态效果」设置。
+
+同一目录还放有四张用户手绘小精灵：惊讶版用于姓名输入页、打招呼版在首页搭配随机钢琴练习语录、开心/沮丧版依总分是否达到 60 分显示在 result 评语中。小精灵保留透明原图，不套圆形背景框；result 气泡还会依动作评分产生中英文的优秀／良好／需改善／数据不可用反馈。
+
+首页三张模式卡上方各有一组双帧插画，资源位于 `public/illustrations/`：`learn`、`perform`、`profile` 各有 `-idle.svg` 与 `-active.svg`，鼠标悬浮或键盘聚焦时以淡入 + 轻微位移切换到 active 帧。两帧应保持相同画布、主体位置与透明背景，这样切换不会跳动；默认示例统一使用 `viewBox="0 0 200 140"`。自己绘制时优先使用 SVG；若是 Procreate/Photoshop 等点阵作品，建议导出透明 WebP（显示尺寸约 190×128 px，建议按 2x 输出为 380×256 px），再在 `HomePage.jsx` 的 `ModeIllustration` 路径中把扩展名从 `.svg` 改成 `.webp`。
+
+所有卡片容器用 `.sketch-card`/`.sketch-card-alt`（`index.css`）套不对称的 `border-radius` 做出歪斜的手绘感，配合纸感背景(`body::before` 的颗粒纹理)、便利贴胶带(`.washi-tape`)、萤光笔画重点(`.marker-highlight`)。主色调是蓝色系（`--accent` + 天空蓝/蓝绿/蓝紫/深靛蓝四种装饰色 `--sketch-*`/`--tint-*`），评分可视化用的状态色（`--status-*`）完全独立、不随主色调制动。`引导/学习模式/演奏模式` 这几个内容量小的「单卡片」画面在 `App.jsx` 里会垂直置中；首页加入小精灵语录后改为自然滚动，避免矮屏内容被裁掉。「我的」跟评分报告页也维持从上往下自然排列。
 
 ## 运行
 
@@ -74,11 +80,11 @@ cd frontend/viewer && npm install && npm run dev
 
 ## 画面看到什么
 
-**上方摘要卡片**：总分、三个子分数（音高准确率／节奏准确率／节奏稳定度，节奏稳定度目前缺省关闭显示 N/A——见 `backend/scoring/README`／后端说明：这个指标在真人录音上杂讯太大，不可靠）、全域速度比例（`global_tempo_ratio`），以及各分类（正确/时间偏差/弹错音/漏弹/多弹）各几个。
+**上方摘要卡片**：总分、三个子分数（旋律准确性／节奏准确率／动作评分）、全域速度比例（`global_tempo_ratio`），以及各分类（正确/时间偏差/弹错音/漏弹/多弹）各几个。节奏稳定度已从 result 展示、历史比对和生产评分权重中移除；旧 result.json 即使仍带有该字段也会被忽略。
 
 **Notation（五线谱）**：对弹奏者来说比 MIDI 风格的方格图直观很多——用真正的高音/低音谱表（右手→高音谱号、左手→低音谱号）画出每个音符，依小节分行、依评分结果着色（颜色规则跟下面 Piano roll 一致）。音符时值是从 `dur_beats` 量化成最接近的标准音符（四分、八分…），所以节奏复杂的段落画出来会略为简化，不是逐拍精确的原始记谱。
 
-**评语**：白话文列出「哪几小节有什么问题」，依影响音符数量由多到少排序，例如：
+**评语**：开心或沮丧小精灵会先用手绘气泡给出动作状态反馈，再以白话文列出「哪几小节有什么问题」，依影响音符数量由多到少排序，例如：
 
 > 第 56-60 小节：明显抢拍(弹太早)，平均偏差约 90 毫秒，共 95 个音符受影响。
 
@@ -109,9 +115,11 @@ cd frontend/viewer && npm install && npm run dev
 | `src/App.jsx` | 最外层：`page`(onboarding/home/learn/perform/me) + `view`(setup/live/result，只在 learn/perform 内有意义) 状态机、文件选取、姓名状态(含 localStorage)、把数据分派给各个面板 |
 | `src/i18n.js` | 纯数据的翻译字典 + `translate(key, lang, vars)`，不依赖 React，`utils/feedback.js`/`utils/profile.js` 也直接 import |
 | `src/LanguageContext.jsx` | 包在 `i18n.js` 外面的 React context/hook(`useTranslation`)，管理目前语言 + localStorage 持久化 |
-| `src/components/OnboardingPage.jsx` | 引导页：逐字打出来的手写标题动画、Slogan、姓名输入框、「进入」按钮 |
-| `src/components/HomePage.jsx` | 主页：logo(含 Mascot)、近期总结卡片(总练习次数/近期平均分/上次练习/画像一句话)、学习模式/演奏模式/我的三张导览卡片、切换用户链接 |
-| `src/components/Mascot.jsx` | 手绘风小人物插图(纯 SVG，之后会换成真的图片档)，用在引导页/主页 |
+| `src/components/BrandLogo.jsx` | 共用的用户手绘 PianoPal PNG Logo |
+| `src/components/OnboardingPage.jsx` | 引导页：惊讶小精灵、手写 Logo 动画、Slogan、姓名输入框、「进入」按钮 |
+| `src/components/HomePage.jsx` | 主页：打招呼小精灵 + 随机语录、近期总结、三张双帧插画导览卡片、切换用户链接 |
+| `public/assets/` | 用户提供的 Logo 与四种情绪小精灵 PNG |
+| `public/illustrations/` | 首页三种模式的 idle/active 双帧 SVG 插画与替换规范 |
 | `src/components/Doodles.jsx` | 背景散落的手绘小图标(星星/爱心/闪光)，只用在数据量少的页面(引导页/主页)，避免干扰数据密集画面的阅读 |
 | `src/components/icons.jsx` | 共用的极简线条图标(灯泡/靶心/循环箭头/展开箭头)，`SessionSetup.jsx` 用来标示学习/演奏模式跟各个子区块 |
 | `src/components/MyPage.jsx` | 我的：用户画像卡片、分数趋势图、练习记录列表(依模式/曲目筛选、多笔勾选比对)、单笔查看(复用结果视图)、删除、导出 JSON |

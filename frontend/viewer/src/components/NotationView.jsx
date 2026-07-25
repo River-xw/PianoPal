@@ -189,8 +189,8 @@ export default function NotationView({ notes, preview = false, highlightRange = 
 
   return (
     <div className="sketch-card">
-      <div className="flex items-center gap-4 border-b px-4 py-2 text-sm" style={{ borderColor: "var(--border)" }}>
-        <span className="font-medium" style={{ color: "var(--text-primary)" }}>{t("notationTitle")}</span>
+      <div className="flex flex-wrap items-center gap-4 border-b px-4 py-3 text-sm" style={{ borderColor: "var(--border)" }}>
+        <span className="panel-heading mr-2">{t("notationTitle")}</span>
         {!preview && Object.entries(STATUS_VAR).map(([status, cssVarName]) => (
           <span key={status} className="inline-flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
             <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: `var(${cssVarName})` }} />

@@ -17,8 +17,6 @@ const STATUS_VARS = {
 };
 
 function StatTile({ label, value }) {
-  // null when the timing dimension was dropped (ScoringConfig.score_weight_timing_stability=0) --
-  // not applicable rather than a real zero
   const display = value === null || value === undefined ? "N/A" : value.toFixed(1);
   return (
     <div className="flex flex-col gap-1 rounded-lg border px-4 py-3" style={{ borderColor: "var(--border)" }}>
@@ -60,11 +58,10 @@ export default function SummaryPanel({ summary }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatTile label={t("pitchAccuracy")} value={melodyAccuracy} />
         <StatTile label={t("handShapeScore")} value={motionScore} />
         <StatTile label={t("rhythmAccuracy")} value={sub_scores.rhythm} />
-        <StatTile label={t("timingStability")} value={sub_scores.timing_stability} />
       </div>
 
       {motionAssessment && (

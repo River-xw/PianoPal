@@ -37,7 +37,7 @@ export default function TrendChart({ sessions }) {
 
   return (
     <div className="sketch-card-alt p-4">
-      <div className="mb-2 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+      <div className="panel-heading mb-3">
         {t("trendChartTitle")}
       </div>
       <div className="relative overflow-x-auto">

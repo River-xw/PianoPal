@@ -139,7 +139,7 @@ export default function SessionSetup({ mode, username, onUsernameChange, onStart
           <ModeIcon className="h-6 w-6" />
         </div>
         <div>
-          <h2 className="text-xl" style={{ color: "var(--text-primary)" }}>
+          <h2 className="text-2xl" style={{ color: "var(--text-primary)" }}>
             {mode === "perform" ? t("navPerformMode") : t("navLearnMode")}
           </h2>
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>

@@ -13,7 +13,6 @@ import { downloadJson } from "../utils/download";
 const SUB_SCORE_LABEL_KEYS = {
   pitch: "pitchAccuracy",
   rhythm: "rhythmAccuracy",
-  timing_stability: "timingStability",
   hand_shape: "handShapeScore",
 };
 
@@ -119,7 +118,7 @@ export default function MyPage({ username }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>{t("navMe")}</h2>
+        <h2 className="text-2xl" style={{ color: "var(--text-primary)" }}>{t("navMe")}</h2>
         <select
           className="rounded-lg border px-3 py-1.5 text-sm"
           style={{ borderColor: "var(--border)", color: "var(--text-secondary)", background: "transparent" }}
@@ -218,7 +217,7 @@ export default function MyPage({ username }) {
 
       {compareSessions.length >= 2 && (
         <div className="sketch-card-alt overflow-x-auto p-4">
-          <div className="mb-2 text-sm font-medium" style={{ color: "var(--text-primary)" }}>{t("compareTitle")}</div>
+          <div className="panel-heading mb-3">{t("compareTitle")}</div>
           <table className="w-full text-left text-sm" style={{ color: "var(--text-secondary)" }}>
             <thead>
               <tr>

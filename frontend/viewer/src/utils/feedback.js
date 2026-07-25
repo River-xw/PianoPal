@@ -60,6 +60,29 @@ function overallLine(summary, lang) {
   return lang === "en" ? parts.join(", ") + "." : parts.join("，") + "。";
 }
 
+function motionFeedback(summary, lang) {
+  const assessment = summary.motion_assessment;
+  const subScores = summary.sub_scores ?? {};
+  const rawScore =
+    subScores.motion ??
+    subScores.hand_shape ??
+    assessment?.motion_score ??
+    assessment?.hand_shape_score;
+
+  if (assessment?.available === false || rawScore == null || !Number.isFinite(Number(rawScore))) {
+    return translate("motionFeedbackUnavailable", lang);
+  }
+
+  const score = Number(rawScore);
+  const key =
+    score >= 85
+      ? "motionFeedbackExcellent"
+      : score >= 60
+        ? "motionFeedbackGood"
+        : "motionFeedbackNeedsWork";
+  return translate(key, lang, { score: score.toFixed(1) });
+}
+
 // --- pattern detectors: each returns a suggestion string, or null if the
 // pattern isn't clear/strong enough to call out confidently ---
 
@@ -236,6 +259,7 @@ export function generateFeedback(notes, summary, lang) {
 
   return {
     overall: overallLine(summary, lang),
+    motion: motionFeedback(summary, lang),
     items: suggestions,
   };
 }

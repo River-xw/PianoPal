@@ -2,45 +2,64 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "../LanguageContext.jsx";
 import { profileSummarySentence } from "../utils/profile";
 import Doodles from "./Doodles.jsx";
-import Mascot from "./Mascot.jsx";
+import BrandLogo from "./BrandLogo.jsx";
 
 const TAPE_COLORS = ["var(--sketch-sky)", "var(--sketch-teal)", "var(--sketch-indigo)"];
 const CARD_TILT = [-2, 1.5, -1];
 
-function NavCard({ title, description, onClick, index }) {
-  const [hovered, setHovered] = useState(false);
+function ModeIllustration({ name }) {
   return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className={`sketch-card${index % 2 ? "" : "-alt"} relative flex flex-col gap-2 px-5 py-5 text-left transition-colors`}
-      style={{
-        borderColor: hovered ? "var(--accent)" : "var(--border)",
-        background: hovered ? "var(--accent-light)" : "var(--surface)",
-        transform: `rotate(${CARD_TILT[index % CARD_TILT.length]}deg)`,
-      }}
-    >
-      <span
-        className="washi-tape left-6"
-        style={{ background: TAPE_COLORS[index % TAPE_COLORS.length], transform: "rotate(-4deg)" }}
+    <span className="mode-illustration" aria-hidden="true">
+      <img
+        className="mode-illustration__frame mode-illustration__frame--idle"
+        src={`/illustrations/${name}-idle.svg`}
+        alt=""
       />
-      <span className="text-lg" style={{ color: "var(--text-primary)", fontFamily: "var(--font-title)" }}>{title}</span>
-      <span className="text-sm" style={{ color: "var(--text-muted)" }}>{description}</span>
-    </button>
+      <img
+        className="mode-illustration__frame mode-illustration__frame--active"
+        src={`/illustrations/${name}-active.svg`}
+        alt=""
+      />
+    </span>
   );
 }
 
-// Logo is a plain wordmark (no image assets in the project) -- a little
-// hand-drawn pencil icon stands in for a mark.
-function Logo({ title }) {
+function NavCard({ title, description, onClick, index, illustration }) {
   return (
-    <div className="flex items-center justify-center gap-2">
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" style={{ transform: "rotate(-8deg)" }}>
-        <path d="m14.5 3.5 6 6L8 22H2v-6z" />
-        <path d="m13 5 6 6" />
-      </svg>
-      <h1 className="text-3xl" style={{ color: "var(--text-primary)" }}>{title}</h1>
+    <div
+      className="mode-card flex min-w-0 flex-col items-stretch"
+      style={{
+        "--card-tilt": `${CARD_TILT[index % CARD_TILT.length]}deg`,
+      }}
+    >
+      <ModeIllustration name={illustration} />
+      <button
+        onClick={onClick}
+        className={`home-nav-card sketch-card${index % 2 ? "" : "-alt"} relative flex flex-1 flex-col gap-2 px-5 py-5 text-left`}
+      >
+        <span
+          className="washi-tape left-6"
+          style={{ background: TAPE_COLORS[index % TAPE_COLORS.length], transform: "rotate(-4deg)" }}
+        />
+        <span className="text-xl" style={{ color: "var(--text-primary)" }}>{title}</span>
+        <span className="text-sm leading-relaxed" style={{ color: "var(--text-muted)" }}>{description}</span>
+      </button>
+    </div>
+  );
+}
+
+function HomeGreeting() {
+  const { t } = useTranslation();
+  const [quoteIndex] = useState(() => Math.floor(Math.random() * 5));
+
+  return (
+    <div className="home-greeting mx-auto">
+      <div className="sprite-paper sprite-paper--greeting">
+        <img src="/assets/spirit-greeting.png" alt="" className="home-greeting__spirit" aria-hidden="true" />
+      </div>
+      <div className="doodle-speech-bubble" role="note">
+        {t(`practiceQuote${quoteIndex + 1}`)}
+      </div>
     </div>
   );
 }
@@ -93,8 +112,7 @@ export default function HomePage({ username, onNavigate, onSwitchUser }) {
     <div className="relative flex flex-col gap-8 py-6">
       <Doodles />
       <div className="text-center">
-        <Mascot className="mx-auto h-16 w-16" />
-        <Logo title={t("appTitle")} />
+        <BrandLogo className="home-logo mx-auto" animated />
         <p className="mt-2 text-base" style={{ color: "var(--text-muted)" }}>{t("appSlogan")}</p>
         <button
           className="mt-2 text-xs underline"
@@ -105,12 +123,14 @@ export default function HomePage({ username, onNavigate, onSwitchUser }) {
         </button>
       </div>
 
+      <HomeGreeting />
+
       <RecentSummary username={username} />
 
-      <div className="mx-auto grid w-full max-w-2xl grid-cols-1 gap-6 pt-2 sm:grid-cols-3">
-        <NavCard index={0} title={t("navLearnMode")} description={t("navLearnModeDesc")} onClick={() => onNavigate("learn")} />
-        <NavCard index={1} title={t("navPerformMode")} description={t("navPerformModeDesc")} onClick={() => onNavigate("perform")} />
-        <NavCard index={2} title={t("navMe")} description={t("navMeDesc")} onClick={() => onNavigate("me")} />
+      <div className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-8 pt-1 sm:grid-cols-3 sm:gap-6">
+        <NavCard index={0} illustration="learn" title={t("navLearnMode")} description={t("navLearnModeDesc")} onClick={() => onNavigate("learn")} />
+        <NavCard index={1} illustration="perform" title={t("navPerformMode")} description={t("navPerformModeDesc")} onClick={() => onNavigate("perform")} />
+        <NavCard index={2} illustration="profile" title={t("navMe")} description={t("navMeDesc")} onClick={() => onNavigate("me")} />
       </div>
     </div>
   );

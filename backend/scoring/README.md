@@ -48,7 +48,7 @@ performance = json.load(open("performance.json"))    # 用户弹的音符清单
 
 result = score_performance(reference, performance)
 print(result.summary.score)          # 0-100 总分
-print(result.summary.sub_scores)     # {"pitch":.., "rhythm":.., "timing_stability":.., "hand_shape":..}
+print(result.summary.sub_scores)     # {"pitch":.., "rhythm":.., "timing_stability": None, "hand_shape":..}
 print(result.summary.global_tempo_ratio)  # 例如 0.95 = 整体弹快了一点（target_bpm 有给的话是 None）
 ```
 
@@ -64,6 +64,7 @@ result = score_performance(reference, performance, target_bpm=90)
 config = ScoringConfig(
     tol_ms=30,                      # 分类容忍度收紧到 30ms
     score_weight_pitch=0.5,         # 总分里「音高准确率」的权重
+    score_weight_rhythm=0.25,        # 总分里「节奏准确率」的权重
     score_weight_hand_shape=0.25,   # 打开手型评分维度（见第 5 节）
 )
 result = score_performance(reference, performance, config=config, hand_shape_score=92.0)
@@ -103,7 +104,7 @@ python -m backend.scoring reference.json performance.json -o result.json --bpm 9
     "sub_scores": {
       "pitch": 82.35,               // 音高准确率
       "rhythm": 78.57,              // 节奏准确率（已依音高覆盖率打折，见下方公式）
-      "timing_stability": 64.1,     // 节奏稳定度（同样已依覆盖率打折）；权重=0 时是 null，不是 0
+      "timing_stability": null,     // 旧版兼容字段；当前产品不显示、不加权
       "hand_shape": null            // 手型/姿势评分；没有外部传入分数或权重=0 时是 null
     },
     "global_tempo_ratio": 0.95,     // 整体速度比例；target_bpm 有给的话这里是 null
@@ -134,9 +135,9 @@ python -m backend.scoring reference.json performance.json -o result.json --bpm 9
 
 - **pitch accuracy** = (correct + timing_off) ÷ (correct+timing_off+wrong_pitch+missed+extra) × 100 —— 有弹对音高的比例
 - **rhythm accuracy** = pitch_accuracy × correct ÷ (correct + timing_off) —— 音高对的音符里时间点准的比例，再乘上 pitch_accuracy 做覆盖率修正，这样「漏弹大半首、剩下几个音卡得很准」不会被打成节奏满分
-- **timing stability** = pitch_accuracy × [100 ÷ (1 + std(offset_ms) / tol_ms)] —— 同样先算误差标准差=0时是100分、标准差=容忍度时是50分，再乘上 pitch_accuracy 做覆盖率修正；`score_weight_timing_stability=0`（缺省）时整个不计算，回传 `null`
+- **timing stability（旧版兼容）** = pitch_accuracy × [100 ÷ (1 + std(offset_ms) / tol_ms)]；当前产品固定不显示、不参与生产评分，默认权重为 0 并回传 `null`，仅保留给旧调用端解析
 - **hand_shape** —— 完全是外部传入的分数（`score_performance(..., hand_shape_score=...)`），这个模块本身不碰任何传感器/影像；`score_weight_hand_shape=0`（缺省）或没有传入分数时回传 `null`。目前唯一会真的算出非 `null` 分数喂进来的调用端是 `edge/practice_server.py`（见该模块说明的 IMU 姿势分类器集成）
-- **overall** = 对「当下实际可用」的子分数做**重新正规化**的加权平均——`timing_stability`/`hand_shape` 为 `null`（维度关闭，或该次传感不可用）时，不是直接当 0 分贡献拖低总分，而是把它的权重份额从分母中移除、其余子分数的权重按比例放大凑回 1.0。例如手型传感器没接上、其余三项都满分，`overall` 依然是 100，而不是被扣掉 `score_weight_hand_shape` 那一份权重
+- **overall** = 对旋律准确性、节奏准确率与实际可用的 `hand_shape` 做**重新正规化**的加权平均。手型传感器不可用时不会被当成 0 分，而是移除该权重并按比例放大其余两项
 
 ### status / timing 分类逻辑
 

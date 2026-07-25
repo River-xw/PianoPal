@@ -16,6 +16,7 @@ const dict = {
 
   // --- OnboardingPage.jsx ---
   onboardingEnter: { zh: "进入", en: "Enter" },
+  onboardingNameQuestion: { zh: "Hi，你叫什么名字？", en: "Hi, what’s your name?" },
 
   // --- HomePage.jsx ---
   appSlogan: { zh: "跟着节奏，弹出自信", en: "Practice with rhythm, play with confidence" },
@@ -30,6 +31,11 @@ const dict = {
   recentSummaryTotal: { zh: "总练习次数 {count} 次", en: "{count} practice sessions total" },
   recentSummaryAvg: { zh: "近期平均分 {score}", en: "Recent average score {score}" },
   recentSummaryLast: { zh: "上次练习：{title}（{date}）", en: "Last practiced: {title} ({date})" },
+  practiceQuote1: { zh: "慢一点没关系，稳稳地弹好每一个音。", en: "It is okay to go slowly—give every note a steady landing." },
+  practiceQuote2: { zh: "先听见心里的节拍，再让手指跟上。", en: "Hear the beat inside first, then let your fingers follow." },
+  practiceQuote3: { zh: "每天练十分钟，也会让喜欢的曲子越来越像你。", en: "Even ten minutes a day can make a favorite piece sound more like you." },
+  practiceQuote4: { zh: "弹错不是失败，是下一次弹对的提示。", en: "A wrong note is not failure—it is a clue for the next try." },
+  practiceQuote5: { zh: "把困难的小节拆开，进步会突然变得很清楚。", en: "Break down the hard measures and progress becomes easier to see." },
 
   // --- utils/profile.js ---
   profileNoHistory: { zh: "还没有练习纪录，开始你的第一次练习吧", en: "No practice history yet -- start your first session" },
@@ -97,7 +103,6 @@ const dict = {
   tempoRatio: { zh: "速度比例 {ratio}", en: "tempo ratio {ratio}" },
   pitchAccuracy: { zh: "旋律准确性", en: "Melody accuracy" },
   rhythmAccuracy: { zh: "节奏准确率", en: "Rhythm accuracy" },
-  timingStability: { zh: "节奏稳定度", en: "Timing stability" },
   handShapeScore: { zh: "动作评分", en: "Motion score" },
   motionSamples: { zh: "动作识别共采纳 {total} 个窗口，其中正常动作 {normal} 个。", en: "Motion assessment used {total} windows; {normal} were classified as normal." },
   motionScoreUnavailable: { zh: "本次没有可用的动作识别数据，动作分不计入总分。", en: "No usable motion data was captured; motion is excluded from the overall score." },
@@ -111,6 +116,24 @@ const dict = {
 
   // --- FeedbackPanel.jsx ---
   feedbackTitle: { zh: "评语", en: "Feedback" },
+  spriteResultHappy: { zh: "做得不错！我们来看看这次值得保留的地方。", en: "Nice work! Let’s look at what is worth keeping from this take." },
+  spriteResultSad: { zh: "别灰心，我已经帮你找到下一次可以先改善的地方。", en: "Don’t be discouraged—I found a good place to begin improving next time." },
+  motionFeedbackExcellent: {
+    zh: "动作评分 {score} 分：手部动作整体稳定、自然，绝大部分识别时段都保持了良好状态。",
+    en: "Motion score {score}: your hand movement was stable and natural, with good form through most of the assessed windows.",
+  },
+  motionFeedbackGood: {
+    zh: "动作评分 {score} 分：大部分动作状态良好，可以继续留意手腕放松和动作连贯性。",
+    en: "Motion score {score}: most movement looked good; keep an eye on relaxed wrists and smooth transitions.",
+  },
+  motionFeedbackNeedsWork: {
+    zh: "动作评分 {score} 分：有较多时段出现不理想动作，建议放慢速度，逐小节检查手腕与手指姿势。",
+    en: "Motion score {score}: several windows showed less effective movement; slow down and check wrist and finger position measure by measure.",
+  },
+  motionFeedbackUnavailable: {
+    zh: "这次没有取得可用的动作识别数据，因此暂时无法判断手部动作情况，也不会把动作分计入总分。",
+    en: "No usable motion data was captured this time, so hand movement cannot be assessed and motion is excluded from the overall score.",
+  },
 
   // --- feedback.js overallLine ---
   tempoSlowerBy: { zh: "整体节奏比参考慢了约 {pct}%", en: "Overall tempo is about {pct}% slower than the reference" },

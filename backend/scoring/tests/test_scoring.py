@@ -50,6 +50,7 @@ class TestPerfectPerformance:
         assert result.summary.counts == {
             "correct": 12, "timing_off": 0, "wrong_pitch": 0, "missed": 0, "extra": 0,
         }
+        assert result.summary.sub_scores["timing_stability"] is None
 
     def test_missing_external_posture_score_is_not_treated_as_zero(self):
         from backend.scoring.config import ScoringConfig
@@ -328,4 +329,3 @@ class TestOctaveSlipCount:
         reference = _build_reference()
         result = score_performance(reference, _perfect_performance(reference))
         assert result.summary.octave_slips_in_wrong_pitch == 0
-

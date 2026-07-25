@@ -104,8 +104,8 @@ DEFAULT_MODE = "learn"
 # Mirrors edge/practice_server.py's MODE_SCORE_WEIGHTS -- see that module for
 # the fuller rationale comment.
 MODE_SCORE_WEIGHTS = {
-    "learn": {"pitch": 0.6, "rhythm": 0.15, "timing_stability": 0.0, "hand_shape": 0.25},
-    "perform": {"pitch": 0.4, "rhythm": 0.3, "timing_stability": 0.15, "hand_shape": 0.15},
+    "learn": {"pitch": 0.6, "rhythm": 0.15, "hand_shape": 0.25},
+    "perform": {"pitch": 0.45, "rhythm": 0.35, "hand_shape": 0.20},
 }
 # The SSH fallback does not own the Pi-side motion process. It therefore
 # leaves motion unavailable instead of fabricating a perfect score. Use
@@ -398,7 +398,6 @@ def _finish_session(session: Session) -> None:
         "--mode", "reference-dtw",
         "--score-weight-pitch", str(weights["pitch"]),
         "--score-weight-rhythm", str(weights["rhythm"]),
-        "--score-weight-timing-stability", str(weights["timing_stability"]),
         "--score-weight-hand-shape", str(weights["hand_shape"]),
         # Always on -- see edge/practice_server.py's identical cmd for why:
         # the keyboard profile only ever covers white keys, and the grading

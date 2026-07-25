@@ -40,18 +40,20 @@
   --tint-indigo: #e7e7f7;
   --tint-navy: #e1e8f0;
 
-  /* Permanent Marker/Caveat/Kalam 都不含中文字形，中文會整段掉回瀏覽器
-     預設字體，等於白做 -- ZCOOL KuaiLe 是特別做給中文用的圓潤手寫感字體，
-     放在 fallback 位置，同一段文字裡英文用前面那些手寫字體、中文自動接手
-     用 ZCOOL KuaiLe（瀏覽器對字體堆疊本來就是逐字判斷有沒有對應字形）。 */
-  --font-title: "Permanent Marker", "ZCOOL KuaiLe", "Caveat", cursive;
-  --font-hand: "Kalam", "ZCOOL KuaiLe", "Patrick Hand", cursive;
+  /* 手写 Logo 使用用户提供的 PNG；其余标题和正文统一用更规整、易读的
+     Patrick Hand，中文逐字 fallback 到 ZCOOL。 */
+  --font-title: "Patrick Hand", "ZCOOL KuaiLe", cursive;
+  --font-hand: "Patrick Hand", "ZCOOL KuaiLe", cursive;
 
   /* 兩種歪斜圓角變化，卡片交替使用增加手繪感（比一開始的版本更明顯一點，
      不然太嚴肅、看起來還是像一般圓角卡片） */
   --sketch-radius-a: 38px 8px 38px 8px / 8px 38px 8px 38px;
   --sketch-radius-b: 8px 38px 8px 38px / 38px 8px 38px 8px;
   --sketch-radius-btn: 18px 6px 18px 6px / 6px 18px 6px 18px;
+}
+
+html {
+  font-size: 18px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -91,6 +93,8 @@
 body {
   margin: 0;
   font-family: var(--font-hand);
+  font-size: 1rem;
+  line-height: 1.55;
   background: var(--page);
   color: var(--text-primary);
   position: relative;
@@ -116,6 +120,195 @@ body::before {
 h1, h2, h3 {
   font-family: var(--font-title);
   font-weight: 400;
+  line-height: 1.2;
+}
+
+.panel-heading {
+  font-family: var(--font-title);
+  font-size: 1.35rem;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+
+.brand-logo {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.app-header-logo {
+  width: 172px;
+  margin-block: -11px;
+}
+
+.home-logo {
+  width: min(340px, 82vw);
+  margin-block: -25px;
+}
+
+.onboarding-logo {
+  width: min(390px, 92vw);
+  margin: -29px auto;
+}
+
+@keyframes logo-write-in {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.4;
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+.brand-logo--animated {
+  animation: logo-write-in 1s steps(10, end) both;
+}
+
+.sprite-paper {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.sprite-paper--onboarding {
+  width: 210px;
+  height: 198px;
+}
+
+.onboarding-greeting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+}
+
+.onboarding-question {
+  max-width: 290px;
+  font-size: 1.28rem;
+}
+
+.onboarding-spirit {
+  width: 190px;
+  height: 182px;
+  object-fit: contain;
+}
+
+.home-greeting {
+  display: flex;
+  width: min(100%, 650px);
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+}
+
+.sprite-paper--greeting {
+  width: 132px;
+  height: 126px;
+}
+
+.home-greeting__spirit {
+  width: 126px;
+  height: 122px;
+  object-fit: contain;
+}
+
+.doodle-speech-bubble {
+  position: relative;
+  max-width: 470px;
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--sketch-navy);
+  border-radius: 22px 8px 24px 10px / 10px 24px 9px 22px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 1.12rem;
+  line-height: 1.55;
+  text-align: left;
+  box-shadow: 3px 4px 0 rgba(30, 58, 94, 0.08);
+  transform: rotate(0.6deg);
+}
+
+.doodle-speech-bubble::before,
+.doodle-speech-bubble::after {
+  content: "";
+  position: absolute;
+  top: 52%;
+  right: 100%;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  transform: translateY(-50%);
+}
+
+.doodle-speech-bubble::before {
+  border-width: 12px 16px 12px 0;
+  border-color: transparent var(--sketch-navy) transparent transparent;
+}
+
+.doodle-speech-bubble::after {
+  margin-right: -3px;
+  border-width: 9px 13px 9px 0;
+  border-color: transparent var(--surface) transparent transparent;
+}
+
+.result-spirit-feedback {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.sprite-paper--result {
+  width: 150px;
+  height: 144px;
+}
+
+.result-spirit-feedback__image {
+  width: 142px;
+  height: 138px;
+  object-fit: contain;
+}
+
+.result-spirit-feedback__bubble {
+  position: relative;
+  flex: 1 1 auto;
+  padding: 1rem 1.2rem;
+  border: 2px solid var(--sketch-navy);
+  border-radius: 12px 24px 10px 22px / 22px 10px 24px 12px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.result-spirit-feedback__bubble::before,
+.result-spirit-feedback__bubble::after {
+  content: "";
+  position: absolute;
+  top: 52%;
+  right: 100%;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  transform: translateY(-50%);
+}
+
+.result-spirit-feedback__bubble::before {
+  border-width: 12px 16px 12px 0;
+  border-color: transparent var(--sketch-navy) transparent transparent;
+}
+
+.result-spirit-feedback__bubble::after {
+  margin-right: -3px;
+  border-width: 9px 13px 9px 0;
+  border-color: transparent var(--surface) transparent transparent;
+}
+
+.result-spirit-feedback__lead {
+  margin-bottom: 0.35rem;
+  font-family: var(--font-title);
+  font-size: 1.18rem;
+  color: var(--text-primary);
 }
 
 /* 歪斜手繪感卡片 -- 大卡片用，小元件（輸入框等）維持一般圓角以免看起來像壞掉。
@@ -204,4 +397,171 @@ h1, h2, h3 {
 }
 .wiggle-hover:hover {
   animation: wiggle 0.3s ease-in-out;
+}
+
+/* 首页模式卡：插画与按钮共用 hover/focus 区域。两张相同画布的插画叠放，
+   通过 opacity 切帧，因此用户之后只要替换同名资源，不需改 React。 */
+.mode-card {
+  transform: rotate(var(--card-tilt));
+  transform-origin: 50% 80%;
+  transition: transform 220ms ease;
+}
+
+.home-nav-card {
+  width: 100%;
+  border-color: var(--border);
+  background: var(--surface);
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.mode-card:hover,
+.mode-card:focus-within {
+  transform: rotate(0deg) translateY(-5px);
+}
+
+.mode-card:hover .home-nav-card,
+.mode-card:focus-within .home-nav-card {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  box-shadow: 3px 5px 0 rgba(47, 111, 237, 0.12);
+}
+
+.mode-illustration {
+  position: relative;
+  display: block;
+  width: min(100%, 190px);
+  height: 128px;
+  margin: 0 auto -4px;
+}
+
+.mode-illustration__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity 160ms ease, transform 220ms ease;
+}
+
+.mode-illustration__frame--idle {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.mode-illustration__frame--active {
+  opacity: 0;
+  transform: translateY(5px) scale(0.96) rotate(-1deg);
+}
+
+.mode-card:hover .mode-illustration__frame--idle,
+.mode-card:focus-within .mode-illustration__frame--idle {
+  opacity: 0;
+  transform: translateY(-3px) scale(0.97);
+}
+
+.mode-card:hover .mode-illustration__frame--active,
+.mode-card:focus-within .mode-illustration__frame--active {
+  opacity: 1;
+  transform: translateY(-5px) scale(1.04) rotate(1deg);
+}
+
+@media (max-width: 639px) {
+  html {
+    font-size: 17px;
+  }
+
+  .app-header-logo {
+    width: 142px;
+    margin-block: -8px;
+  }
+
+  .home-greeting {
+    align-items: flex-end;
+    gap: 0.45rem;
+  }
+
+  .onboarding-greeting {
+    gap: 0.35rem;
+  }
+
+  .sprite-paper--onboarding {
+    width: 148px;
+    height: 142px;
+  }
+
+  .onboarding-spirit {
+    width: 140px;
+    height: 136px;
+  }
+
+  .onboarding-question {
+    padding: 0.8rem 0.9rem;
+    font-size: 1.05rem;
+  }
+
+  .sprite-paper--greeting {
+    width: 100px;
+    height: 98px;
+  }
+
+  .home-greeting__spirit {
+    width: 96px;
+    height: 94px;
+  }
+
+  .doodle-speech-bubble {
+    padding: 0.8rem 0.9rem;
+    font-size: 1rem;
+  }
+
+  .result-spirit-feedback {
+    align-items: flex-end;
+    gap: 0.55rem;
+  }
+
+  .sprite-paper--result {
+    width: 104px;
+    height: 104px;
+  }
+
+  .result-spirit-feedback__image {
+    width: 98px;
+    height: 98px;
+  }
+
+  .result-spirit-feedback__bubble {
+    padding: 0.8rem 0.85rem;
+  }
+
+  .mode-card {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .mode-illustration {
+    width: 120px;
+    height: 108px;
+    margin: 0 -8px 0 0;
+    z-index: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .title-bounce,
+  .typewriter-cursor,
+  .wiggle-hover:hover {
+    animation: none;
+  }
+
+  .mode-card,
+  .home-nav-card,
+  .mode-illustration__frame,
+  .reveal-fade-up {
+    transition: none;
+  }
+
+  .brand-logo--animated {
+    animation: none;
+  }
 }

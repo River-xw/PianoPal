@@ -9,6 +9,7 @@ import LiveSession from "./components/LiveSession";
 import OnboardingPage from "./components/OnboardingPage";
 import HomePage from "./components/HomePage";
 import MyPage from "./components/MyPage";
+import BrandLogo from "./components/BrandLogo";
 import { useTranslation } from "./LanguageContext.jsx";
 import { LANGUAGES } from "./i18n";
 
@@ -18,7 +19,7 @@ const USERNAME_STORAGE_KEY = "pianopal_username";
 // pin them to the top with a big dead gap underneath. "me" and the result
 // view are excluded: their content is naturally long/scrollable and
 // shouldn't be squeezed into one screen's worth of height.
-const CENTERED_PAGES = new Set(["onboarding", "home", "learn", "perform"]);
+const CENTERED_PAGES = new Set(["onboarding", "learn", "perform"]);
 
 function readStoredUsername() {
   try {
@@ -139,9 +140,7 @@ export default function App() {
     <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-8">
       <header className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
-            {t("appTitle")}
-          </h1>
+          <BrandLogo className="app-header-logo" />
           {result?.song_name && view === "result" && (
             <div className="text-sm" style={{ color: "var(--text-muted)" }}>
               {result.song_name}

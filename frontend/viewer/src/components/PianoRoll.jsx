@@ -75,8 +75,8 @@ export default function PianoRoll({ notes }) {
 
   return (
     <div className="sketch-card">
-      <div className="flex items-center gap-4 border-b px-4 py-2 text-sm" style={{ borderColor: "var(--border)" }}>
-        <span className="font-medium" style={{ color: "var(--text-primary)" }}>{t("pianoRollTitle")}</span>
+      <div className="flex flex-wrap items-center gap-4 border-b px-4 py-3 text-sm" style={{ borderColor: "var(--border)" }}>
+        <span className="panel-heading mr-2">{t("pianoRollTitle")}</span>
         {Object.entries(STATUS_VAR).map(([status, cssVar]) => (
           <span key={status} className="inline-flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
             <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: `var(${cssVar})` }} />

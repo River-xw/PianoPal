@@ -114,7 +114,7 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
   return (
     <div className="sketch-card flex flex-col gap-4 px-6 py-6">
       <div>
-        <h2 className="text-xl" style={{ color: "var(--text-primary)" }}>
+        <h2 className="text-2xl" style={{ color: "var(--text-primary)" }}>
           {songTitle}
         </h2>
         <span className="text-sm" style={{ color: "var(--text-muted)" }}>
