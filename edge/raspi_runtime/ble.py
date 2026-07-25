@@ -14,8 +14,11 @@ from backend.sensors import RawHandSensorPacket, parse_hand_sensor_packet
 PacketHandler = Callable[[RawHandSensorPacket], Awaitable[None]]
 
 UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
-UART_TX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
-UART_RX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+# Nordic UART Service, named from the micro:bit/peripheral's perspective:
+# - RX: central (Pi) writes CONNECT/START/STOP to the micro:bit
+# - TX: micro:bit notifies streamed sensor bytes to the Pi
+UART_RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+UART_TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 CONNECT_ATTEMPT_GAP_SECONDS = 1
 CONNECT_TIMEOUT_SECONDS = 12
 RECONNECT_DELAY_SECONDS = 2

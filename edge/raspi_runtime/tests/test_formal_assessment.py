@@ -20,7 +20,11 @@ from edge.practice_server import (
     _stop_posture_capture,
     _unavailable_motion_assessment,
 )
-from edge.raspi_runtime.ble import load_devices
+from edge.raspi_runtime.ble import (
+    UART_RX_UUID,
+    UART_TX_UUID,
+    load_devices,
+)
 from edge.raspi_runtime.cli import TRAINING_DATA_ROOT
 
 
@@ -28,6 +32,11 @@ def test_formal_and_training_roots_are_disjoint():
     assert FORMAL_DATA_DIR != TRAINING_DATA_ROOT
     assert FORMAL_DATA_DIR.name == "formal_assessments"
     assert TRAINING_DATA_ROOT.name == "training_collection"
+
+
+def test_microbit_nordic_uart_characteristic_directions():
+    assert UART_RX_UUID == "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+    assert UART_TX_UUID == "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 
 
 def test_motion_capture_result_exposes_real_score(tmp_path):

@@ -24,11 +24,11 @@ UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
 
 # micro:bit -> Raspberry Pi
 # Raspberry Pi listens for notifications from this characteristic.
-UART_TX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+UART_TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 
 # Raspberry Pi -> micro:bit
 # Raspberry Pi writes commands to this characteristic.
-UART_RX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+UART_RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
 
 CONFIG_PATH = Path(__file__).resolve().with_name("config.json")
