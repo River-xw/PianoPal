@@ -26,6 +26,16 @@
 
 ## 运行
 
+### 一条命令启动开发环境
+
+从仓库根目录启动 session API 与 Vite，Ctrl-C 会统一关闭全部进程：
+
+```bash
+python3 scripts/start_pianopal.py
+```
+
+没有 BLE 姿势传感器时加 `--without-motion`；需要 SSH 备案 orchestrator 时加 `--backend ssh`。
+
 ### 方式 A（推荐）：整套跑在树莓派上，本机纯看画面
 
 前端 build 成静态档、跟后端一起由树莓派上的 `edge/practice_server.py` 一个进程 serve，本机（或任何同网段设备）只要开浏览器，什么都不用装。

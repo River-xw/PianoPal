@@ -84,6 +84,18 @@ POST /api/session/start（树莓派原生 orchestrator：edge/practice_server.py
 
 ## Useful Commands
 
+一条命令启动完整开发环境（Pi 原生 orchestrator + Vite 前端；Ctrl-C 会一起关闭）：
+
+```bash
+python3 scripts/start_pianopal.py
+```
+
+没有 BLE 姿势传感器时可用 `--without-motion`；要使用开发机经 SSH 遥控树莓派的备案 orchestrator，改用 `--backend ssh`。只做启动健康检查后自动退出：
+
+```bash
+python3 scripts/start_pianopal.py --without-motion --check
+```
+
 用真人录音验证评分算法准不准（给不熟这个项目的组员用的一键脚本，见 [docs/VALIDATION_GUIDE.md](docs/VALIDATION_GUIDE.md)）：
 
 ```bash
