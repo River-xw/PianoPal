@@ -211,6 +211,11 @@ def _apply_pitch_hand_fallback(reference: dict, threshold: int = 60) -> dict:
     return reference
 
 
+def _clean_title(raw: str) -> str:
+    """Remove parenthetical annotations like ``(71音)`` or ``（71音）`` from a song title."""
+    return re.sub(r"\s*[\(（][^)）]*[\)）]", "", raw).strip()
+
+
 def _list_songs(directory: Path, source: str) -> list[dict]:
     songs = []
     if not directory.exists():
@@ -221,7 +226,7 @@ def _list_songs(directory: Path, source: str) -> list[dict]:
         except Exception:
             continue
         songs.append({
-            "id": f"{source}:{path.stem}", "title": ref.get("title") or path.stem,
+            "id": f"{source}:{path.stem}", "title": _clean_title(ref.get("title") or path.stem),
             "notes": len(ref.get("notes", [])), "white_keys_only": _is_white_key_only(ref),
             "source": source,
         })
@@ -421,7 +426,7 @@ def _start_session(
 
     session.session_dir.mkdir(parents=True, exist_ok=True)
     session.guide_json_path.write_text(json.dumps({
-        "title": reference.get("title", song_id), "tempo_bpm": reference.get("tempo_bpm"),
+        "title": _clean_title(reference.get("title", song_id)), "tempo_bpm": reference.get("tempo_bpm"),
         "notes": reference["notes"],
     }), encoding="utf-8")
 
@@ -452,7 +457,7 @@ def _start_session(
 
     now = _now_iso()
     db.create_user(safe_name, username, now)
-    db.create_piece(song_id, reference.get("title", song_id), None, None, now)
+    db.create_piece(song_id, _clean_title(reference.get("title", song_id)), None, None, now)
     if not practice_only:
         db.create_practice_session(
             session_id, safe_name, song_id, now, mode=mode

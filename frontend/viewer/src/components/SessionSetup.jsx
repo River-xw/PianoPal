@@ -180,7 +180,7 @@ export default function SessionSetup({ mode, username, onUsernameChange, onStart
         >
           {songs.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.title} ({s.notes} {t("songNotesSuffix")}{s.white_keys_only ? "" : t("songHasBlackKeysSuffix")})
+              {s.title}
             </option>
           ))}
         </select>

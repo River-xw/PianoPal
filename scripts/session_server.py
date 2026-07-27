@@ -152,6 +152,11 @@ def _apply_pitch_hand_fallback(reference: dict, threshold: int = 60) -> dict:
     return reference
 
 
+def _clean_title(raw: str) -> str:
+    """Remove parenthetical annotations like ``(71音)`` or ``（71音）`` from a song title."""
+    return re.sub(r"\s*[\(（][^)）]*[\)）]", "", raw).strip()
+
+
 def _list_library_songs() -> list[dict]:
     songs = []
     for path in sorted(SONG_LIBRARY_DIR.glob("*.mid")):
@@ -161,7 +166,7 @@ def _list_library_songs() -> list[dict]:
             continue
         songs.append({
             "id": f"library:{path.stem}",
-            "title": ref.get("title") or path.stem,
+            "title": _clean_title(ref.get("title") or path.stem),
             "notes": len(ref.get("notes", [])),
             "white_keys_only": _is_white_key_only(ref),
             "source": "library",
@@ -180,7 +185,7 @@ def _list_custom_songs() -> list[dict]:
             continue
         songs.append({
             "id": f"custom:{path.stem}",
-            "title": ref.get("title") or path.stem,
+            "title": _clean_title(ref.get("title") or path.stem),
             "notes": len(ref.get("notes", [])),
             "white_keys_only": _is_white_key_only(ref),
             "source": "custom",
@@ -315,14 +320,14 @@ def _start_session(
 
     now = _now_iso()
     db.create_user(safe_name, username, now)
-    db.create_piece(song_id, reference.get("title", song_id), None, None, now)
+    db.create_piece(song_id, _clean_title(reference.get("title", song_id)), None, None, now)
     if not practice_only:
         db.create_practice_session(session_id, safe_name, song_id, now, mode=mode)
 
     SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
     local_guide_json = SCRATCH_DIR / f"{song_id.replace(':', '_')}_guide.json"
     local_guide_json.write_text(json.dumps({
-        "title": reference.get("title", song_id), "tempo_bpm": reference.get("tempo_bpm"),
+        "title": _clean_title(reference.get("title", song_id)), "tempo_bpm": reference.get("tempo_bpm"),
         "notes": reference["notes"],
     }), encoding="utf-8")
 
