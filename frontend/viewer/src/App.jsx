@@ -40,7 +40,7 @@ export default function App() {
   const { t, lang, setLang } = useTranslation();
   const [page, setPage] = useState(() => (readStoredUsername() ? "home" : "onboarding"));
   const [view, setView] = useState("setup"); // setup | live | result -- only meaningful within learn/perform
-  const [liveInfo, setLiveInfo] = useState(null); // { songTitle, sessionId, practiceOnly }
+  const [liveInfo, setLiveInfo] = useState(null); // { songId, songTitle, sessionId, practiceOnly }
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [username, setUsername] = useState(readStoredUsername);
@@ -92,7 +92,12 @@ export default function App() {
   };
 
   const handleStarted = ({ songId, songs, sessionId, practiceOnly }) => {
-    setLiveInfo({ songTitle: songs.find((s) => s.id === songId)?.title || songId, sessionId, practiceOnly });
+    setLiveInfo({
+      songId,
+      songTitle: songs.find((s) => s.id === songId)?.title || songId,
+      sessionId,
+      practiceOnly,
+    });
     setError(null);
     setView("live");
   };
@@ -157,12 +162,12 @@ export default function App() {
               {t("backToHome")}
             </button>
           )}
-          {page !== "onboarding" && (
+          {page === "me" && (
             <label
               className="cursor-pointer rounded-lg border px-3 py-1.5 text-sm"
               style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
             >
-              {t("loadResultJson")}
+              {t("importScore")}
               <input
                 type="file"
                 accept=".json,application/json"
@@ -217,6 +222,7 @@ export default function App() {
         view === "live" && liveInfo ? (
           <LiveSession
             mode={page}
+            songId={liveInfo.songId}
             songTitle={liveInfo.songTitle}
             onDone={handleLiveDone}
             onError={handleLiveError}
@@ -225,7 +231,6 @@ export default function App() {
           <SessionSetup
             mode={page}
             username={username}
-            onUsernameChange={handleUsernameChange}
             onStarted={handleStarted}
           />
         )

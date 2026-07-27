@@ -12,6 +12,7 @@ const dict = {
   appTitle: { zh: "PianoPal", en: "PianoPal" },
   backToSongs: { zh: "返回选歌", en: "Back to songs" },
   loadResultJson: { zh: "加载 result.json", en: "Load result.json" },
+  importScore: { zh: "导入成绩", en: "Import score" },
   errorNotAResultFile: { zh: "不是评分结果 result.json（缺少 summary/notes）。", en: "Not a scoring result.json (missing summary/notes)." },
 
   // --- OnboardingPage.jsx ---
@@ -30,7 +31,8 @@ const dict = {
   currentUserLabel: { zh: "目前使用者：{username}（切换）", en: "Current user: {username} (switch)" },
   recentSummaryTotal: { zh: "累计练习{count} 次", en: "{count} practice sessions total" },
   recentSummaryAvg: { zh: "近期平均分 {score}", en: "Recent average score {score}" },
-  recentSummaryLast: { zh: "最近弹奏：{title}（{date}）", en: "Last practiced: {title} ({date})" },
+  recentSummaryLast: { zh: "上次练习：{title}（{date}）", en: "Last practiced: {title} ({date})" },
+  recentSummaryLoading: { zh: "正在加载练习概览…", en: "Loading practice overview…" },
   practiceQuote1: { zh: "慢一点没关系，稳稳地弹好每一个音。", en: "It is okay to go slowly—give every note a steady landing." },
   practiceQuote2: { zh: "先静心聆听内心的节拍，再让指尖共舞。", en: "Hear the beat inside first, then let your fingers follow." },
   practiceQuote3: { zh: "日日十分钟，曲落皆成你的心声。", en: "Even ten minutes a day can make a favorite piece sound more like you." },
@@ -49,8 +51,8 @@ const dict = {
   // --- SessionSetup.jsx ---
   connectFailed: { zh: "连不上练习服务器，确认树莓派上的 edge/practice_server.py 有在跑", en: "Can't reach the practice server -- check that edge/practice_server.py is running on the Raspberry Pi." },
   startPractice: { zh: "开始练习", en: "Start practice" },
-  startPracticeDescription: { zh: "输入姓名、选一首歌、设定速度，开始后会在琴上点灯引导、同步录音，结束后自动显示评分结果。", en: "Enter your name, pick a song and speed -- the keyboard will light up as a guide while it records, then automatically show your scored result." },
-  startPerformDescription: { zh: "输入姓名、选一首歌、设定目标速度，开始后同步录音但不会点灯引导，结束后自动显示正式评测报告。", en: "Enter your name, pick a song and target speed -- it records without LED guidance, then automatically shows a formal scored report." },
+  startPracticeDescription: { zh: "选一首歌并设定速度，开始后会在琴上点灯引导、同步录音，结束后自动显示评分结果。", en: "Pick a song and speed -- the keyboard will light up as a guide while it records, then automatically show your scored result." },
+  startPerformDescription: { zh: "选一首歌并设定目标速度，开始后同步录音但不会点灯引导，结束后自动显示正式评测报告。", en: "Pick a song and target speed -- it records without LED guidance, then automatically shows a formal scored report." },
   yourName: { zh: "姓名", en: "Your name" },
   yourNamePlaceholder: { zh: "输入姓名，用来保存你的评分记录", en: "Enter your name to keep your scores separate" },
   yourNameRequired: { zh: "请先输入姓名再开始", en: "Please enter your name before starting" },
@@ -69,6 +71,9 @@ const dict = {
   ledConfigLabel: { zh: "灯光参数", en: "LED settings" },
   brightnessLabel: { zh: "亮度：{pct}%", en: "Brightness: {pct}%" },
   fullRangeLabel: { zh: "点亮每个琴键的完整灯珠范围（预设只点第一颗）", en: "Light each key's full LED range (default: just the first LED)" },
+  ledRangeLabel: { zh: "点亮范围", en: "LED range" },
+  ledRangeSingle: { zh: "单灯珠", en: "Single LED" },
+  ledRangeFull: { zh: "完整键位", en: "Full key range" },
   segmentLoopLabel: { zh: "分段循环练习", en: "Segmented loop practice" },
   segmentLoopHint: { zh: "指定小节范围反复循环引导，不计分、不存入历史纪录", en: "Repeats a measure range indefinitely -- not graded, not saved to history" },
   segmentLoopStart: { zh: "起始小节", en: "Start measure" },
@@ -97,6 +102,7 @@ const dict = {
   motionRecognizing: { zh: "动作识别中", en: "Motion recognition active" },
   motionUnavailable: { zh: "动作识别不可用", en: "Motion recognition unavailable" },
   motionFinished: { zh: "动作识别已完成", en: "Motion recognition finished" },
+  liveNotationTitle: { zh: "实时乐谱", en: "Live notation" },
 
   // --- SummaryPanel.jsx ---
   overallScore: { zh: "总分", en: "Overall score" },

@@ -14,12 +14,12 @@ const FIELD_CLASS = "rounded-lg border px-3 py-2 text-sm transition-shadow focus
 // different `mode` sent to POST /api/session/start (which picks the
 // matching ScoringConfig weight preset -- see edge/practice_server.py's
 // MODE_SCORE_WEIGHTS) and different copy/labels.
-export default function SessionSetup({ mode, username, onUsernameChange, onStarted }) {
+export default function SessionSetup({ mode, username, onStarted }) {
   const { t } = useTranslation();
   const [songs, setSongs] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [speed, setSpeed] = useState(1.0);
-  const [brightness, setBrightness] = useState(0.25);
+  const [brightness, setBrightness] = useState(0.1);
   const [fullRange, setFullRange] = useState(false);
   const [loopStart, setLoopStart] = useState("");
   const [loopEnd, setLoopEnd] = useState("");
@@ -46,7 +46,7 @@ export default function SessionSetup({ mode, username, onUsernameChange, onStart
       .catch(() => setError(t("connectFailed")));
   };
 
-  useEffect(loadSongs, []);
+  useEffect(loadSongs, [username, mode, t]);
 
   // 分段循環練習的琴譜預覽: only fetch once the picker is actually open (and
   // a song is chosen) -- no point loading notation nobody's looking at.
@@ -64,9 +64,10 @@ export default function SessionSetup({ mode, username, onUsernameChange, onStart
     setError(null);
     try {
       const bytes = await file.arrayBuffer();
+      const displayTitle = file.name.replace(/\.midi?$/i, "").normalize("NFC");
       const res = await fetch("/api/songs/import", {
         method: "POST",
-        headers: { "X-Song-Title": encodeURIComponent(file.name.replace(/\.mid$/i, "")) },
+        headers: { "X-Song-Title": encodeURIComponent(displayTitle) },
         body: bytes,
       });
       const data = await res.json();
@@ -156,20 +157,6 @@ export default function SessionSetup({ mode, username, onUsernameChange, onStart
 
       <div className="flex flex-col gap-2">
         <span className="text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-title)" }}>
-          {t("yourName")}
-        </span>
-        <input
-          type="text"
-          className={FIELD_CLASS}
-          style={{ borderColor: "var(--border)", color: "var(--text-primary)", background: "transparent" }}
-          value={username}
-          onChange={(e) => onUsernameChange(e.target.value)}
-          placeholder={t("yourNamePlaceholder")}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <span className="text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-title)" }}>
           {t("song")}
         </span>
         <select
@@ -229,19 +216,46 @@ export default function SessionSetup({ mode, username, onUsernameChange, onStart
             <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
               {t("brightnessLabel", { pct: Math.round(brightness * 100) })}
             </span>
-            <input
-              type="range"
-              min="0.05"
-              max="1.0"
-              step="0.05"
-              value={brightness}
-              onChange={(e) => setBrightness(parseFloat(e.target.value))}
-            />
+            <div className="flex flex-wrap gap-2">
+              {[0.05, 0.1, 0.15].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="rounded-lg border px-3 py-1.5 text-xs transition-colors"
+                  style={{
+                    borderColor: brightness === value ? "var(--accent)" : "var(--border)",
+                    background: brightness === value ? "var(--accent-light)" : "transparent",
+                    color: brightness === value ? "var(--accent)" : "var(--text-secondary)",
+                  }}
+                  aria-pressed={brightness === value}
+                  onClick={() => setBrightness(value)}
+                >
+                  {Math.round(value * 100)}%
+                </button>
+              ))}
+            </div>
           </div>
-          <label className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-            <input type="checkbox" checked={fullRange} onChange={(e) => setFullRange(e.target.checked)} />
-            {t("fullRangeLabel")}
-          </label>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{t("ledRangeLabel")}</span>
+            <div className="flex flex-wrap gap-2">
+              {[false, true].map((value) => (
+                <button
+                  key={String(value)}
+                  type="button"
+                  className="rounded-lg border px-3 py-1.5 text-xs transition-colors"
+                  style={{
+                    borderColor: fullRange === value ? "var(--accent)" : "var(--border)",
+                    background: fullRange === value ? "var(--accent-light)" : "transparent",
+                    color: fullRange === value ? "var(--accent)" : "var(--text-secondary)",
+                  }}
+                  aria-pressed={fullRange === value}
+                  onClick={() => setFullRange(value)}
+                >
+                  {t(value ? "ledRangeFull" : "ledRangeSingle")}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

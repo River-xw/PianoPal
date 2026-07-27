@@ -121,9 +121,16 @@ function buildStaveNote(chordNotes, clef, accidentalState, preview) {
 // highlightRange: {start, end} (measure numbers, inclusive) draws a tinted
 // band behind those measures so the currently-selected loop range is visible
 // at a glance.
-export default function NotationView({ notes, preview = false, highlightRange = null }) {
+export default function NotationView({
+  notes,
+  preview = false,
+  highlightRange = null,
+  followMeasure = null,
+  titleKey = "notationTitle",
+}) {
   const { t } = useTranslation();
   const containerRef = useRef(null);
+  const scrollerRef = useRef(null);
   const [measureLayout, setMeasureLayout] = useState([]);
 
   const measures = useMemo(() => {
@@ -187,10 +194,18 @@ export default function NotationView({ notes, preview = false, highlightRange = 
     setMeasureLayout(layout);
   }, [measures, preview]);
 
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    const current = measureLayout.find((item) => item.measureNum === followMeasure);
+    if (!scroller || !current) return;
+    const left = Math.max(0, current.x + current.width / 2 - scroller.clientWidth / 2);
+    scroller.scrollTo({ left, behavior: "smooth" });
+  }, [followMeasure, measureLayout]);
+
   return (
     <div className="sketch-card">
       <div className="flex flex-wrap items-center gap-4 border-b px-4 py-3 text-sm" style={{ borderColor: "var(--border)" }}>
-        <span className="panel-heading mr-2">{t("notationTitle")}</span>
+        <span className="panel-heading mr-2">{t(titleKey)}</span>
         {!preview && Object.entries(STATUS_VAR).map(([status, cssVarName]) => (
           <span key={status} className="inline-flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
             <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: `var(${cssVarName})` }} />
@@ -198,7 +213,7 @@ export default function NotationView({ notes, preview = false, highlightRange = 
           </span>
         ))}
       </div>
-      <div className="overflow-x-auto p-2" style={{ maxHeight: 340 }}>
+      <div ref={scrollerRef} className="overflow-x-auto p-2" style={{ maxHeight: 340 }}>
         <div className="relative">
           {highlightRange && measureLayout
             .filter((m) => m.measureNum >= highlightRange.start && m.measureNum <= highlightRange.end)

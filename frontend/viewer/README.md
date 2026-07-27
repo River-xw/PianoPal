@@ -26,15 +26,31 @@
 
 ## 运行
 
-### 一条命令启动开发环境
+### 启动开发环境
 
-从仓库根目录启动 session API 与 Vite，Ctrl-C 会统一关闭全部进程：
+启动器默认使用 `auto` 模式：本机有 npm 和前端依赖时会同时启动 session
+API 与 Vite，否则只启动 API。Ctrl-C 会统一关闭它启动的进程：
 
 ```bash
 python3 scripts/start_pianopal.py
 ```
 
-没有 BLE 姿势传感器时加 `--without-motion`；需要 SSH 备案 orchestrator 时加 `--backend ssh`。
+前端在电脑、硬件与后端在树莓派时，分别启动：
+
+```bash
+# 树莓派（不需要 npm）
+python3 scripts/start_pianopal.py \
+  --frontend-mode external \
+  --public-host 192.168.137.87
+
+# 电脑
+cd frontend/viewer
+SESSION_SERVER=192.168.137.87:8900 npm run dev
+```
+
+没有 BLE 姿势传感器时加 `--without-motion`；需要 SSH 备案 orchestrator
+时加 `--backend ssh`。需要强制在同一台机器启动 Vite 时使用
+`--frontend-mode local`。
 
 ### 方式 A（推荐）：整套跑在树莓派上，本机纯看画面
 

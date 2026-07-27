@@ -70,6 +70,7 @@ import subprocess
 import sys
 import threading
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -138,6 +139,46 @@ def _safe_username(name: str) -> str:
     return safe
 
 
+def _normalize_import_title(raw_title: str) -> str:
+    """Decode the browser header into a clean display title.
+
+    The MIDI is stored under an opaque ID, so the display title never has to
+    double as a filesystem path. This also fixes legacy clients that sent a
+    percent-encoded UTF-8 filename in X-Song-Title.
+    """
+    title = urllib.parse.unquote(raw_title or "")
+    title = unicodedata.normalize("NFC", title)
+    title = "".join(ch for ch in title if not unicodedata.category(ch).startswith("C"))
+    title = re.sub(r"\s+", " ", title).strip()
+    title = re.sub(r"\.midi?$", "", title, flags=re.IGNORECASE).strip()
+    return title[:128] or "imported"
+
+
+def _custom_song_title(path: Path) -> str:
+    metadata_path = path.with_suffix(".json")
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if metadata.get("title"):
+            return _normalize_import_title(str(metadata["title"]))
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    # Backward compatibility: the old importer stored
+    # <8-hex-id>_<percent-encoded-title>.mid without metadata.
+    legacy_title = path.stem
+    prefix, separator, remainder = legacy_title.partition("_")
+    if separator and len(prefix) == 8 and all(ch in "0123456789abcdefABCDEF" for ch in prefix):
+        legacy_title = remainder
+    return _normalize_import_title(legacy_title)
+
+
+def _load_song_reference(path: Path) -> dict:
+    reference = convert(str(path))
+    if path.parent == CUSTOM_SONGS_DIR:
+        reference["title"] = _custom_song_title(path)
+    return reference
+
+
 def _apply_pitch_hand_fallback(reference: dict, threshold: int = 60) -> dict:
     """See backend/audio_to_performance/README.md: single-track MIDI files
     put every note in one instrument, so midi_parser.py's track-index-based
@@ -180,7 +221,7 @@ def _list_custom_songs() -> list[dict]:
         return songs
     for path in sorted(CUSTOM_SONGS_DIR.glob("*.mid")):
         try:
-            ref = convert(str(path))
+            ref = _load_song_reference(path)
         except Exception:
             continue
         songs.append({
@@ -294,7 +335,7 @@ def _pi_control(action: str, value=None) -> bool:
 
 def _start_session(
     song_id: str, speed: float, username: str, mode: str,
-    brightness: float = 0.25, full_range: bool = False,
+    brightness: float = 0.1, full_range: bool = False,
     loop_start_measure: int | None = None, loop_end_measure: int | None = None,
 ) -> Session:
     safe_name = _safe_username(username)  # raises ValueError if missing/unusable -- fail fast, before touching anything
@@ -304,7 +345,7 @@ def _start_session(
     # mode has no LED guidance to loop, and its whole point is one clean take.
     practice_only = mode == "learn" and loop_start_measure is not None and loop_end_measure is not None
     song_path = _resolve_song_path(song_id)
-    reference = convert(str(song_path))
+    reference = _load_song_reference(song_path)
     reference = _apply_pitch_hand_fallback(reference)
     white_keys_only = _is_white_key_only(reference)
 
@@ -529,7 +570,7 @@ def _make_handler():
                 self._json({"error": "not found"}, 404)
                 return
             try:
-                reference = _apply_pitch_hand_fallback(convert(str(song_path)))
+                reference = _apply_pitch_hand_fallback(_load_song_reference(song_path))
             except Exception as exc:
                 self._json({"error": str(exc)}, 400)
                 return
@@ -633,9 +674,9 @@ def _make_handler():
             raw = self.rfile.read(length) if length else b""
 
             if self.path == "/api/songs/import":
-                title = self.headers.get("X-Song-Title", "imported")
+                title = _normalize_import_title(self.headers.get("X-Song-Title", "imported"))
                 CUSTOM_SONGS_DIR.mkdir(parents=True, exist_ok=True)
-                song_id = f"{uuid.uuid4().hex[:8]}_{title}".replace(" ", "_")
+                song_id = uuid.uuid4().hex[:12]
                 dest = CUSTOM_SONGS_DIR / f"{song_id}.mid"
                 dest.write_bytes(raw)
                 try:
@@ -644,7 +685,11 @@ def _make_handler():
                     dest.unlink(missing_ok=True)
                     self._json({"error": f"could not parse MIDI: {exc}"}, 400)
                     return
-                self._json({"id": f"custom:{song_id}"})
+                dest.with_suffix(".json").write_text(
+                    json.dumps({"title": title}, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                self._json({"id": f"custom:{song_id}", "title": title})
                 return
 
             if self.path == "/api/session/start":
@@ -659,7 +704,7 @@ def _make_handler():
                         CURRENT = _start_session(
                             payload["song_id"], float(payload.get("speed", 1.0)),
                             payload.get("username", ""), payload.get("mode", DEFAULT_MODE),
-                            brightness=float(payload.get("brightness", 0.25)),
+                            brightness=float(payload.get("brightness", 0.1)),
                             full_range=bool(payload.get("full_range", False)),
                             loop_start_measure=int(loop_start) if loop_start is not None else None,
                             loop_end_measure=int(loop_end) if loop_end is not None else None,

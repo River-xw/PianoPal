@@ -84,13 +84,29 @@ POST /api/session/start（树莓派原生 orchestrator：edge/practice_server.py
 
 ## Useful Commands
 
-一条命令启动完整开发环境（Pi 原生 orchestrator + Vite 前端；Ctrl-C 会一起关闭）：
+一条命令启动开发环境。默认 `auto` 模式会在本机有 npm 和
+`frontend/viewer/node_modules` 时同时启动 Vite，否则只启动 session API：
 
 ```bash
 python3 scripts/start_pianopal.py
 ```
 
-没有 BLE 姿势传感器时可用 `--without-motion`；要使用开发机经 SSH 遥控树莓派的备案 orchestrator，改用 `--backend ssh`。只做启动健康检查后自动退出：
+前端在电脑、收放音和动作识别在树莓派时，明确让树莓派只启动后端：
+
+```bash
+# 树莓派（192.168.137.87）
+python3 scripts/start_pianopal.py \
+  --frontend-mode external \
+  --public-host 192.168.137.87
+
+# 电脑
+cd frontend/viewer
+SESSION_SERVER=192.168.137.87:8900 npm run dev
+```
+
+没有 BLE 姿势传感器时可用 `--without-motion`；要使用开发机经 SSH
+遥控树莓派的备案 orchestrator，改用 `--backend ssh`。只做启动健康检查后
+自动退出：
 
 ```bash
 python3 scripts/start_pianopal.py --without-motion --check

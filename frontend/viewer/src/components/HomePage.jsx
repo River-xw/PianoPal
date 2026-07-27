@@ -6,6 +6,7 @@ import BrandLogo from "./BrandLogo.jsx";
 
 const TAPE_COLORS = ["var(--sketch-sky)", "var(--sketch-teal)", "var(--sketch-indigo)"];
 const CARD_TILT = [-2, 1.5, -1];
+const summaryCache = new Map();
 
 function ModeIllustration({ name }) {
   return (
@@ -35,7 +36,7 @@ function NavCard({ title, description, onClick, index, illustration }) {
       <ModeIllustration name={illustration} />
       <button
         onClick={onClick}
-        className={`home-nav-card sketch-card${index % 2 ? "" : "-alt"} relative flex flex-1 flex-col gap-2 px-5 py-5 text-left`}
+        className={`home-nav-card sketch-card${index % 2 ? "" : "-alt"} relative flex flex-1 flex-col gap-1.5 px-4 py-4 text-left`}
       >
         <span
           className="washi-tape left-6"
@@ -71,36 +72,47 @@ function HomeGreeting() {
 // user with no history yet just sees the empty-state copy.
 function RecentSummary({ username }) {
   const { t, lang } = useTranslation();
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(() => summaryCache.get(username) || null);
 
   useEffect(() => {
     const name = (username || "").trim();
     if (!name) return;
+    setData(summaryCache.get(name) || null);
     fetch(`/api/history?${new URLSearchParams({ username: name, limit: "1" })}`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
-      .then((parsed) => parsed && setData(parsed))
+      .then((parsed) => {
+        if (!parsed) return;
+        summaryCache.set(name, parsed);
+        setData(parsed);
+      })
       .catch(() => {});
   }, [username]);
 
-  if (!data) return null;
-  const { profile, sessions } = data;
+  const { profile, sessions } = data || {};
   const latest = sessions && sessions[0];
 
   return (
     <div
-      className="sketch-card tint-navy mx-auto flex w-full max-w-2xl flex-col gap-2 px-5 py-4"
+      className="home-summary-card sketch-card tint-navy mx-auto flex w-full max-w-2xl flex-col justify-center gap-2 px-5 py-3"
       style={{ border: "none" }}
+      aria-busy={!data}
     >
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-        <span>{t("recentSummaryTotal", { count: profile?.total_sessions ?? 0 })}</span>
-        {profile?.recent_avg_score != null && (
-          <span>{t("recentSummaryAvg", { score: profile.recent_avg_score.toFixed(1) })}</span>
-        )}
-        {latest && (
-          <span>{t("recentSummaryLast", { title: latest.piece_title, date: new Date(latest.started_at).toLocaleDateString() })}</span>
-        )}
-      </div>
-      <div className="text-sm" style={{ color: "var(--text-muted)" }}>{profileSummarySentence(profile, lang)}</div>
+      {data ? (
+        <>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+            <span>{t("recentSummaryTotal", { count: profile?.total_sessions ?? 0 })}</span>
+            {profile?.recent_avg_score != null && (
+              <span>{t("recentSummaryAvg", { score: profile.recent_avg_score.toFixed(1) })}</span>
+            )}
+            {latest && (
+              <span>{t("recentSummaryLast", { title: latest.piece_title, date: new Date(latest.started_at).toLocaleDateString() })}</span>
+            )}
+          </div>
+          <div className="text-sm" style={{ color: "var(--text-muted)" }}>{profileSummarySentence(profile, lang)}</div>
+        </>
+      ) : (
+        <div className="text-sm" style={{ color: "var(--text-muted)" }}>{t("recentSummaryLoading")}</div>
+      )}
     </div>
   );
 }
@@ -109,13 +121,13 @@ export default function HomePage({ username, onNavigate, onSwitchUser }) {
   const { t } = useTranslation();
 
   return (
-    <div className="relative flex flex-col gap-8 py-6">
+    <div className="relative flex flex-col gap-4 py-2">
       <Doodles />
       <div className="text-center">
         <BrandLogo className="home-logo mx-auto" animated />
-        <p className="mt-2 text-base" style={{ color: "var(--text-muted)" }}>{t("appSlogan")}</p>
+        <p className="mt-1 text-base" style={{ color: "var(--text-muted)" }}>{t("appSlogan")}</p>
         <button
-          className="mt-2 text-xs underline"
+          className="mt-1 text-xs underline"
           style={{ color: "var(--text-muted)" }}
           onClick={onSwitchUser}
         >
@@ -127,7 +139,7 @@ export default function HomePage({ username, onNavigate, onSwitchUser }) {
 
       <RecentSummary username={username} />
 
-      <div className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-8 pt-1 sm:grid-cols-3 sm:gap-6">
+      <div className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
         <NavCard index={0} illustration="learn" title={t("navLearnMode")} description={t("navLearnModeDesc")} onClick={() => onNavigate("learn")} />
         <NavCard index={1} illustration="perform" title={t("navPerformMode")} description={t("navPerformModeDesc")} onClick={() => onNavigate("perform")} />
         <NavCard index={2} illustration="profile" title={t("navMe")} description={t("navMeDesc")} onClick={() => onNavigate("me")} />

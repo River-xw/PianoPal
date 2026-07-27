@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Start PianoPal's active backend orchestrator and optional Vite frontend."""
+"""Start PianoPal's backend and, when requested, a local Vite frontend.
+
+The Raspberry Pi does not need Node/npm when the frontend runs on a separate
+computer. In the default ``auto`` mode, Vite is started only when npm and the
+viewer's installed dependencies are available on this machine.
+"""
 
 from __future__ import annotations
 
@@ -38,7 +43,10 @@ class Service:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Start the PianoPal session API and frontend with one command."
+        description=(
+            "Start the PianoPal session API, with an optional same-machine "
+            "Vite frontend."
+        )
     )
     parser.add_argument(
         "--backend",
@@ -49,7 +57,27 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--api-port", type=int, default=8900)
     parser.add_argument("--frontend-port", type=int, default=5173)
     parser.add_argument(
-        "--no-frontend", action="store_true", help="start only the session API"
+        "--frontend-mode",
+        choices=("auto", "local", "external"),
+        default="auto",
+        help=(
+            "auto: start Vite only when npm/dependencies exist; "
+            "local: require and start Vite here; external: backend only "
+            "(use this when the frontend runs on a Mac/PC)"
+        ),
+    )
+    parser.add_argument(
+        "--no-frontend",
+        action="store_true",
+        help="deprecated alias for --frontend-mode external",
+    )
+    parser.add_argument(
+        "--public-host",
+        default=os.environ.get("PIANOPAL_PUBLIC_HOST"),
+        help=(
+            "LAN hostname/IP printed for an external frontend "
+            "(auto-detected when omitted)"
+        ),
     )
     parser.add_argument(
         "--without-motion",
@@ -78,6 +106,71 @@ def _python_executable(explicit: str | None) -> str:
     if VENV_PYTHON.is_file():
         return str(VENV_PYTHON)
     return sys.executable
+
+
+def _detect_public_host(explicit: str | None = None) -> str:
+    if explicit:
+        return explicit
+
+    candidates: list[str] = []
+    try:
+        candidates.extend(
+            item[4][0]
+            for item in socket.getaddrinfo(
+                socket.gethostname(), None, family=socket.AF_INET
+            )
+        )
+    except OSError:
+        pass
+
+    # A UDP connect chooses the interface used for normal outbound traffic
+    # without sending application data. It often finds the Pi's LAN address
+    # when hostname resolution only returns a loopback address.
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            candidates.append(sock.getsockname()[0])
+    except OSError:
+        pass
+
+    return next(
+        (
+            address
+            for address in candidates
+            if address and not address.startswith("127.")
+        ),
+        "<raspberry-pi-ip>",
+    )
+
+
+def _frontend_plan(args: argparse.Namespace) -> tuple[bool, str]:
+    mode = "external" if args.no_frontend else args.frontend_mode
+    if mode == "external":
+        return False, "external frontend requested"
+
+    npm = shutil.which("npm")
+    dependencies_ready = (VIEWER_DIR / "node_modules").is_dir()
+    if mode == "local":
+        if not npm:
+            raise RuntimeError(
+                "npm not found; use --frontend-mode external when the "
+                "frontend runs on another computer"
+            )
+        if not dependencies_ready:
+            raise RuntimeError(
+                "frontend dependencies missing; run: "
+                "cd frontend/viewer && npm ci"
+            )
+        return True, "local Vite frontend requested"
+
+    if npm and dependencies_ready:
+        return True, "auto-detected local npm and frontend dependencies"
+    missing = []
+    if not npm:
+        missing.append("npm")
+    if not dependencies_ready:
+        missing.append("frontend node_modules")
+    return False, f"auto-selected external frontend (missing {', '.join(missing)})"
 
 
 def _port_is_free(port: int) -> bool:
@@ -116,7 +209,7 @@ def _get_json(url: str) -> dict:
         raise RuntimeError(f"request failed for {url}: {exc}") from exc
 
 
-def _smoke_test(args: argparse.Namespace) -> None:
+def _smoke_test(args: argparse.Namespace, start_frontend: bool) -> None:
     query = "/api/songs?username=startup-check&mode=learn"
     backend_payload = _get_json(f"http://127.0.0.1:{args.api_port}{query}")
     songs = backend_payload.get("songs")
@@ -124,7 +217,7 @@ def _smoke_test(args: argparse.Namespace) -> None:
         raise RuntimeError("backend song library is empty or invalid")
     print(f"verified backend API: {len(songs)} songs", flush=True)
 
-    if not args.no_frontend:
+    if start_frontend:
         proxied_payload = _get_json(f"http://127.0.0.1:{args.frontend_port}{query}")
         if proxied_payload.get("songs") != songs:
             raise RuntimeError("frontend API proxy response differs from backend")
@@ -144,7 +237,7 @@ def _stop_service(service: Service) -> None:
             process.wait()
 
 
-def _services(args: argparse.Namespace) -> list[Service]:
+def _services(args: argparse.Namespace, start_frontend: bool) -> list[Service]:
     python = _python_executable(args.python)
     backend_script = (
         REPO_ROOT / "edge/practice_server.py"
@@ -163,12 +256,9 @@ def _services(args: argparse.Namespace) -> list[Service]:
             env=backend_env,
         )
     ]
-    if not args.no_frontend:
+    if start_frontend:
         npm = shutil.which("npm")
-        if not npm:
-            raise RuntimeError("npm not found")
-        if not (VIEWER_DIR / "node_modules").is_dir():
-            raise RuntimeError("frontend dependencies missing; run: cd frontend/viewer && npm ci")
+        assert npm is not None  # validated by _frontend_plan()
         frontend_env = os.environ.copy()
         frontend_env["SESSION_SERVER"] = f"127.0.0.1:{args.api_port}"
         services.append(
@@ -185,15 +275,24 @@ def _services(args: argparse.Namespace) -> list[Service]:
 
 def main() -> int:
     args = _parse_args()
-    if args.api_port == args.frontend_port and not args.no_frontend:
+    try:
+        start_frontend, frontend_note = _frontend_plan(args)
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"frontend mode: {frontend_note}", flush=True)
+
+    if args.api_port == args.frontend_port and start_frontend:
         raise SystemExit("API and frontend ports must differ")
-    ports = [args.api_port] + ([] if args.no_frontend else [args.frontend_port])
+    ports = [args.api_port] + (
+        [args.frontend_port] if start_frontend else []
+    )
     occupied = [str(port) for port in ports if not _port_is_free(port)]
     if occupied:
         raise SystemExit(f"ports already in use: {', '.join(occupied)}")
 
     try:
-        services = _services(args)
+        services = _services(args, start_frontend)
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -219,16 +318,27 @@ def main() -> int:
             print(f"ready {service.name}: {service.health_url}", flush=True)
 
         if args.check:
-            _smoke_test(args)
+            _smoke_test(args, start_frontend)
             print("all services healthy", flush=True)
             return 0
 
-        print(
-            f"PianoPal ready: http://127.0.0.1:{args.frontend_port}/"
-            if not args.no_frontend
-            else f"PianoPal API ready: http://127.0.0.1:{args.api_port}/",
-            flush=True,
-        )
+        if start_frontend:
+            print(
+                f"PianoPal ready: http://127.0.0.1:{args.frontend_port}/",
+                flush=True,
+            )
+        else:
+            public_host = _detect_public_host(args.public_host)
+            print(
+                f"PianoPal backend ready: http://{public_host}:{args.api_port}/",
+                flush=True,
+            )
+            print(
+                "On the frontend computer run:\n"
+                f"  cd frontend/viewer\n"
+                f"  SESSION_SERVER={public_host}:{args.api_port} npm run dev",
+                flush=True,
+            )
         while not stopping:
             for service in services:
                 assert service.process is not None

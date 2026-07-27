@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "../LanguageContext.jsx";
 import { Metronome } from "../utils/metronome";
+import NotationView from "./NotationView.jsx";
 
 const POLL_MS = 500;
 
@@ -20,9 +21,10 @@ async function postControl(path, body) {
 // result.json) -- or, for 分段循環練習 sessions, straight back to setup since
 // there's no result to show (App.jsx decides which, via liveInfo.practiceOnly;
 // this component's own rendering doesn't need to know).
-export default function LiveSession({ mode, songTitle, onDone, onError }) {
+export default function LiveSession({ mode, songId, songTitle, onDone, onError }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState(null);
+  const [referenceNotes, setReferenceNotes] = useState([]);
   const [muted, setMuted] = useState(false);
   const doneFired = useRef(false);
   const metronomeRef = useRef(null);
@@ -67,6 +69,22 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
 
   useEffect(() => () => metronomeRef.current.stop(), []);
 
+  useEffect(() => {
+    if (!songId) return;
+    let cancelled = false;
+    fetch(`/api/songs/${encodeURIComponent(songId)}/reference`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled) setReferenceNotes(data?.notes || []);
+      })
+      .catch(() => {
+        if (!cancelled) setReferenceNotes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [songId]);
+
   const phaseLabel = {
     starting: t("phaseStarting"),
     guiding: t("phaseGuiding"),
@@ -105,6 +123,16 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
   const phase = status?.phase || "starting";
   const progress = status?.song_end > 0 ? Math.min(1, (status.song_pos || 0) / status.song_end) : 0;
   const capture = status?.capture;
+  const currentMeasure = useMemo(() => {
+    if (referenceNotes.length === 0) return null;
+    const songPos = status?.song_pos || 0;
+    let measure = referenceNotes[0].measure || 1;
+    for (const note of referenceNotes) {
+      if ((note.onset_ref_sec || 0) > songPos) break;
+      measure = note.measure || measure;
+    }
+    return measure;
+  }, [referenceNotes, status?.song_pos]);
   const motionStatusLabel = {
     running: t("motionRecognizing"),
     finished: t("motionFinished"),
@@ -126,6 +154,15 @@ export default function LiveSession({ mode, songTitle, onDone, onError }) {
         <>
           {mode === "perform" && (
             <div className="text-sm" style={{ color: "var(--status-timing-off)" }}>{t("noGuideNotice")}</div>
+          )}
+          {referenceNotes.length > 0 && currentMeasure != null && (
+            <NotationView
+              notes={referenceNotes}
+              preview
+              highlightRange={{ start: currentMeasure, end: currentMeasure }}
+              followMeasure={currentMeasure}
+              titleKey="liveNotationTitle"
+            />
           )}
           <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
             {(status.song_pos || 0).toFixed(1)}s / {status.song_end.toFixed(1)}s
