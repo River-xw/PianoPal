@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -75,6 +76,57 @@ class FrontendPlanTest(unittest.TestCase):
             start_pianopal._detect_public_host("192.168.137.87"),
             "192.168.137.87",
         )
+
+    def test_pi_backend_hardware_defaults_are_applied(self) -> None:
+        args = argparse.Namespace(
+            python="/usr/bin/python3",
+            backend="practice",
+            api_port=8900,
+            frontend_port=5173,
+            without_motion=False,
+        )
+        with (
+            mock.patch.dict(os.environ, {}, clear=True),
+            mock.patch.object(
+                start_pianopal,
+                "RUNNING_AS_ROOT_COPY",
+                True,
+            ),
+        ):
+            service = start_pianopal._services(
+                args,
+                start_frontend=False,
+            )[0]
+
+        for name, value in start_pianopal.BACKEND_ENV_DEFAULTS.items():
+            self.assertEqual(service.env[name], value)
+
+    def test_explicit_hardware_environment_overrides_default(self) -> None:
+        args = argparse.Namespace(
+            python="/usr/bin/python3",
+            backend="practice",
+            api_port=8900,
+            frontend_port=5173,
+            without_motion=False,
+        )
+        with (
+            mock.patch.dict(
+                os.environ,
+                {"PIANOPAL_POSTURE_HANDS": "L"},
+                clear=True,
+            ),
+            mock.patch.object(
+                start_pianopal,
+                "RUNNING_AS_ROOT_COPY",
+                True,
+            ),
+        ):
+            service = start_pianopal._services(
+                args,
+                start_frontend=False,
+            )[0]
+
+        self.assertEqual(service.env["PIANOPAL_POSTURE_HANDS"], "L")
 
 
 if __name__ == "__main__":

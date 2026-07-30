@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Start PianoPal's backend and, when requested, a local Vite frontend.
 
-The Raspberry Pi does not need Node/npm when the frontend runs on a separate
-computer. In the default ``auto`` mode, Vite is started only when npm and the
-viewer's installed dependencies are available on this machine.
+The Raspberry Pi does not need Node/npm because the production frontend is
+served from ``edge/frontend_dist`` by the practice backend. Hardware and LAN
+defaults below match the PianoPal Raspberry Pi deployment, while explicit
+environment variables and command-line flags can still override them.
 """
 
 from __future__ import annotations
@@ -29,6 +30,14 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR if (SCRIPT_DIR / "edge").is_dir() else SCRIPT_DIR.parent
 VIEWER_DIR = REPO_ROOT / "frontend/viewer"
 VENV_PYTHON = REPO_ROOT / "backend/audio_to_performance/.venv/bin/python3"
+RUNNING_AS_ROOT_COPY = SCRIPT_DIR == REPO_ROOT
+DEFAULT_PUBLIC_HOST = "192.168.137.87"
+BACKEND_ENV_DEFAULTS = {
+    "PIANOPAL_RECORD_DEVICE": "plughw:CARD=Device_1,DEV=0",
+    "PIANOPAL_PLAYBACK_DEVICE": "plughw:CARD=Device,DEV=0",
+    "PIANOPAL_POSTURE_HANDS": "L,R",
+    "PIANOPAL_POSTURE_READY_TIMEOUT_SEC": "20",
+}
 
 
 @dataclass
@@ -59,7 +68,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--frontend-mode",
         choices=("auto", "local", "external"),
-        default="auto",
+        default=os.environ.get(
+            "PIANOPAL_FRONTEND_MODE",
+            "external" if RUNNING_AS_ROOT_COPY else "auto",
+        ),
         help=(
             "auto: start Vite only when npm/dependencies exist; "
             "local: require and start Vite here; external: backend only "
@@ -73,7 +85,10 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--public-host",
-        default=os.environ.get("PIANOPAL_PUBLIC_HOST"),
+        default=os.environ.get(
+            "PIANOPAL_PUBLIC_HOST",
+            DEFAULT_PUBLIC_HOST if RUNNING_AS_ROOT_COPY else None,
+        ),
         help=(
             "LAN hostname/IP printed for an external frontend "
             "(auto-detected when omitted)"
@@ -245,6 +260,9 @@ def _services(args: argparse.Namespace, start_frontend: bool) -> list[Service]:
         else REPO_ROOT / "scripts/session_server.py"
     )
     backend_env = os.environ.copy()
+    if RUNNING_AS_ROOT_COPY:
+        for name, value in BACKEND_ENV_DEFAULTS.items():
+            backend_env.setdefault(name, value)
     if args.without_motion:
         backend_env["PIANOPAL_REQUIRE_MOTION"] = "0"
     services = [

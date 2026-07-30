@@ -34,6 +34,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from edge.raspi_runtime.ble import BleHandSensorSource  # noqa: E402
 from edge.raspi_runtime.posture import RealtimePosturePipeline, load_posture_model  # noqa: E402
+from edge.posture_feedback import (  # noqa: E402
+    PostureFeedbackGate,
+    write_posture_feedback_event,
+)
 
 BLE_SHUTDOWN_GRACE_SECONDS = 2.0
 
@@ -108,6 +112,15 @@ def parse_args() -> argparse.Namespace:
             "provided at least one valid sensor packet."
         ),
     )
+    parser.add_argument(
+        "--feedback-output",
+        type=Path,
+        default=None,
+        help=(
+            "Optional latest-event JSON used by the guided-practice UI to "
+            "play sparse English posture reminders."
+        ),
+    )
     parser.add_argument("-o", "--output", type=Path, required=True, help="Where to write the aggregate result JSON.")
     return parser.parse_args()
 
@@ -155,8 +168,11 @@ def _write_result(
 
 async def _run(args: argparse.Namespace) -> None:
     capture_hands = sorted(set(args.hands))
+    feedback_output = getattr(args, "feedback_output", None)
     if args.ready_output is not None:
         args.ready_output.unlink(missing_ok=True)
+    if feedback_output is not None:
+        feedback_output.unlink(missing_ok=True)
     if args.ble_config is None or not args.ble_config.exists():
         _write_result(
             args.output,
@@ -183,6 +199,7 @@ async def _run(args: argparse.Namespace) -> None:
         )
         return
     pipeline = RealtimePosturePipeline(model=model, window_ms=2000 if args.posture_model is not None else 800)
+    feedback_gate = PostureFeedbackGate()
 
     total = 0
     normal = 0
@@ -224,6 +241,17 @@ async def _run(args: argparse.Namespace) -> None:
         label_counts[prediction.predicted_label] = label_counts.get(prediction.predicted_label, 0) + 1
         if prediction.predicted_label == "normal":
             normal += 1
+        if feedback_output is not None:
+            feedback_event = feedback_gate.observe(
+                hand=prediction.hand,
+                label=prediction.predicted_label,
+                confidence=prediction.confidence,
+            )
+            if feedback_event is not None:
+                write_posture_feedback_event(
+                    feedback_output,
+                    feedback_event,
+                )
 
     source = BleHandSensorSource(args.ble_config, hands=frozenset(capture_hands))
     try:

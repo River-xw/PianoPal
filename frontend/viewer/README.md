@@ -8,7 +8,7 @@
 
 **学习模式 vs 演奏模式**：都是 `POST /api/session/start` 带 `mode: "learn"|"perform"`，后端依 mode 选一组 `ScoringConfig` 权重（`edge/practice_server.py`/`scripts/session_server.py` 的 `MODE_SCORE_WEIGHTS`）——学习模式旋律／动作权重高、节奏均匀度不计；演奏模式三者较均衡的严格评分，而且会多带 `--no-leds` 给 `ws2812_guide_song.py`（只计时+录音，不点灯）。**评分引擎本身完全没有分两套**，纯粹是权重参数不同。手型评分在 `edge/practice_server.py`（前端实际在用的树莓派原生 orchestrator）已经接上真的 IMU 姿势分类器——有设置 BLE 传感设备（`edge/microbit_rpi_comm/raspberry/config.json`）时，`edge/posture_capture.py` 会在整场练习期间即时分类手型姿势、把「正常姿势时间窗比例」换算成 `motion_score`（0-100）喂进评分公式；BLE、设置档或模型不可用时这个子分数显示 N/A，并且**从总分的加权平均中重新正规化排除**，不会用固定占位分顶替去拉低或掩盖总分（旧版「没装硬件就退回固定 100 分」的行为已经改掉）。`scripts/session_server.py`（SSH 备案 orchestrator）目前还没接这块真实数据。
 
-学习模式另外还有：**灯光参数**（亮度滑杆 + 全键位/单键位范围切换，随 `POST /api/session/start` 的 `brightness`/`full_range` 传给 `ws2812_guide_song.py` 既有的 `--brightness`/`--full-range`）、**节拍器**（`LiveSession.jsx` 用 `src/utils/metronome.js` 的 Web Audio lookahead scheduler，贯穿整个引导过程持续播放，拍速 = 曲子的 `tempo_bpm × 目前倍速`，跟树莓派的灯光/录音时序完全独立，纯浏览器端）、**曲目记忆**（`GET /api/songs?username=&mode=` 回传这个用户在这个模式下最近弹的 `last_song_id`，选歌下拉缺省带出）、**分段循环练习**（指定小节范围让 `ws2812_guide_song.py` 反复循环引导，见下方独立说明）。
+学习模式另外还有：**灯光参数**（亮度滑杆 + 全键位/单键位范围切换，随 `POST /api/session/start` 的 `brightness`/`full_range` 传给 `ws2812_guide_song.py` 既有的 `--brightness`/`--full-range`）、**节拍器**（`LiveSession.jsx` 用 `src/utils/metronome.js` 的 Web Audio lookahead scheduler，贯穿整个引导过程持续播放，拍速 = 曲子的 `tempo_bpm × 目前倍速`）、**英文手部姿势语音教练**（`edge/posture_feedback.py` 对动作分类结果做连续命中与 10 秒冷却过滤；有 `PIANOPAL_PLAYBACK_DEVICE` 时由树莓派播放 `frontend_dist/audio/posture/` 下的 WAV，否则由浏览器播放，可随时静音）、**曲目记忆**（`GET /api/songs?username=&mode=` 回传这个用户在这个模式下最近弹的 `last_song_id`，选歌下拉缺省带出）、**分段循环练习**（指定小节范围让 `ws2812_guide_song.py` 反复循环引导，见下方独立说明）。
 
 **分段循环练习**：学习模式选歌画面上的另一个独立按钮（不是「开始练习」，是「开始分段练习」），带 `loop_start_measure`/`loop_end_measure` 给后端；`ws2812_guide_song.py` 算出这个小节范围对应的时间区间，让播放时钟到达区间终点就自动绕回起点、无限循环，直到用户按「结束」。这种 session **不计分、不存入历史纪录**（`Session.practice_only`）——分段反复弹奏的录音对着整曲的参考谱评分没有意义，纯粹是熟练用的练习辅助。
 
@@ -110,7 +110,7 @@ cd frontend/viewer && npm install && npm run dev
 
 **Notation（五线谱）**：对弹奏者来说比 MIDI 风格的方格图直观很多——用真正的高音/低音谱表（右手→高音谱号、左手→低音谱号）画出每个音符，依小节分行、依评分结果着色（颜色规则跟下面 Piano roll 一致）。音符时值是从 `dur_beats` 量化成最接近的标准音符（四分、八分…），所以节奏复杂的段落画出来会略为简化，不是逐拍精确的原始记谱。
 
-**评语**：开心或沮丧小精灵会先用手绘气泡给出动作状态反馈，再以白话文列出「哪几小节有什么问题」，依影响音符数量由多到少排序，例如：
+**评语**：开心或沮丧小精灵会先用手绘气泡给出动作状态反馈。动作评分低于 80 分时，前端会从 `summary.motion_assessment.label_counts` 排除 `normal` 后找出次数最多的错误标签，在评语中并排播放该错误姿势 GIF 与 `normal.gif`；80 分及以上、动作数据不可用或没有错误标签时不显示 GIF 对照。之后再以白话文列出「哪几小节有什么问题」，依影响音符数量由多到少排序，例如：
 
 > 第 56-60 小节：明显抢拍(弹太早)，平均偏差约 90 毫秒，共 95 个音符受影响。
 
@@ -145,7 +145,10 @@ cd frontend/viewer && npm install && npm run dev
 | `src/components/OnboardingPage.jsx` | 引导页：惊讶小精灵、手写 Logo 动画、Slogan、姓名输入框、「进入」按钮 |
 | `src/components/HomePage.jsx` | 主页：打招呼小精灵 + 随机语录、近期总结、三张双帧插画导览卡片、切换用户链接 |
 | `public/assets/` | 用户提供的 Logo 与四种情绪小精灵 PNG |
+| `public/gestures/` | 最终报告使用的五种错误姿势 GIF 与 normal 正确姿势 GIF |
 | `public/illustrations/` | 首页三种模式的 idle/active 双帧 SVG 插画与替换规范 |
+| `src/components/PostureComparison.jsx` | 低于 80 分时显示错误最多姿势与正常姿势的 GIF 对照 |
+| `src/utils/posture.js` | 动作标签到 GIF 的映射及最高频错误选择逻辑 |
 | `src/components/Doodles.jsx` | 背景散落的手绘小图标(星星/爱心/闪光)，只用在数据量少的页面(引导页/主页)，避免干扰数据密集画面的阅读 |
 | `src/components/icons.jsx` | 共用的极简线条图标(灯泡/靶心/循环箭头/展开箭头)，`SessionSetup.jsx` 用来标示学习/演奏模式跟各个子区块 |
 | `src/components/MyPage.jsx` | 我的：用户画像卡片、分数趋势图、练习记录列表(依模式/曲目筛选、多笔勾选比对)、单笔查看(复用结果视图)、删除、导出 JSON |
@@ -154,7 +157,7 @@ cd frontend/viewer && npm install && npm run dev
 | `src/utils/download.js` | 纯前端 Blob 下载小工具，导出功能用 |
 | `src/utils/metronome.js` | Web Audio lookahead-scheduler 节拍器 class，不依赖 React，`LiveSession.jsx` 用它在学习模式引导过程中持续播放拍子 |
 | `src/components/SessionSetup.jsx` | 学习/演奏模式共用的选歌画面：姓名输入框、曲库清单(来自 session server，含曲目记忆缺省)、自行导入 MIDI、倍速/目标速度选择；学习模式另有灯光参数(亮度/范围)跟分段循环练习区块；开始按钮，用 `mode` prop 切换文案跟送出的权重模式 |
-| `src/components/LiveSession.jsx` | 引导中画面：轮询 session 状态、显示进度条、跑节拍器；学习模式有变速/暂停/重来/节拍器静音按钮，演奏模式只有提前结束(不能中途调速/暂停/重来) |
+| `src/components/LiveSession.jsx` | 引导中画面：轮询 session 状态、显示进度条、跑节拍器，并播放已去抖的英文姿势提醒；学习模式有变速/暂停/重来/节拍器及姿势语音静音按钮，演奏模式只有提前结束(不能中途调速/暂停/重来) |
 | `src/components/SummaryPanel.jsx` | 总分/子分数/计数摘要卡片 |
 | `src/components/NotationView.jsx` | 用 [VexFlow](https://www.vexflow.com/) 画的五线谱视图 |
 | `src/components/FeedbackPanel.jsx` | 「评语」文本面板 |

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { generateFeedback } from "../utils/feedback";
 import { useTranslation } from "../LanguageContext.jsx";
+import PostureComparison from "./PostureComparison.jsx";
 
 const STATUS_VAR = {
   timing_off: "--status-timing-off",
@@ -36,6 +37,8 @@ export default function FeedbackPanel({ notes, summary }) {
           <p>{feedback.motion}</p>
         </div>
       </div>
+
+      <PostureComparison summary={summary} />
 
       {feedback.overall && (
         <p className="mb-4 mt-4" style={{ color: "var(--text-secondary)" }}>

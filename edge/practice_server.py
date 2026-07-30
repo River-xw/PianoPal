@@ -77,6 +77,7 @@ FORMAL_DATA_DIR = REPO_ROOT / "data/formal_assessments"
 FORMAL_SESSIONS_DIR = FORMAL_DATA_DIR / "sessions"
 LATEST_DIR = FORMAL_DATA_DIR / "latest"
 FRONTEND_DIST_DIR = Path(__file__).resolve().parent / "frontend_dist"
+POSTURE_AUDIO_DIR = FRONTEND_DIST_DIR / "audio/posture"
 LATEST_RESULT_JSON = LATEST_DIR / "result.json"
 LATEST_DEBUG_JSON = LATEST_DIR / "last_debug.json"
 # Prefer a stable ALSA card name (for example
@@ -222,6 +223,29 @@ def _normalize_import_title(raw_title: str) -> str:
     return title[:128] or "imported"
 
 
+def _humanize_filename_title(raw_title: str) -> str:
+    """Turn a MIDI filename stem into a readable fallback display title."""
+    title = _normalize_import_title(raw_title)
+    prefix, separator, remainder = title.partition("_")
+    if separator and len(prefix) in (8, 12) and all(
+        ch in "0123456789abcdefABCDEF" for ch in prefix
+    ):
+        title = remainder
+    title = re.sub(r"_(?:b?pno|easy)$", "", title, flags=re.IGNORECASE)
+    words = title.replace("_", " ").split()
+    if not words:
+        return "Imported"
+    if any(ord(ch) > 127 for ch in title):
+        return " ".join(words)
+    minor_words = {"a", "an", "and", "at", "by", "for", "from", "in", "of", "on", "the", "to"}
+    last_index = len(words) - 1
+    return " ".join(
+        word.lower() if 0 < index < last_index and word.lower() in minor_words
+        else word.capitalize()
+        for index, word in enumerate(words)
+    )
+
+
 def _custom_song_title(path: Path) -> str:
     metadata_path = path.with_suffix(".json")
     try:
@@ -233,18 +257,23 @@ def _custom_song_title(path: Path) -> str:
 
     # Old imports used <8-hex-id>_<percent-encoded-title>.mid. Decode them
     # on read so existing custom-library entries are repaired without a migration.
-    legacy_title = path.stem
-    prefix, separator, remainder = legacy_title.partition("_")
-    if separator and len(prefix) == 8 and all(ch in "0123456789abcdefABCDEF" for ch in prefix):
-        legacy_title = remainder
-    return _normalize_import_title(legacy_title)
+    return _humanize_filename_title(path.stem)
 
 
 def _load_song_reference(path: Path) -> dict:
     reference = convert(str(path))
     if path.parent == CUSTOM_SONGS_DIR:
         reference["title"] = _custom_song_title(path)
+    else:
+        reference["title"] = _humanize_filename_title(
+            reference.get("title") or path.stem
+        )
     return reference
+
+
+def _clean_title(raw: str) -> str:
+    """Remove parenthetical annotations like ``(71音)`` from display titles."""
+    return re.sub(r"\s*[\(（][^)）]*[\)）]", "", raw).strip()
 
 
 def _list_songs(directory: Path, source: str) -> list[dict]:
@@ -293,6 +322,7 @@ class Session:
         self.guide_json_path = self.session_dir / "guide.json"
         self.posture_result_path = self.session_dir / "motion_assessment.json"
         self.posture_ready_path = self.session_dir / "motion_ready.json"
+        self.posture_feedback_path = self.session_dir / "motion_feedback.json"
         self.posture_log_path = self.session_dir / "motion_capture.log"
         self.result_path = self.session_dir / "result.json"
         self.debug_path = self.session_dir / "audio_debug.json"
@@ -302,6 +332,9 @@ class Session:
         self.process: subprocess.Popen | None = None
         self.posture_process: subprocess.Popen | None = None
         self.motion_unavailable_reason: str | None = None
+        self.posture_voice_muted = False
+        self.posture_voice_process: subprocess.Popen | None = None
+        self.last_posture_voice_event_id: str | None = None
 
 
 LOCK = threading.Lock()
@@ -362,10 +395,88 @@ def _posture_failure_detail(session: Session) -> str:
     return "no valid sensor packets were received"
 
 
+def _latest_posture_feedback(session: Session) -> dict | None:
+    if session.mode != "learn" or not session.posture_feedback_path.exists():
+        return None
+    try:
+        event = json.loads(
+            session.posture_feedback_path.read_text(encoding="utf-8")
+        )
+    except (json.JSONDecodeError, OSError):
+        return None
+    if (
+        event.get("schema_version") != "posture_feedback_event_v1"
+        or not event.get("event_id")
+        or not str(event.get("audio_src", "")).startswith(
+            "/audio/posture/"
+        )
+    ):
+        return None
+    return event
+
+
+def _posture_voice_output() -> str:
+    if PLAYBACK_DEVICE and POSTURE_AUDIO_DIR.is_dir():
+        return "pi"
+    return "browser"
+
+
+def _play_posture_feedback_on_pi(session: Session, event: dict | None) -> None:
+    """Play each new posture event once through the configured Pi speaker."""
+    if (
+        event is None
+        or _posture_voice_output() != "pi"
+        or session.posture_voice_muted
+    ):
+        return
+    event_id = str(event["event_id"])
+    if session.last_posture_voice_event_id == event_id:
+        return
+
+    session.last_posture_voice_event_id = event_id
+    audio_name = Path(str(event["audio_src"])).name
+    audio_path = POSTURE_AUDIO_DIR / audio_name
+    if not audio_path.is_file():
+        print(f"posture voice asset missing: {audio_path}", flush=True)
+        return
+
+    current = session.posture_voice_process
+    if current is not None and current.poll() is None:
+        return
+    try:
+        session.posture_voice_process = subprocess.Popen(
+            [
+                "aplay",
+                "-q",
+                "-D",
+                str(PLAYBACK_DEVICE),
+                str(audio_path),
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+        )
+    except OSError as exc:
+        print(f"could not play posture voice: {exc}", flush=True)
+
+
+def _set_posture_voice_muted(session: Session, muted: bool) -> None:
+    session.posture_voice_muted = muted
+    if muted:
+        process = session.posture_voice_process
+        if process is not None and process.poll() is None:
+            process.terminate()
+        return
+    # Re-enabling voice deliberately replays the current cue, which also
+    # gives the UI's button a reliable speaker test.
+    session.last_posture_voice_event_id = None
+
+
 def _start_posture_capture_and_wait(
     session: Session,
     posture_model_path: Path,
     timeout_sec: float = POSTURE_READY_TIMEOUT_SEC,
+    *,
+    enable_feedback: bool = False,
 ) -> None:
     """Start formal motion capture and block until every requested hand has
     streamed at least one valid packet.
@@ -376,6 +487,8 @@ def _start_posture_capture_and_wait(
     """
     session.posture_ready_path.unlink(missing_ok=True)
     session.posture_result_path.unlink(missing_ok=True)
+    if enable_feedback:
+        session.posture_feedback_path.unlink(missing_ok=True)
     posture_cmd = [
         sys.executable,
         "-u",
@@ -393,6 +506,11 @@ def _start_posture_capture_and_wait(
         "-o",
         str(session.posture_result_path),
     ]
+    if enable_feedback:
+        posture_cmd += [
+            "--feedback-output",
+            str(session.posture_feedback_path),
+        ]
     with session.posture_log_path.open("w", encoding="utf-8") as posture_log:
         session.posture_process = subprocess.Popen(
             posture_cmd,
@@ -484,7 +602,11 @@ def _start_session(
     elif posture_model_path is None:
         raise RuntimeError("trained motion model is unavailable")
     else:
-        _start_posture_capture_and_wait(session, posture_model_path)
+        _start_posture_capture_and_wait(
+            session,
+            posture_model_path,
+            enable_feedback=mode == "learn",
+        )
 
     now = _now_iso()
     db.create_user(safe_name, username, now)
@@ -849,6 +971,12 @@ def _make_handler():
             if session is None:
                 self._json({"phase": "idle"})
                 return
+            posture_feedback = _latest_posture_feedback(session)
+            if session.phase == "guiding":
+                _play_posture_feedback_on_pi(
+                    session,
+                    posture_feedback,
+                )
             payload = {
                 "phase": session.phase, "error": session.error,
                 "session_id": session.session_id, "mode": session.mode,
@@ -867,6 +995,9 @@ def _make_handler():
                         else ("running" if session.posture_process.poll() is None else "finished")
                     ),
                     "motion_unavailable_reason": session.motion_unavailable_reason,
+                    "posture_feedback": posture_feedback,
+                    "posture_voice_output": _posture_voice_output(),
+                    "posture_voice_muted": session.posture_voice_muted,
                 },
             }
             if session.phase == "guiding":
@@ -933,6 +1064,18 @@ def _make_handler():
 
             if self.path == "/api/session/control":
                 payload = json.loads(raw or b"{}")
+                if payload.get("action") == "posture_voice_mute_set":
+                    with LOCK:
+                        session = CURRENT
+                    if session is None:
+                        self._json({"ok": False}, 409)
+                        return
+                    _set_posture_voice_muted(
+                        session,
+                        bool(payload.get("value")),
+                    )
+                    self._json({"ok": True})
+                    return
                 ok = _guide_control(payload.get("action"), payload.get("value"))
                 self._json({"ok": ok})
                 return

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "../LanguageContext.jsx";
 import { Metronome } from "../utils/metronome";
 import NotationView from "./NotationView.jsx";
@@ -26,9 +26,24 @@ export default function LiveSession({ mode, songId, songTitle, onDone, onError }
   const [status, setStatus] = useState(null);
   const [referenceNotes, setReferenceNotes] = useState([]);
   const [muted, setMuted] = useState(false);
+  const [postureVoiceMuted, setPostureVoiceMuted] = useState(false);
+  const [postureVoiceBlocked, setPostureVoiceBlocked] = useState(false);
   const doneFired = useRef(false);
   const metronomeRef = useRef(null);
+  const postureAudioRef = useRef(null);
+  const lastPostureEventRef = useRef(null);
   if (!metronomeRef.current) metronomeRef.current = new Metronome();
+
+  const playPostureFeedback = useCallback((feedback) => {
+    if (!feedback?.audio_src) return;
+    postureAudioRef.current?.pause();
+    const audio = new Audio(feedback.audio_src);
+    audio.volume = 0.85;
+    postureAudioRef.current = audio;
+    audio.play()
+      .then(() => setPostureVoiceBlocked(false))
+      .catch(() => setPostureVoiceBlocked(true));
+  }, []);
 
   // Learn-mode metronome: use browser Web Audio only when the Pi did not
   // advertise its own ALSA output. With PIANOPAL_PLAYBACK_DEVICE configured,
@@ -67,7 +82,10 @@ export default function LiveSession({ mode, songId, songTitle, onDone, onError }
     }
   }, [status?.metronome_output, status?.metronome_muted]);
 
-  useEffect(() => () => metronomeRef.current.stop(), []);
+  useEffect(() => () => {
+    metronomeRef.current.stop();
+    postureAudioRef.current?.pause();
+  }, []);
 
   useEffect(() => {
     if (!songId) return;
@@ -123,6 +141,30 @@ export default function LiveSession({ mode, songId, songTitle, onDone, onError }
   const phase = status?.phase || "starting";
   const progress = status?.song_end > 0 ? Math.min(1, (status.song_pos || 0) / status.song_end) : 0;
   const capture = status?.capture;
+  const postureFeedback = capture?.posture_feedback;
+  const postureVoiceOutput = capture?.posture_voice_output || "browser";
+  const postureVoiceIsMuted = postureVoiceOutput === "pi"
+    ? !!capture?.posture_voice_muted
+    : postureVoiceMuted;
+  useEffect(() => {
+    if (
+      phase !== "guiding"
+      || postureVoiceOutput === "pi"
+      || postureVoiceMuted
+      || !postureFeedback?.event_id
+      || lastPostureEventRef.current === postureFeedback.event_id
+    ) {
+      return;
+    }
+    lastPostureEventRef.current = postureFeedback.event_id;
+    playPostureFeedback(postureFeedback);
+  }, [
+    phase,
+    postureFeedback,
+    postureVoiceOutput,
+    postureVoiceMuted,
+    playPostureFeedback,
+  ]);
   const currentMeasure = useMemo(() => {
     if (referenceNotes.length === 0) return null;
     const songPos = status?.song_pos || 0;
@@ -169,26 +211,81 @@ export default function LiveSession({ mode, songId, songTitle, onDone, onError }
             {status.paused && <span style={{ color: "var(--status-timing-off)" }}> · {t("paused")}</span>}
           </div>
           {capture && (
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span
-                className="rounded-full border px-3 py-1"
-                style={{
-                  borderColor: capture.audio_recording ? "var(--status-correct)" : "var(--border)",
-                  color: capture.audio_recording ? "var(--status-correct)" : "var(--text-muted)",
-                }}
-              >
-                {capture.audio_recording ? t("microphoneRecording") : t("microphoneStarting")}
-              </span>
-              <span
-                className="rounded-full border px-3 py-1"
-                style={{
-                  borderColor: capture.motion_recognition === "running" ? "var(--status-correct)" : "var(--border)",
-                  color: capture.motion_recognition === "unavailable" ? "var(--text-muted)" : "var(--status-correct)",
-                }}
-              >
-                {motionStatusLabel[capture.motion_recognition] || t("motionUnavailable")}
-              </span>
-            </div>
+            <>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span
+                  className="rounded-full border px-3 py-1"
+                  style={{
+                    borderColor: capture.audio_recording ? "var(--status-correct)" : "var(--border)",
+                    color: capture.audio_recording ? "var(--status-correct)" : "var(--text-muted)",
+                  }}
+                >
+                  {capture.audio_recording ? t("microphoneRecording") : t("microphoneStarting")}
+                </span>
+                <span
+                  className="rounded-full border px-3 py-1"
+                  style={{
+                    borderColor: capture.motion_recognition === "running" ? "var(--status-correct)" : "var(--border)",
+                    color: capture.motion_recognition === "unavailable" ? "var(--text-muted)" : "var(--status-correct)",
+                  }}
+                >
+                  {motionStatusLabel[capture.motion_recognition] || t("motionUnavailable")}
+                </span>
+              </div>
+              {mode === "learn" && capture.motion_recognition === "running" && (
+                <div
+                  className="flex flex-col gap-2 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  style={{
+                    borderColor: postureFeedback ? "var(--accent)" : "var(--border)",
+                    background: "var(--tint-sky)",
+                  }}
+                  role="status"
+                  aria-live="polite"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                      {t("postureCoach")}
+                    </div>
+                    <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                      {postureFeedback?.message || t("postureCoachListening")}
+                    </div>
+                    {postureVoiceOutput !== "pi" && postureVoiceBlocked && !postureVoiceMuted && (
+                      <div className="mt-1 text-xs" style={{ color: "var(--status-timing-off)" }}>
+                        {t("postureCoachBlocked")}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    className="shrink-0 rounded-lg border px-3 py-1.5 text-sm"
+                    style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+                    onClick={() => {
+                      if (postureVoiceOutput === "pi") {
+                        postControl("/api/session/control", {
+                          action: "posture_voice_mute_set",
+                          value: !postureVoiceIsMuted,
+                        });
+                        return;
+                      }
+                      if (postureVoiceMuted || postureVoiceBlocked) {
+                        setPostureVoiceMuted(false);
+                        if (postureFeedback) {
+                          lastPostureEventRef.current = postureFeedback.event_id;
+                          playPostureFeedback(postureFeedback);
+                        }
+                      } else {
+                        postureAudioRef.current?.pause();
+                        setPostureVoiceMuted(true);
+                        setPostureVoiceBlocked(false);
+                      }
+                    }}
+                  >
+                    {postureVoiceIsMuted || postureVoiceBlocked
+                      ? t("postureCoachUnmute")
+                      : t("postureCoachMute")}
+                  </button>
+                </div>
+              )}
+            </>
           )}
           <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--border)" }}>
             <div

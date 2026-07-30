@@ -154,6 +154,29 @@ def _normalize_import_title(raw_title: str) -> str:
     return title[:128] or "imported"
 
 
+def _humanize_filename_title(raw_title: str) -> str:
+    """Turn a MIDI filename stem into a readable fallback display title."""
+    title = _normalize_import_title(raw_title)
+    prefix, separator, remainder = title.partition("_")
+    if separator and len(prefix) in (8, 12) and all(
+        ch in "0123456789abcdefABCDEF" for ch in prefix
+    ):
+        title = remainder
+    title = re.sub(r"_(?:b?pno|easy)$", "", title, flags=re.IGNORECASE)
+    words = title.replace("_", " ").split()
+    if not words:
+        return "Imported"
+    if any(ord(ch) > 127 for ch in title):
+        return " ".join(words)
+    minor_words = {"a", "an", "and", "at", "by", "for", "from", "in", "of", "on", "the", "to"}
+    last_index = len(words) - 1
+    return " ".join(
+        word.lower() if 0 < index < last_index and word.lower() in minor_words
+        else word.capitalize()
+        for index, word in enumerate(words)
+    )
+
+
 def _custom_song_title(path: Path) -> str:
     metadata_path = path.with_suffix(".json")
     try:
@@ -165,17 +188,17 @@ def _custom_song_title(path: Path) -> str:
 
     # Backward compatibility: the old importer stored
     # <8-hex-id>_<percent-encoded-title>.mid without metadata.
-    legacy_title = path.stem
-    prefix, separator, remainder = legacy_title.partition("_")
-    if separator and len(prefix) == 8 and all(ch in "0123456789abcdefABCDEF" for ch in prefix):
-        legacy_title = remainder
-    return _normalize_import_title(legacy_title)
+    return _humanize_filename_title(path.stem)
 
 
 def _load_song_reference(path: Path) -> dict:
     reference = convert(str(path))
     if path.parent == CUSTOM_SONGS_DIR:
         reference["title"] = _custom_song_title(path)
+    else:
+        reference["title"] = _humanize_filename_title(
+            reference.get("title") or path.stem
+        )
     return reference
 
 
@@ -202,7 +225,7 @@ def _list_library_songs() -> list[dict]:
     songs = []
     for path in sorted(SONG_LIBRARY_DIR.glob("*.mid")):
         try:
-            ref = convert(str(path))
+            ref = _load_song_reference(path)
         except Exception:
             continue
         songs.append({

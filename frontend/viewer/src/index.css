@@ -311,6 +311,66 @@ h1, h2, h3 {
   color: var(--text-primary);
 }
 
+.posture-comparison {
+  margin-top: 1.4rem;
+  padding-top: 1.2rem;
+  border-top: 2px dashed var(--border);
+}
+
+.posture-comparison__intro {
+  margin-top: 0.4rem;
+  color: var(--text-secondary);
+}
+
+.posture-demo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.posture-demo-card {
+  overflow: hidden;
+  border: 2px solid var(--border);
+  border-radius: 20px 8px 18px 10px / 9px 20px 10px 18px;
+  background: var(--surface);
+}
+
+.posture-demo-card--error {
+  border-color: color-mix(in srgb, var(--status-wrong-pitch) 45%, var(--border));
+}
+
+.posture-demo-card--normal {
+  border-color: color-mix(in srgb, var(--status-correct) 45%, var(--border));
+}
+
+.posture-demo-card__gif {
+  display: block;
+  width: 100%;
+  aspect-ratio: 426 / 240;
+  object-fit: cover;
+  border-bottom: 2px solid var(--border);
+}
+
+.posture-demo-card figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 0.9rem 0.9rem;
+  color: var(--text-secondary);
+}
+
+.posture-demo-card figcaption strong {
+  font-family: var(--font-title);
+  font-size: 1.15rem;
+  color: var(--text-primary);
+}
+
+.posture-demo-card__eyebrow {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
 /* 歪斜手繪感卡片 -- 大卡片用，小元件（輸入框等）維持一般圓角以免看起來像壞掉。
    -alt 只是另一種歪斜方向，兩者都要有完整卡片樣式，各自獨立使用 */
 .sketch-card, .sketch-card-alt {
@@ -535,6 +595,10 @@ h1, h2, h3 {
 
   .result-spirit-feedback__bubble {
     padding: 0.8rem 0.85rem;
+  }
+
+  .posture-demo-grid {
+    grid-template-columns: 1fr;
   }
 
   .mode-card {

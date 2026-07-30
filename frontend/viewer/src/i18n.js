@@ -102,6 +102,11 @@ const dict = {
   motionRecognizing: { zh: "动作识别中", en: "Motion recognition active" },
   motionUnavailable: { zh: "动作识别不可用", en: "Motion recognition unavailable" },
   motionFinished: { zh: "动作识别已完成", en: "Motion recognition finished" },
+  postureCoach: { zh: "手部姿势语音教练", en: "Posture voice coach" },
+  postureCoachListening: { zh: "正在观察手部动作，发现持续姿势问题时会用英文提醒。", en: "Watching your hand movement. An English reminder will play when a posture issue persists." },
+  postureCoachMute: { zh: "关闭语音", en: "Mute voice" },
+  postureCoachUnmute: { zh: "开启语音", en: "Enable voice" },
+  postureCoachBlocked: { zh: "浏览器已阻止自动播放，请点“开启语音”。", en: "Autoplay was blocked. Select “Enable voice” to hear reminders." },
   liveNotationTitle: { zh: "实时乐谱", en: "Live notation" },
 
   // --- SummaryPanel.jsx ---
@@ -140,6 +145,23 @@ const dict = {
     zh: "这次没有取得可用的动作识别数据，因此暂时无法判断手部动作情况，也不会把动作分计入总分。",
     en: "No usable motion data was captured this time, so hand movement cannot be assessed and motion is excluded from the overall score.",
   },
+  postureComparisonTitle: { zh: "动作姿势对照", en: "Posture comparison" },
+  postureComparisonIntro: {
+    zh: "动作评分 {score} 分，低于 80 分。本次最常出现的问题是“{label}”，可以对照右侧正常动作调整。",
+    en: "Motion score {score}, below 80. The most frequent issue was “{label}”; compare it with the normal example.",
+  },
+  postureMostFrequentError: { zh: "本次最多的错误姿势", en: "Most frequent issue" },
+  postureRecommendedExample: { zh: "建议姿势", en: "Recommended example" },
+  postureOccurrences: { zh: "识别到 {count} 次", en: "Detected {count} times" },
+  postureNormalHint: { zh: "保持自然、稳定与放松", en: "Keep the hand natural, steady, and relaxed" },
+  postureErrorGifAlt: { zh: "{label}的动作示范", en: "Demonstration of {label}" },
+  postureNormalGifAlt: { zh: "正常钢琴动作示范", en: "Demonstration of normal piano posture" },
+  postureLabelNormal: { zh: "正常动作", en: "Normal posture" },
+  postureLabelFingerCollapse: { zh: "手指塌陷", en: "Collapsed fingers" },
+  postureLabelHighLiftTap: { zh: "手指抬得过高", en: "Fingers lifting too high" },
+  postureLabelWristArch: { zh: "手腕拱起", en: "Over-arched wrist" },
+  postureLabelWristCollapse: { zh: "手腕下塌", en: "Collapsed wrist" },
+  postureLabelWristShake: { zh: "手腕晃动", en: "Shaking wrist" },
 
   // --- feedback.js overallLine ---
   tempoSlowerBy: { zh: "整体节奏比参考慢了约 {pct}%", en: "Overall tempo is about {pct}% slower than the reference" },

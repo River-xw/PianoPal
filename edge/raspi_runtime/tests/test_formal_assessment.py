@@ -16,6 +16,7 @@ from edge.posture_capture import (
 )
 from edge.practice_server import (
     FORMAL_DATA_DIR,
+    _clean_title,
     _start_posture_capture_and_wait,
     _stop_posture_capture,
     _unavailable_motion_assessment,
@@ -32,6 +33,11 @@ def test_formal_and_training_roots_are_disjoint():
     assert FORMAL_DATA_DIR != TRAINING_DATA_ROOT
     assert FORMAL_DATA_DIR.name == "formal_assessments"
     assert TRAINING_DATA_ROOT.name == "training_collection"
+
+
+def test_practice_server_cleans_song_title_annotations():
+    assert _clean_title("Morning Has Broken (71音)") == "Morning Has Broken"
+    assert _clean_title("童话（37键版）") == "童话"
 
 
 def test_microbit_nordic_uart_characteristic_directions():

@@ -22,6 +22,7 @@ PianoPal 是一个钢琴陪练/评分系统：一台 37 键电子琴（BF-3738C�
 POST /api/session/start（树莓派原生 orchestrator：edge/practice_server.py）
   -> ws2812_guide_song.py：LED 引导 + 麦克风录音（演奏模式用 --no-leds）
   -> posture_capture.py（选配，需要 BLE IMU 传感器才会启动）：即时手型姿势分类 -> 一个 0-100 分数
+       -> posture_feedback.py（学习模式）：持续姿势问题 -> 树莓派扬声器播放英文语音提醒
   -> scripts/grade_audio_reference_constrained.py
        -> backend.audio_to_performance（麦克风录音 -> 音符清单，reference-dtw 模式吸收真人节奏浮动）
        -> backend.scoring（符号音乐对齐 + 评分公式，见下方）
@@ -49,7 +50,7 @@ POST /api/session/start（树莓派原生 orchestrator：edge/practice_server.py
 
 学习模式（宽松：旋律/动作权重高、节奏均匀度不计）跟演奏模式（严格：三者均衡）**用同一个评分函数**，只是 `edge/practice_server.py`/`scripts/session_server.py` 的 `MODE_SCORE_WEIGHTS` 传不同的权重进去。详细公式、`tol_beat`/`ignore_timing`/泛音假信号过滤等选项，见 [backend/scoring/README.md](backend/scoring/README.md)。
 
-**手型评分**：`edge/practice_server.py` 有设置 BLE IMU 设备时，`edge/posture_capture.py` 会即时分类手型姿势、把「正常姿势时间窗比例」换算成分数喂进评分公式；BLE、设置档或模型不可用时这个子分数是 `null`，套用上面的正规化逻辑排除，不会用固定占位分顶替，也不挡练习流程。分类器本身（`edge/raspi_runtime/posture.py`）跟训练数据/脚本见 [backend/sensors/README.md](backend/sensors/README.md)。
+**手型评分与语音提醒**：`edge/practice_server.py` 有设置 BLE IMU 设备时，`edge/posture_capture.py` 会即时分类手型姿势、把「正常姿势时间窗比例」换算成分数喂进评分公式；学习模式中，`edge/posture_feedback.py` 还会把连续多次、可信度足够的异常姿势转换为英文短语音，10 秒内最多提醒一次，可在练习页面静音。有设置 `PIANOPAL_PLAYBACK_DEVICE` 时由树莓派通过 ALSA 扬声器播放，否则回退到浏览器播放。BLE、设置档或模型不可用时这个子分数是 `null`，套用上面的正规化逻辑排除，不会用固定占位分顶替，也不挡练习流程。分类器本身（`edge/raspi_runtime/posture.py`）跟训练数据/脚本见 [backend/sensors/README.md](backend/sensors/README.md)。
 
 **黑键/超出范围音符**：BF-3738C 键盘只校准了 22 个白键（`data/bf3738c_keybank/`），乐谱里任何黑键或超出范围的音符会被 `scripts/grade_audio_reference_constrained.py`（`--white-keys-only`）整个从评分排除——不计分、也不算漏弹（`missed`），LED 引导（`edge/ws2812_guide_song.py`）同样只对有对应 LED 的白键点灯。这让含黑键的乐曲也能拿来练习，只是黑键部分不参与引导与计分。
 
@@ -69,6 +70,7 @@ POST /api/session/start（树莓派原生 orchestrator：edge/practice_server.py
 │   ├── practice_server.py    # 前端实际在用的树莓派原生 orchestrator（LED 引导+录音+评分+历史）
 │   ├── ws2812_guide_song.py  # WS2812 灯条引导 + 录音
 │   ├── posture_capture.py    # 练习期间的即时手型姿势评分 subprocess
+│   ├── posture_feedback.py   # 学习模式姿势分类 -> 去抖后的英文语音提示事件
 │   ├── microbit_rpi_comm/    # micro:bit BLE 固件 + 树莓派 BLE 接收端
 │   └── raspi_runtime/        # 独立的传感器/音频「采集」runtime，用来收集姿势分类器的训练数据
 ├── experiments/             # 校准跟一次性实验
